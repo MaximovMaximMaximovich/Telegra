@@ -611,10 +611,10 @@
         <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
         <ul>
           <li>Бесплатное добавление каналов, чатов и ботов</li>
-          <li>Платное размещение в Топ (20 ₽ / день)</li>
+          <li>Размещение в Топ</li>
           <li>Удобный поиск и фильтры</li>
         </ul>
-        <p>По вопросам: support@telegra.ru</p>
+        <p>По вопросам: <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
       </div>
     </main>
 
@@ -663,16 +663,42 @@
       <textarea id="item-desc" placeholder="Краткое описание"></textarea>
       <label>Категория</label>
       <select id="item-category">
-        <option value="Разное">Разное</option>
-        <option value="Новости">Новости</option>
-        <option value="Развлечения">Развлечения</option>
-        <option value="Образование">Образование</option>
-        <option value="Бизнес">Бизнес</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Игры">Игры</option>
-        <option value="Крипто">Крипто</option>
-        <option value="Спорт">Спорт</option>
+        <option value="">Все категории</option>
+        <option value="Авто, мото, техника">Авто, мото, техника</option>
+        <option value="Аниме">Аниме</option>
+        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+        <option value="Для взрослых">Для взрослых</option>
+        <option value="Для мужчин">Для мужчин</option>
+        <option value="Для женщин">Для женщин</option>
+        <option value="Для родителей">Для родителей</option>
+        <option value="Блоги">Блоги</option>
+        <option value="Еда и напитки">Еда и напитки</option>
+        <option value="Здоровье и спорт">Здоровье и спорт</option>
+        <option value="Игры и приложения">Игры и приложения</option>
+        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
         <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
       </select>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">Отмена</button>
@@ -695,7 +721,7 @@
         <option value="30">30 дней</option>
       </select>
       <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">140 ₽</strong></p>
-      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">После оплаты напишите боту <strong>@your_bot</strong> с username записи.</p>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">После оплаты напишите боту <strong>@TG_Administrator_Vip_bot</strong> с username записи.</p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
       </div>
@@ -758,11 +784,11 @@
     const legalTexts = {
       agreement: {
         title: 'Пользовательское соглашение',
-        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: support@telegra.ru</p>`
+        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: @TG_Administrator_Vip_bot</p>`
       },
       privacy: {
         title: 'Политика конфиденциальности',
-        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных на support@telegra.ru</p>`
+        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных у @TG_Administrator_Vip_bot</p>`
       },
       offer: {
         title: 'Публичная оферта',
@@ -1169,7 +1195,7 @@
       document.getElementById('item-private').checked = false;
       document.getElementById('item-invite').value = '';
       document.getElementById('item-desc').value = '';
-      document.getElementById('item-category').value = 'Разное';
+      document.getElementById('item-category').value = '';
       document.getElementById('invite-field').style.display = 'none';
       document.getElementById('add-modal').classList.add('active');
     }
