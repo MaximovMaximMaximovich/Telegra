@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegra — Каталог Telegram каналов, чатов и ботов</title>
+  <title>Telegra вЂ” РљР°С‚Р°Р»РѕРі Telegram РєР°РЅР°Р»РѕРІ, С‡Р°С‚РѕРІ Рё Р±РѕС‚РѕРІ</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
@@ -42,7 +42,7 @@
       .page { grid-template-columns: 1fr; }
     }
 
-    /* ===== Login: очень маленькая кнопка ===== */
+    /* ===== Login: РѕС‡РµРЅСЊ РјР°Р»РµРЅСЊРєР°СЏ РєРЅРѕРїРєР° ===== */
     .login-btn-toggle {
       position: fixed;
       top: 10px;
@@ -65,7 +65,7 @@
     }
     .login-btn-toggle.hidden { display: none; }
 
-    /* Всплывающее окно Login — компактное */
+    /* Р’СЃРїР»С‹РІР°СЋС‰РµРµ РѕРєРЅРѕ Login вЂ” РєРѕРјРїР°РєС‚РЅРѕРµ */
     .login-popup {
       position: fixed;
       top: 10px;
@@ -483,7 +483,7 @@
     }
     footer a:hover { color: var(--accent); }
 
-    /* Модалки */
+    /* РњРѕРґР°Р»РєРё */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -582,197 +582,233 @@
 </head>
 <body>
 
-  <!-- Очень маленькая кнопка Login -->
+  <!-- РћС‡РµРЅСЊ РјР°Р»РµРЅСЊРєР°СЏ РєРЅРѕРїРєР° Login -->
   <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
 
-  <!-- Всплывающее окно Login -->
+  <!-- Р’СЃРїР»С‹РІР°СЋС‰РµРµ РѕРєРЅРѕ Login -->
   <div class="login-popup" id="login-popup">
-    <strong>Вход</strong>
+    <strong>Р’С…РѕРґ</strong>
     <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
-    <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password">
-    <button onclick="loginAdmin()">Войти</button>
-    <button class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
+    <input type="password" id="admin-pass" placeholder="РџР°СЂРѕР»СЊ" autocomplete="current-password">
+    <button onclick="loginAdmin()">Р’РѕР№С‚Рё</button>
+    <button class="close-login" onclick="toggleLoginPopup()">Р—Р°РєСЂС‹С‚СЊ</button>
     <div class="error-msg" id="login-error"></div>
   </div>
 
-  <!-- Бейдж админа -->
+  <!-- Р‘РµР№РґР¶ Р°РґРјРёРЅР° -->
   <div class="admin-badge" id="admin-badge">
-    <span>Админ</span>
-    <button onclick="logoutAdmin()">Выйти</button>
+    <span>РђРґРјРёРЅ</span>
+    <button type="button" onclick="openBotSettings()" title="РЎСЃС‹Р»РєР° РґР»СЏ РѕРїР»Р°С‚С‹">Р‘РѕС‚</button>
+    <button type="button" onclick="logoutAdmin()">Р’С‹Р№С‚Рё</button>
   </div>
 
   <div class="page">
     <main>
       <header>
         <h1>Telegra</h1>
-        <div class="subtitle">Каталог Telegram-каналов, чатов и ботов</div>
+        <div class="subtitle">РљР°С‚Р°Р»РѕРі Telegram-РєР°РЅР°Р»РѕРІ, С‡Р°С‚РѕРІ Рё Р±РѕС‚РѕРІ</div>
       </header>
 
       <div class="add-buttons">
-        <button class="btn btn-chat" onclick="openModal('chat')">Добавить чат</button>
-        <button class="btn btn-channel" onclick="openModal('channel')">Добавить канал</button>
-        <button class="btn btn-bot" onclick="openModal('bot')">Добавить бот</button>
+        <button class="btn btn-chat" onclick="openModal('chat')">Р”РѕР±Р°РІРёС‚СЊ С‡Р°С‚</button>
+        <button class="btn btn-channel" onclick="openModal('channel')">Р”РѕР±Р°РІРёС‚СЊ РєР°РЅР°Р»</button>
+        <button class="btn btn-bot" onclick="openModal('bot')">Р”РѕР±Р°РІРёС‚СЊ Р±РѕС‚</button>
       </div>
 
       <section class="top-section">
-        <h2>Топ размещение <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
+        <h2>РўРѕРї СЂР°Р·РјРµС‰РµРЅРёРµ <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
         <div class="top-grid" id="top-list">
-          <div class="loading">Загрузка...</div>
+          <div class="loading">Р—Р°РіСЂСѓР·РєР°...</div>
         </div>
       </section>
 
       <section class="blacklist-section" id="blacklist-section">
-        <h2>Чёрный список</h2>
+        <h2>Р§С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє</h2>
         <div id="blacklist-list"></div>
       </section>
 
       <div class="about">
-        <p><strong>Telegra</strong> — удобный каталог Telegram-каналов, чатов и ботов. Здесь вы можете найти интересные сообщества или добавить свои.</p>
-        <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
+        <p><strong>Telegra</strong> вЂ” СѓРґРѕР±РЅС‹Р№ РєР°С‚Р°Р»РѕРі Telegram-РєР°РЅР°Р»РѕРІ, С‡Р°С‚РѕРІ Рё Р±РѕС‚РѕРІ. Р—РґРµСЃСЊ РІС‹ РјРѕР¶РµС‚Рµ РЅР°Р№С‚Рё РёРЅС‚РµСЂРµСЃРЅС‹Рµ СЃРѕРѕР±С‰РµСЃС‚РІР° РёР»Рё РґРѕР±Р°РІРёС‚СЊ СЃРІРѕРё.</p>
+        <p>Р’СЃРµ РґР°РЅРЅС‹Рµ С…СЂР°РЅСЏС‚СЃСЏ РІ Р·Р°С‰РёС‰С‘РЅРЅРѕР№ Р±Р°Р·Рµ Рё РґРѕСЃС‚СѓРїРЅС‹ РІСЃРµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРј 24/7.</p>
         <ul>
-          <li>Бесплатное добавление каналов, чатов и ботов</li>
-          <li>Размещение в Топ</li>
-          <li>Удобный поиск и фильтры</li>
+          <li>Р‘РµСЃРїР»Р°С‚РЅРѕРµ РґРѕР±Р°РІР»РµРЅРёРµ РєР°РЅР°Р»РѕРІ, С‡Р°С‚РѕРІ Рё Р±РѕС‚РѕРІ</li>
+          <li>Р Р°Р·РјРµС‰РµРЅРёРµ РІ РўРѕРї</li>
+          <li>РЈРґРѕР±РЅС‹Р№ РїРѕРёСЃРє Рё С„РёР»СЊС‚СЂС‹</li>
         </ul>
-        <p>По вопросам: <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
+        <p>РџРѕ РІРѕРїСЂРѕСЃР°Рј: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
       </div>
     </main>
 
     <aside class="sidebar">
       <div class="search-box">
-        <input type="text" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
+        <input type="text" id="search-input" placeholder="РџРѕРёСЃРє..." oninput="applyFilters()">
         <div class="filters">
-          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Все</button>
-          <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Чаты</button>
-          <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">Каналы</button>
-          <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Боты</button>
+          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Р’СЃРµ</button>
+          <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Р§Р°С‚С‹</button>
+          <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">РљР°РЅР°Р»С‹</button>
+          <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Р‘РѕС‚С‹</button>
         </div>
       </div>
 
       <section class="items-section">
-        <h2>Все записи <span id="items-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
+        <h2>Р’СЃРµ Р·Р°РїРёСЃРё <span id="items-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
         <div class="items-list" id="items-list">
-          <div class="loading">Загрузка...</div>
+          <div class="loading">Р—Р°РіСЂСѓР·РєР°...</div>
         </div>
       </section>
     </aside>
 
     <footer>
-      <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
-      <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
-      <a onclick="openLegal('offer')">Публичная оферта</a>
-      <div style="margin-top:12px;">© Telegra 2026</div>
+      <a onclick="openLegal('agreement')">РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРµ СЃРѕРіР»Р°С€РµРЅРёРµ</a>
+      <a onclick="openLegal('privacy')">РџРѕР»РёС‚РёРєР° РєРѕРЅС„РёРґРµРЅС†РёР°Р»СЊРЅРѕСЃС‚Рё</a>
+      <a onclick="openLegal('offer')">РџСѓР±Р»РёС‡РЅР°СЏ РѕС„РµСЂС‚Р°</a>
+      <div style="margin-top:12px;">В© Telegra 2026</div>
     </footer>
   </div>
 
-  <!-- Модалка добавления -->
+  <!-- РњРѕРґР°Р»РєР° РґРѕР±Р°РІР»РµРЅРёСЏ -->
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
-      <h3 id="modal-title">Добавить</h3>
-      <label>Название (как будет в каталоге)</label>
-      <input type="text" id="item-displayname" placeholder="Например: Новости IT / Чат по интересам">
-      <label>Username (без @)</label>
-      <input type="text" id="item-username" placeholder="например channelname">
+      <h3 id="modal-title">Р”РѕР±Р°РІРёС‚СЊ</h3>
+      <label>РќР°Р·РІР°РЅРёРµ (РєР°Рє Р±СѓРґРµС‚ РІ РєР°С‚Р°Р»РѕРіРµ)</label>
+      <input type="text" id="item-displayname" placeholder="РќР°РїСЂРёРјРµСЂ: РљСЂРёРїС‚Рѕ-РЅРѕРІРѕСЃС‚Рё / РћР±С‰РµРЅРёРµ">
+      <label>Username (Р±РµР· @)</label>
+      <input type="text" id="item-username" placeholder="РЅР°РїСЂРёРјРµСЂ channelname">
       <div class="checkbox-row">
         <input type="checkbox" id="item-private" onchange="togglePrivate()">
-        <label for="item-private" style="margin:0;">Приватный (invite-ссылка)</label>
+        <label for="item-private" style="margin:0;">РџСЂРёРІР°С‚РЅС‹Р№ (invite-СЃСЃС‹Р»РєР°)</label>
       </div>
       <div id="invite-field" style="display:none;">
-        <label>Invite-ссылка</label>
+        <label>Invite-СЃСЃС‹Р»РєР°</label>
         <input type="text" id="item-invite" placeholder="https://t.me/+...">
-        <label style="margin-top:8px;">Ссылка на аватарку (необязательно)</label>
+        <label style="margin-top:8px;">РЎСЃС‹Р»РєР° РЅР° Р°РІР°С‚Р°СЂРєСѓ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)</label>
         <input type="text" id="item-avatar" placeholder="https://...jpg">
-        <p style="font-size:0.75rem;color:var(--muted);margin:-4px 0 8px;">Telegram не отдаёт фото приватных чатов публично. Можно вставить прямую ссылку на картинку.</p>
+        <p style="font-size:0.75rem;color:var(--muted);margin:-4px 0 8px;">Telegram РЅРµ РѕС‚РґР°С‘С‚ С„РѕС‚Рѕ РїСЂРёРІР°С‚РЅС‹С… С‡Р°С‚РѕРІ РїСѓР±Р»РёС‡РЅРѕ. РњРѕР¶РЅРѕ РІСЃС‚Р°РІРёС‚СЊ РїСЂСЏРјСѓСЋ СЃСЃС‹Р»РєСѓ РЅР° РєР°СЂС‚РёРЅРєСѓ.</p>
       </div>
-      <label>Описание (необязательно)</label>
-      <textarea id="item-desc" placeholder="Краткое описание"></textarea>
-      <label>Категория</label>
+      <label>РћРїРёСЃР°РЅРёРµ (РЅРµРѕР±СЏР·Р°С‚РµР»СЊРЅРѕ)</label>
+      <textarea id="item-desc" placeholder="РљСЂР°С‚РєРѕРµ РѕРїРёСЃР°РЅРёРµ"></textarea>
+      <label>РљР°С‚РµРіРѕСЂРёСЏ</label>
       <select id="item-category">
-        <option value="">Все категории</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых">Для взрослых</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="">Р’СЃРµ РєР°С‚РµРіРѕСЂРёРё</option>
+        <option value="РђРІС‚Рѕ, РјРѕС‚Рѕ, С‚РµС…РЅРёРєР°">РђРІС‚Рѕ, РјРѕС‚Рѕ, С‚РµС…РЅРёРєР°</option>
+        <option value="РђРЅРёРјРµ">РђРЅРёРјРµ</option>
+        <option value="Р‘РёР·РЅРµСЃ Рё СЃС‚Р°СЂС‚Р°РїС‹">Р‘РёР·РЅРµСЃ Рё СЃС‚Р°СЂС‚Р°РїС‹</option>
+        <option value="Р”Р»СЏ РІР·СЂРѕСЃР»С‹С…">Р”Р»СЏ РІР·СЂРѕСЃР»С‹С…</option>
+        <option value="Р”Р»СЏ РјСѓР¶С‡РёРЅ">Р”Р»СЏ РјСѓР¶С‡РёРЅ</option>
+        <option value="Р”Р»СЏ Р¶РµРЅС‰РёРЅ">Р”Р»СЏ Р¶РµРЅС‰РёРЅ</option>
+        <option value="Р”Р»СЏ СЂРѕРґРёС‚РµР»РµР№">Р”Р»СЏ СЂРѕРґРёС‚РµР»РµР№</option>
+        <option value="Р‘Р»РѕРіРё">Р‘Р»РѕРіРё</option>
+        <option value="Р•РґР° Рё РЅР°РїРёС‚РєРё">Р•РґР° Рё РЅР°РїРёС‚РєРё</option>
+        <option value="Р—РґРѕСЂРѕРІСЊРµ Рё СЃРїРѕСЂС‚">Р—РґРѕСЂРѕРІСЊРµ Рё СЃРїРѕСЂС‚</option>
+        <option value="РРіСЂС‹ Рё РїСЂРёР»РѕР¶РµРЅРёСЏ">РРіСЂС‹ Рё РїСЂРёР»РѕР¶РµРЅРёСЏ</option>
+        <option value="РРЅРІРµСЃС‚РёС†РёРё Рё С„РёРЅР°РЅСЃС‹">РРЅРІРµСЃС‚РёС†РёРё Рё С„РёРЅР°РЅСЃС‹</option>
+        <option value="РљСЂРёРїС‚РѕРІР°Р»СЋС‚Р°">РљСЂРёРїС‚РѕРІР°Р»СЋС‚Р°</option>
+        <option value="РњР°СЂРєРµС‚РёРЅРі Рё СЂРµРєР»Р°РјР°">РњР°СЂРєРµС‚РёРЅРі Рё СЂРµРєР»Р°РјР°</option>
+        <option value="РњР°СЂРєРµС‚РїР»РµР№СЃС‹">РњР°СЂРєРµС‚РїР»РµР№СЃС‹</option>
+        <option value="РњРµРґРёС†РёРЅР°">РњРµРґРёС†РёРЅР°</option>
+        <option value="РњРѕРґР° Рё РєСЂР°СЃРѕС‚Р°">РњРѕРґР° Рё РєСЂР°СЃРѕС‚Р°</option>
+        <option value="РњСѓР·С‹РєР°">РњСѓР·С‹РєР°</option>
+        <option value="РџРѕРёСЃРє СЂР°Р±РѕС‚С‹, РІР°РєР°РЅСЃРёРё">РџРѕРёСЃРє СЂР°Р±РѕС‚С‹, РІР°РєР°РЅСЃРёРё</option>
+        <option value="РќРѕРІРѕСЃС‚Рё Рё РЎРњР">РќРѕРІРѕСЃС‚Рё Рё РЎРњР</option>
+        <option value="РџСЂРѕРґР°Р¶Рё">РџСЂРѕРґР°Р¶Рё</option>
+        <option value="РџСЃРёС…РѕР»РѕРіРёСЏ">РџСЃРёС…РѕР»РѕРіРёСЏ</option>
+        <option value="РџСѓС‚РµС€РµСЃС‚РІРёСЏ">РџСѓС‚РµС€РµСЃС‚РІРёСЏ</option>
+        <option value="Р Р°Р·РІР»РµС‡РµРЅРёСЏ Рё СЋРјРѕСЂ">Р Р°Р·РІР»РµС‡РµРЅРёСЏ Рё СЋРјРѕСЂ</option>
         <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
+        <option value="РўРµР»РµРіСЂР°Рј">РўРµР»РµРіСЂР°Рј</option>
+        <option value="РўРµС…РЅРѕР»РѕРіРёРё">РўРµС…РЅРѕР»РѕРіРёРё</option>
+        <option value="РўСЂРµР№РґРёРЅРі">РўСЂРµР№РґРёРЅРі</option>
+        <option value="РќРµР№СЂРѕСЃРµС‚Рё Рё AI">РќРµР№СЂРѕСЃРµС‚Рё Рё AI</option>
+        <option value="Р¤РёР»СЊРјС‹ Рё СЃРµСЂРёР°Р»С‹">Р¤РёР»СЊРјС‹ Рё СЃРµСЂРёР°Р»С‹</option>
+        <option value="Р¤СѓС‚Р±РѕР», С…РѕРєРєРµР№">Р¤СѓС‚Р±РѕР», С…РѕРєРєРµР№</option>
+        <option value="Р¤РѕС‚Рѕ, РёСЃРєСѓСЃСЃС‚РІРѕ">Р¤РѕС‚Рѕ, РёСЃРєСѓСЃСЃС‚РІРѕ</option>
+        <option value="Р¤СЂРёР»Р°РЅСЃ">Р¤СЂРёР»Р°РЅСЃ</option>
+        <option value="Р§Р°С‚С‹">Р§Р°С‚С‹</option>
+        <option value="Р®СЂРёСЃРїСЂСѓРґРµРЅС†РёСЏ">Р®СЂРёСЃРїСЂСѓРґРµРЅС†РёСЏ</option>
       </select>
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-        <button class="btn-add" onclick="addItem()">Добавить</button>
+        <button class="btn-cancel" onclick="closeModal()">РћС‚РјРµРЅР°</button>
+        <button class="btn-add" onclick="addItem()">Р”РѕР±Р°РІРёС‚СЊ</button>
       </div>
     </div>
   </div>
 
-  <!-- Модалка оплаты Топ -->
+  <!-- РњРѕРґР°Р»РєР° РѕРїР»Р°С‚С‹ РўРѕРї -->
   <div class="modal-overlay" id="top-modal">
     <div class="modal">
-      <h3>Размещение в Топ</h3>
-      <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>50 ₽</strong> за 1 день.</p>
-      <label>Количество дней</label>
-      <select id="days-select" onchange="updatePrice()">
-        <option value="1">1 день</option>
-        <option value="3">3 дня</option>
-        <option value="7" selected>7 дней</option>
-        <option value="14">14 дней</option>
-        <option value="30">30 дней</option>
-      </select>
-      <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">350 ₽</strong></p>
-      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">После оплаты напишите боту <strong>@TG_Administrator_Vip_bot</strong> с username записи.</p>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
+      <h3>Р Р°Р·РјРµС‰РµРЅРёРµ РІ РўРѕРї</h3>
+
+      <!-- РЁР°Рі 1: РІС‹Р±РѕСЂ РґРЅРµР№ -->
+      <div id="top-step-1">
+        <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">РЎС‚РѕРёРјРѕСЃС‚СЊ: <strong>50 в‚Ѕ</strong> Р·Р° 1 РґРµРЅСЊ.</p>
+        <label>РљРѕР»РёС‡РµСЃС‚РІРѕ РґРЅРµР№</label>
+        <select id="days-select" onchange="updatePrice()">
+          <option value="1">1 РґРµРЅСЊ</option>
+          <option value="3">3 РґРЅСЏ</option>
+          <option value="7" selected>7 РґРЅРµР№</option>
+          <option value="14">14 РґРЅРµР№</option>
+          <option value="30">30 РґРЅРµР№</option>
+        </select>
+        <p style="margin:12px 0;font-size:1.1rem;">РС‚РѕРіРѕ: <strong id="total-price">350 в‚Ѕ</strong></p>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeTopModal()">РћС‚РјРµРЅР°</button>
+          <button class="btn-add" onclick="confirmTopDays()">РћРљ</button>
+        </div>
+      </div>
+
+      <!-- РЁР°Рі 2: СЃСЃС‹Р»РєР° РЅР° Р±РѕС‚Р° -->
+      <div id="top-step-2" style="display:none;">
+        <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
+          Р”Р»СЏ РѕРїР»Р°С‚С‹ РЅР°РїРёС€РёС‚Рµ Р±РѕС‚Сѓ СЃСѓРјРјСѓ Рё username Р·Р°РїРёСЃРё.
+        </p>
+        <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
+          РС‚РѕРіРѕ: <strong id="top-final-price">350 в‚Ѕ</strong>
+        </p>
+        <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
+           style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
+          РћС‚РєСЂС‹С‚СЊ @TG_Administrator_Vip_bot
+        </a>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Р—Р°РєСЂС‹С‚СЊ</button>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Модалка админа: добавить в Топ -->
+  <!-- РњРѕРґР°Р»РєР°: СЃРјРµРЅРёС‚СЊ Р±РѕС‚Р° РґР»СЏ РѕРїР»Р°С‚С‹ (С‚РѕР»СЊРєРѕ Р°РґРјРёРЅ) -->
+  <div class="modal-overlay" id="bot-settings-modal">
+    <div class="modal">
+      <h3>РЎСЃС‹Р»РєР° РґР»СЏ РѕРїР»Р°С‚С‹</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Username Р±РѕС‚Р° РёР»Рё РєР°РЅР°Р»Р°, РєСѓРґР° РїРёСЃР°С‚СЊ РѕР± РѕРїР»Р°С‚Рµ РўРѕРїР° (Р±РµР· @).</p>
+      <label>Username Р±РѕС‚Р°</label>
+      <input type="text" id="payment-bot-input" placeholder="РЅР°РїСЂРёРјРµСЂ MyPayBot">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBotSettings()">РћС‚РјРµРЅР°</button>
+        <button class="btn-add" onclick="savePaymentBot()">РЎРѕС…СЂР°РЅРёС‚СЊ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- РњРѕРґР°Р»РєР° Р°РґРјРёРЅР°: РґРѕР±Р°РІРёС‚СЊ РІ РўРѕРї -->
   <div class="modal-overlay" id="admin-top-modal">
     <div class="modal">
-      <h3>Добавить в Топ (админ)</h3>
-      <label>Дней</label>
+      <h3>Р”РѕР±Р°РІРёС‚СЊ РІ РўРѕРї (Р°РґРјРёРЅ)</h3>
+      <label>Р”РЅРµР№</label>
       <input type="number" id="admin-top-days" value="7" min="1" max="365">
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
-        <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
+        <button class="btn-cancel" onclick="closeAdminTopModal()">РћС‚РјРµРЅР°</button>
+        <button class="btn-add" onclick="confirmAdminTop()">Р”РѕР±Р°РІРёС‚СЊ РІ РўРѕРї</button>
       </div>
     </div>
   </div>
 
-  <!-- Юридические тексты -->
+  <!-- Р®СЂРёРґРёС‡РµСЃРєРёРµ С‚РµРєСЃС‚С‹ -->
   <div class="modal-overlay" id="legal-modal">
     <div class="modal">
       <h3 id="legal-title"></h3>
       <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
       <div class="modal-actions" style="margin-top:16px;">
-        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
+        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Р—Р°РєСЂС‹С‚СЊ</button>
       </div>
     </div>
   </div>
@@ -786,7 +822,7 @@
     const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
 
-    // Безопасная инициализация — если библиотека не загрузилась, сайт всё равно работает
+    // Р‘РµР·РѕРїР°СЃРЅР°СЏ РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ вЂ” РµСЃР»Рё Р±РёР±Р»РёРѕС‚РµРєР° РЅРµ Р·Р°РіСЂСѓР·РёР»Р°СЃСЊ, СЃР°Р№С‚ РІСЃС‘ СЂР°РІРЅРѕ СЂР°Р±РѕС‚Р°РµС‚
     let supabaseClient = null;
     try {
       if (window.supabase && window.supabase.createClient) {
@@ -805,19 +841,98 @@
     let blacklist = [];
     let currentFilter = 'all';
     let loginPopupOpen = false;
+    let paymentBot = 'TG_Administrator_Vip_bot'; // username Р±РµР· @, РјРѕР¶РЅРѕ РјРµРЅСЏС‚СЊ Р°РґРјРёРЅРѕРј
+
+    function normalizeBotUsername(v) {
+      return String(v || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+        .split('/')[0]
+        .split('?')[0];
+    }
+
+    function applyPaymentBotUI() {
+      const bot = normalizeBotUsername(paymentBot) || 'TG_Administrator_Vip_bot';
+      paymentBot = bot;
+      const link = document.getElementById('payment-bot-link');
+      if (link) {
+        link.href = 'https://t.me/' + bot;
+        link.textContent = 'РћС‚РєСЂС‹С‚СЊ @' + bot;
+      }
+      const about = document.getElementById('about-contact');
+      if (about) {
+        about.href = 'https://t.me/' + bot;
+        about.textContent = '@' + bot;
+      }
+    }
+
+    async function loadPaymentBot() {
+      if (!supabaseClient) {
+        applyPaymentBotUI();
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient
+          .from('settings')
+          .select('value')
+          .eq('key', 'payment_bot')
+          .maybeSingle();
+        if (!error && data && data.value) {
+          paymentBot = normalizeBotUsername(data.value);
+        }
+      } catch (e) {
+        console.warn('loadPaymentBot:', e);
+      }
+      applyPaymentBotUI();
+    }
+
+    function openBotSettings() {
+      if (!isAdmin) return;
+      document.getElementById('payment-bot-input').value = paymentBot;
+      document.getElementById('bot-settings-modal').classList.add('active');
+    }
+    function closeBotSettings() {
+      document.getElementById('bot-settings-modal').classList.remove('active');
+    }
+
+    async function savePaymentBot() {
+      if (!isAdmin || !supabaseClient) return;
+      const bot = normalizeBotUsername(document.getElementById('payment-bot-input').value);
+      if (!bot) {
+        alert('РЈРєР°Р¶РёС‚Рµ username Р±РѕС‚Р°');
+        return;
+      }
+      try {
+        const { error } = await supabaseClient
+          .from('settings')
+          .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
+        if (error) {
+          alert('РћС€РёР±РєР° СЃРѕС…СЂР°РЅРµРЅРёСЏ. Р’С‹РїРѕР»РЅРё SQL РґР»СЏ С‚Р°Р±Р»РёС†С‹ settings (СЃРј. РёРЅСЃС‚СЂСѓРєС†РёСЋ).\n' + (error.message || ''));
+          return;
+        }
+        paymentBot = bot;
+        applyPaymentBotUI();
+        closeBotSettings();
+        showStatus('Р‘РѕС‚ РґР»СЏ РѕРїР»Р°С‚С‹: @' + bot);
+      } catch (e) {
+        console.error(e);
+        alert('РћС€РёР±РєР° СЃРµС‚Рё');
+      }
+    }
 
     const legalTexts = {
       agreement: {
-        title: 'Пользовательское соглашение',
-        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: @TG_Administrator_Vip_bot</p>`
+        title: 'РџРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРµ СЃРѕРіР»Р°С€РµРЅРёРµ',
+        content: `<h3>1. РћСЃРЅРѕРІРЅС‹Рµ РїРѕРЅСЏС‚РёСЏ</h3><p><strong>Telegra</strong> вЂ“ РєР°С‚Р°Р»РѕРі РєР°РЅР°Р»РѕРІ, С‡Р°С‚РѕРІ Рё Р±РѕС‚РѕРІ Telegram.</p><p>РСЃРїРѕР»СЊР·СѓСЏ СЃР°Р№С‚, РІС‹ СЃРѕРіР»Р°С€Р°РµС‚РµСЃСЊ СЃ СѓСЃР»РѕРІРёСЏРјРё.</p><h3>2вЂ“8. РћСЃРЅРѕРІРЅС‹Рµ РїРѕР»РѕР¶РµРЅРёСЏ</h3><p>РђРґРјРёРЅРёСЃС‚СЂР°С†РёСЏ РІРїСЂР°РІРµ СѓРґР°Р»СЏС‚СЊ РєРѕРЅС‚РµРЅС‚ Рё РёР·РјРµРЅСЏС‚СЊ РїСЂР°РІРёР»Р°. РљРѕРїРёСЂРѕРІР°РЅРёРµ РјР°С‚РµСЂРёР°Р»РѕРІ вЂ” С‚РѕР»СЊРєРѕ СЃ СѓРєР°Р·Р°РЅРёРµРј РёСЃС‚РѕС‡РЅРёРєР°. РћР±СЂР°С‰РµРЅРёСЏ: @TG_Administrator_Vip_bot</p>`
       },
       privacy: {
-        title: 'Политика конфиденциальности',
-        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных у @TG_Administrator_Vip_bot</p>`
+        title: 'РџРѕР»РёС‚РёРєР° РєРѕРЅС„РёРґРµРЅС†РёР°Р»СЊРЅРѕСЃС‚Рё',
+        content: `<h3>РћР±С‰РёРµ РїРѕР»РѕР¶РµРЅРёСЏ</h3><p>РњС‹ РѕР±СЂР°Р±Р°С‚С‹РІР°РµРј С‚РѕР»СЊРєРѕ РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґР°РЅРЅС‹Рµ (username) РґР»СЏ СЂР°Р±РѕС‚С‹ РєР°С‚Р°Р»РѕРіР°. Р”Р°РЅРЅС‹Рµ РЅРµ РїРµСЂРµРґР°СЋС‚СЃСЏ С‚СЂРµС‚СЊРёРј Р»РёС†Р°Рј. Р’С‹ РјРѕР¶РµС‚Рµ Р·Р°РїСЂРѕСЃРёС‚СЊ СѓРґР°Р»РµРЅРёРµ РґР°РЅРЅС‹С… Сѓ @TG_Administrator_Vip_bot</p>`
       },
       offer: {
-        title: 'Публичная оферта',
-        content: `<p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 50 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p>`
+        title: 'РџСѓР±Р»РёС‡РЅР°СЏ РѕС„РµСЂС‚Р°',
+        content: `<p>РџСѓР±Р»РёС‡РЅР°СЏ РѕС„РµСЂС‚Р° РЅР° РїР»Р°С‚РЅС‹Рµ СѓСЃР»СѓРіРё РїСЂРѕРґРІРёР¶РµРЅРёСЏ РІ РўРѕРї. РЎС‚РѕРёРјРѕСЃС‚СЊ: 50 в‚Ѕ / РґРµРЅСЊ. РћРїР»Р°С‚Р° вЂ” 100% РїСЂРµРґРѕРїР»Р°С‚Р°. Р’РѕР·РІСЂР°С‚ СЃСЂРµРґСЃС‚РІ РЅРµ РїСЂРѕРёР·РІРѕРґРёС‚СЃСЏ.</p>`
       }
     };
 
@@ -873,19 +988,19 @@
       const password = document.getElementById('admin-pass').value;
       const errEl = document.getElementById('login-error');
       if (!email || !password) {
-        errEl.textContent = 'Введите email и пароль';
+        errEl.textContent = 'Р’РІРµРґРёС‚Рµ email Рё РїР°СЂРѕР»СЊ';
         errEl.style.display = 'block';
         return;
       }
       if (!supabaseClient) {
-        errEl.textContent = 'База данных недоступна. Обновите страницу.';
+        errEl.textContent = 'Р‘Р°Р·Р° РґР°РЅРЅС‹С… РЅРµРґРѕСЃС‚СѓРїРЅР°. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ.';
         errEl.style.display = 'block';
         return;
       }
       try {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
-          errEl.textContent = error.message || 'Ошибка входа';
+          errEl.textContent = error.message || 'РћС€РёР±РєР° РІС…РѕРґР°';
           errEl.style.display = 'block';
           return;
         }
@@ -896,7 +1011,7 @@
           .maybeSingle();
         if (!adminData) {
           await supabaseClient.auth.signOut();
-          errEl.textContent = 'Нет прав администратора';
+          errEl.textContent = 'РќРµС‚ РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°';
           errEl.style.display = 'block';
           return;
         }
@@ -906,11 +1021,11 @@
         document.getElementById('login-popup').classList.remove('active');
         document.getElementById('blacklist-section').style.display = 'block';
         loginPopupOpen = false;
-        showStatus('Вы вошли как админ');
+        showStatus('Р’С‹ РІРѕС€Р»Рё РєР°Рє Р°РґРјРёРЅ');
         render();
       } catch (e) {
         console.error(e);
-        errEl.textContent = 'Ошибка сети';
+        errEl.textContent = 'РћС€РёР±РєР° СЃРµС‚Рё';
         errEl.style.display = 'block';
       }
     }
@@ -923,18 +1038,18 @@
       document.getElementById('admin-badge').classList.remove('active');
       document.getElementById('login-toggle').classList.remove('hidden');
       document.getElementById('blacklist-section').style.display = 'none';
-      showStatus('Вы вышли');
+      showStatus('Р’С‹ РІС‹С€Р»Рё');
       render();
     }
 
     async function loadData() {
       if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        document.getElementById('top-list').innerHTML = '<div class="loading">Р‘Р°Р·Р° РґР°РЅРЅС‹С… РЅРµРґРѕСЃС‚СѓРїРЅР°. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ.</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">Р‘Р°Р·Р° РґР°РЅРЅС‹С… РЅРµРґРѕСЃС‚СѓРїРЅР°.</div>';
         return;
       }
       try {
-        // Очистка просроченных топов (только для админа, RLS защищает)
+        // РћС‡РёСЃС‚РєР° РїСЂРѕСЃСЂРѕС‡РµРЅРЅС‹С… С‚РѕРїРѕРІ (С‚РѕР»СЊРєРѕ РґР»СЏ Р°РґРјРёРЅР°, RLS Р·Р°С‰РёС‰Р°РµС‚)
         if (isAdmin) {
           try {
             await supabaseClient
@@ -952,8 +1067,8 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
+          document.getElementById('top-list').innerHTML = '<div class="loading">РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё: ' + (error.message || '') + '</div>';
+          document.getElementById('items-list').innerHTML = '<div class="loading">РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё</div>';
           return;
         }
 
@@ -965,14 +1080,14 @@
         render();
       } catch (e) {
         console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        document.getElementById('top-list').innerHTML = '<div class="loading">РћС€РёР±РєР° СЃРµС‚Рё</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">РћС€РёР±РєР° СЃРµС‚Рё</div>';
       }
     }
 
     async function addItem() {
       if (!supabaseClient) {
-        alert('База данных недоступна. Обновите страницу.');
+        alert('Р‘Р°Р·Р° РґР°РЅРЅС‹С… РЅРµРґРѕСЃС‚СѓРїРЅР°. РћР±РЅРѕРІРёС‚Рµ СЃС‚СЂР°РЅРёС†Сѓ.');
         return;
       }
       const customName = document.getElementById('item-displayname').value.trim();
@@ -982,28 +1097,28 @@
       const avatarUrl = (document.getElementById('item-avatar')?.value || '').trim();
       const desc = document.getElementById('item-desc').value.trim();
       let category = document.getElementById('item-category').value;
-      if (!category) category = 'Разное';
+      if (!category) category = 'Р Р°Р·РЅРѕРµ';
 
       if (!username && !isPrivate) {
-        alert('Укажите username');
+        alert('РЈРєР°Р¶РёС‚Рµ username');
         return;
       }
       if (isPrivate && !invite) {
-        alert('Укажите invite-ссылку');
+        alert('РЈРєР°Р¶РёС‚Рµ invite-СЃСЃС‹Р»РєСѓ');
         return;
       }
       if (isPrivate && !customName) {
-        alert('Укажите название приватного чата');
+        alert('РЈРєР°Р¶РёС‚Рµ РЅР°Р·РІР°РЅРёРµ РїСЂРёРІР°С‚РЅРѕРіРѕ С‡Р°С‚Р°');
         return;
       }
 
       const valueToCheck = isPrivate ? invite : username;
       if (blacklist.includes(valueToCheck)) {
-        alert('Этот канал/чат в чёрном списке');
+        alert('Р­С‚РѕС‚ РєР°РЅР°Р»/С‡Р°С‚ РІ С‡С‘СЂРЅРѕРј СЃРїРёСЃРєРµ');
         return;
       }
 
-      // display_name: своё название, иначе @username
+      // display_name: СЃРІРѕС‘ РЅР°Р·РІР°РЅРёРµ, РёРЅР°С‡Рµ @username
       const displayName = customName
         || (isPrivate ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite) : ('@' + username));
 
@@ -1022,23 +1137,23 @@
 
       try {
         let { error } = await supabaseClient.from('items').insert(row);
-        // если колонки avatar_url ещё нет — сохраняем без неё
+        // РµСЃР»Рё РєРѕР»РѕРЅРєРё avatar_url РµС‰С‘ РЅРµС‚ вЂ” СЃРѕС…СЂР°РЅСЏРµРј Р±РµР· РЅРµС‘
         if (error && avatarUrl && /avatar_url/i.test(error.message || '')) {
           delete row.avatar_url;
           ({ error } = await supabaseClient.from('items').insert(row));
         }
 
         if (error) {
-          alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+          alert('РћС€РёР±РєР°: ' + (error.message || 'РЅРµ СѓРґР°Р»РѕСЃСЊ РґРѕР±Р°РІРёС‚СЊ'));
           console.error(error);
           return;
         }
         closeModal();
-        showStatus('Добавлено!');
+        showStatus('Р”РѕР±Р°РІР»РµРЅРѕ!');
         await loadData();
       } catch (e) {
         console.error(e);
-        alert('Ошибка сети');
+        alert('РћС€РёР±РєР° СЃРµС‚Рё');
       }
     }
 
@@ -1050,36 +1165,36 @@
           .update({ is_top: false, top_until: null })
           .eq('id', id);
         if (error) alert(error.message);
-        else { showStatus('Убрано из Топа'); await loadData(); }
+        else { showStatus('РЈР±СЂР°РЅРѕ РёР· РўРѕРїР°'); await loadData(); }
       } catch (e) { console.error(e); }
     }
 
     async function deleteItem(id) {
       if (!supabaseClient || !isAdmin) return;
-      if (!confirm('Удалить запись?')) return;
+      if (!confirm('РЈРґР°Р»РёС‚СЊ Р·Р°РїРёСЃСЊ?')) return;
       try {
         const { error } = await supabaseClient.from('items').delete().eq('id', id);
         if (error) alert(error.message);
-        else { showStatus('Удалено'); await loadData(); }
+        else { showStatus('РЈРґР°Р»РµРЅРѕ'); await loadData(); }
       } catch (e) { console.error(e); }
     }
 
     async function addToBlacklist(id, value) {
       if (!supabaseClient || !isAdmin) return;
-      if (!confirm('Добавить в чёрный список и удалить?')) return;
+      if (!confirm('Р”РѕР±Р°РІРёС‚СЊ РІ С‡С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє Рё СѓРґР°Р»РёС‚СЊ?')) return;
       try {
         await supabaseClient.from('blacklist').insert({ value });
         await supabaseClient.from('items').delete().eq('id', id);
-        showStatus('В чёрный список');
+        showStatus('Р’ С‡С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє');
         await loadData();
-      } catch (e) { console.error(e); alert('Ошибка'); }
+      } catch (e) { console.error(e); alert('РћС€РёР±РєР°'); }
     }
 
     async function removeFromBlacklist(value) {
       if (!supabaseClient || !isAdmin) return;
       try {
         await supabaseClient.from('blacklist').delete().eq('value', value);
-        showStatus('Убрано из ЧС');
+        showStatus('РЈР±СЂР°РЅРѕ РёР· Р§РЎ');
         await loadData();
       } catch (e) { console.error(e); }
     }
@@ -1106,7 +1221,7 @@
         if (error) alert(error.message);
         else {
           closeAdminTopModal();
-          showStatus('Добавлено в Топ');
+          showStatus('Р”РѕР±Р°РІР»РµРЅРѕ РІ РўРѕРї');
           await loadData();
         }
       } catch (e) { console.error(e); }
@@ -1116,12 +1231,12 @@
       size = size || 54;
       const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
-      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-ZР°-СЏРђ-РЇ0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
       const color = item.is_private ? '#5c6bc0' : colors[name.length % colors.length];
       const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
-      // Своя ссылка на аватар (для приватных)
+      // РЎРІРѕСЏ СЃСЃС‹Р»РєР° РЅР° Р°РІР°С‚Р°СЂ (РґР»СЏ РїСЂРёРІР°С‚РЅС‹С…)
       if (item.avatar_url) {
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
           ${letterHtml}
@@ -1131,11 +1246,12 @@
         </div>`;
       }
 
-      // Публичный username — аватарка через unavatar
-      if (item.username && !item.is_private) {
-        const uname = String(item.username).replace(/^@/, '');
+      // РџСѓР±Р»РёС‡РЅС‹Р№ username / Р±РѕС‚ вЂ” Р°РІР°С‚Р°СЂРєР° С‡РµСЂРµР· unavatar
+      let uname = item.username ? String(item.username) : '';
+      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
+      if (uname && !item.is_private && !uname.startsWith('+')) {
         const imgUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
-        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
           ${letterHtml}
           <img src="${imgUrl}" alt="" loading="lazy"
             onload="this.style.opacity=1" onerror="this.style.display='none'"
@@ -1143,11 +1259,11 @@
         </div>`;
       }
 
-      // Приватные без ссылки на фото — буква + замочек
+      // РџСЂРёРІР°С‚РЅС‹Рµ Р±РµР· СЃСЃС‹Р»РєРё РЅР° С„РѕС‚Рѕ вЂ” Р±СѓРєРІР° + Р·Р°РјРѕС‡РµРє
       if (item.is_private) {
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
           ${letter}
-          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">рџ”’</span>
         </div>`;
       }
 
@@ -1179,7 +1295,7 @@
         return true;
       });
 
-      // Топ (только актуальные)
+      // РўРѕРї (С‚РѕР»СЊРєРѕ Р°РєС‚СѓР°Р»СЊРЅС‹Рµ)
       const now = new Date();
       const topItems = allItems.filter(item => {
         if (!item.is_top) return false;
@@ -1190,73 +1306,73 @@
       document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
       document.getElementById('items-count').textContent = filtered.length ? `(${filtered.length})` : '';
 
-      // Рендер топа
+      // Р РµРЅРґРµСЂ С‚РѕРїР°
       const topEl = document.getElementById('top-list');
       if (!topItems.length) {
-        topEl.innerHTML = '<div class="loading">Пока пусто</div>';
+        topEl.innerHTML = '<div class="loading">РџРѕРєР° РїСѓСЃС‚Рѕ</div>';
       } else {
         topEl.innerHTML = topItems.map(item => {
           const days = getDaysLeft(item.top_until);
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
-          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'РџСЂРёРІР°С‚') : ('@' + (item.username || '')));
           return `
             <div class="card top-card">
               ${getAvatar(item)}
               <div class="card-content">
-                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="type">${item.type === 'chat' ? 'Р§Р°С‚' : item.type === 'channel' ? 'РљР°РЅР°Р»' : 'Р‘РѕС‚'} В· ${item.category || ''}${item.is_private ? ' В· <span class="private-badge">РџСЂРёРІР°С‚РЅС‹Р№</span>' : ''}</div>
                 <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
+                ${item.description && item.description !== 'Р‘РµР· РѕРїРёСЃР°РЅРёСЏ' ? `<div class="desc">${item.description}</div>` : ''}
                 <div class="meta">
-                  <span>Топ: ${days} дн.</span>
+                  <span>РўРѕРї: ${days} РґРЅ.</span>
                 </div>
                 ${isAdmin ? `<div class="actions">
-                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">В чёрный список</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
+                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">РЈР±СЂР°С‚СЊ РёР· РўРѕРїР°</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">Р’ С‡С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє</button>
+                    <button class="btn-delete" onclick="deleteItem('${item.id}')">РЈРґР°Р»РёС‚СЊ</button>
                   </div>` : ''}
               </div>
             </div>`;
         }).join('');
       }
 
-      // Рендер списка
+      // Р РµРЅРґРµСЂ СЃРїРёСЃРєР°
       const listEl = document.getElementById('items-list');
       if (!filtered.length) {
-        listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
+        listEl.innerHTML = '<div class="loading">РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ</div>';
       } else {
         listEl.innerHTML = filtered.map(item => {
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
-          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'РџСЂРёРІР°С‚') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
           return `
             <div class="item-row">
               ${getAvatar(item, 42)}
               <div class="info">
                 <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
+                <div class="meta">${item.type === 'chat' ? 'Р§Р°С‚' : item.type === 'channel' ? 'РљР°РЅР°Р»' : 'Р‘РѕС‚'} В· ${item.category || ''}${item.is_private ? ' В· <span class="private-badge">РџСЂРёРІР°С‚РЅС‹Р№</span>' : ''}${isTopActive ? ' В· РўРѕРї' : ''}</div>
+                ${item.description && item.description !== 'Р‘РµР· РѕРїРёСЃР°РЅРёСЏ' ? `<div class="item-desc">${item.description}</div>` : ''}
                 <div class="actions">
-                  <button class="btn-top" onclick="openTopModal()">Топ</button>
+                  <button class="btn-top" onclick="openTopModal()">РўРѕРї</button>
                   ${isAdmin ? `
-                    <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">В Топ</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">ЧС</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">×</button>` : ''}
+                    <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">Р’ РўРѕРї</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">Р§РЎ</button>
+                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Г—</button>` : ''}
                 </div>
               </div>
             </div>`;
         }).join('');
       }
 
-      // Чёрный список
+      // Р§С‘СЂРЅС‹Р№ СЃРїРёСЃРѕРє
       const blEl = document.getElementById('blacklist-list');
       if (isAdmin) {
         if (!blacklist.length) {
-          blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
+          blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">РџСѓСЃС‚Рѕ</div>';
         } else {
           blEl.innerHTML = blacklist.map(value => `
             <div class="blacklist-item">
               <span>${value}</span>
-              <button onclick="removeFromBlacklist('${value.replace(/'/g,"\\'")}')">Убрать</button>
+              <button onclick="removeFromBlacklist('${value.replace(/'/g,"\\'")}')">РЈР±СЂР°С‚СЊ</button>
             </div>`).join('');
         }
       }
@@ -1268,8 +1384,8 @@
 
     function openModal(type) {
       currentType = type;
-      const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
-      document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+      const titles = { chat: 'Р”РѕР±Р°РІРёС‚СЊ С‡Р°С‚', channel: 'Р”РѕР±Р°РІРёС‚СЊ РєР°РЅР°Р»', bot: 'Р”РѕР±Р°РІРёС‚СЊ Р±РѕС‚' };
+      document.getElementById('modal-title').textContent = titles[type] || 'Р”РѕР±Р°РІРёС‚СЊ';
       document.getElementById('item-displayname').value = '';
       document.getElementById('item-username').value = '';
       document.getElementById('item-private').checked = false;
@@ -1292,15 +1408,28 @@
     }
 
     function openTopModal() {
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
       document.getElementById('top-modal').classList.add('active');
       updatePrice();
     }
     function closeTopModal() {
       document.getElementById('top-modal').classList.remove('active');
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
     }
     function updatePrice() {
       const days = parseInt(document.getElementById('days-select').value) || 1;
-      document.getElementById('total-price').textContent = (days * 50) + ' ₽';
+      const sum = (days * 50) + ' в‚Ѕ';
+      document.getElementById('total-price').textContent = sum;
+      const finalEl = document.getElementById('top-final-price');
+      if (finalEl) finalEl.textContent = sum;
+    }
+    function confirmTopDays() {
+      updatePrice();
+      applyPaymentBotUI();
+      document.getElementById('top-step-1').style.display = 'none';
+      document.getElementById('top-step-2').style.display = 'block';
     }
 
     function openLegal(type) {
@@ -1312,22 +1441,22 @@
       document.getElementById('legal-modal').classList.remove('active');
     }
 
-    // Закрытие модалок по клику на фон
+    // Р—Р°РєСЂС‹С‚РёРµ РјРѕРґР°Р»РѕРє РїРѕ РєР»РёРєСѓ РЅР° С„РѕРЅ
     document.querySelectorAll('.modal-overlay').forEach(el => {
       el.addEventListener('click', e => {
         if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
       });
     });
 
-    // Старт — с повторной попыткой инициализации Supabase
+    // РЎС‚Р°СЂС‚ вЂ” СЃ РїРѕРІС‚РѕСЂРЅРѕР№ РїРѕРїС‹С‚РєРѕР№ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё Supabase
     (async () => {
-      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
+      // Р•СЃР»Рё Р±РёР±Р»РёРѕС‚РµРєР° РµС‰С‘ РЅРµ Р·Р°РіСЂСѓР·РёР»Р°СЃСЊ вЂ” Р¶РґС‘Рј РЅРµРјРЅРѕРіРѕ Рё РїСЂРѕР±СѓРµРј СЃРЅРѕРІР°
       if (!supabaseClient && window.supabase) {
         try {
           supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         } catch (e) {}
       }
-      // Ещё одна попытка через 1.5 сек (на медленных сетях)
+      // Р•С‰С‘ РѕРґРЅР° РїРѕРїС‹С‚РєР° С‡РµСЂРµР· 1.5 СЃРµРє (РЅР° РјРµРґР»РµРЅРЅС‹С… СЃРµС‚СЏС…)
       if (!supabaseClient) {
         await new Promise(r => setTimeout(r, 1500));
         if (window.supabase && window.supabase.createClient) {
@@ -1338,6 +1467,7 @@
       }
 
       await checkSession();
+      await loadPaymentBot();
       await loadData();
       setInterval(loadData, 5 * 60 * 1000);
     })();
