@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telegra — Каталог Telegram каналов, чатов и ботов</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+
+    :root {
+      --bg: #f7f6f3;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e5e2dc;
+      --accent: #2c5f4e;
+      --accent-light: #e8f0ed;
+      --soft: #f0eeea;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+    }
+
+    @media (max-width: 1000px) {
+      .page { grid-template-columns: 1fr; }
+    }
+
+    .admin-login {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: var(--card);
+      padding: 16px;
+      border-radius: 12px;
+      width: 240px;
+      z-index: 100;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+      font-size: 0.9rem;
+    }
+    .admin-login input {
+      width: 100%;
+      padding: 9px 12px;
+      margin: 5px 0 9px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.9rem;
+    }
+    .admin-login button {
+      width: 100%;
+      padding: 10px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .admin-status {
+      display: none;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      margin-top: 8px;
+      font-weight: 500;
+    }
+    .admin-status.active { display: block; }
+    .logout-btn {
+      background: #f8e8e8 !important;
+      color: #a33 !important;
+      margin-top: 8px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-top: 12px;
+    }
+    header h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 3.4rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      background: linear-gradient(120deg, #1a1a1a 0%, #2c5f4e 50%, #1a1a1a 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 6px;
+    }
+    header .subtitle {
+      font-size: 1.1rem;
+      color: var(--muted);
+    }
+
+    .about {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-bottom: 36px;
+      font-size: 1rem;
+      line-height: 1.7;
+      color: #333;
+    }
+    .about p { margin-bottom: 14px; }
+    .about p:last-child { margin-bottom: 0; }
+    .about strong { color: var(--text); }
+    .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
+    .about li { margin-bottom: 7px; }
+
+    .add-buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .btn {
+      padding: 14px 26px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      color: white;
+    }
+    .btn-chat { background: #3b6b9a; }
+    .btn-channel { background: #6b5b8c; }
+    .btn-bot { background: #4a7c6f; }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+
+    .top-section h2 {
+      font-size: 1.45rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 18px;
+      display: flex;
+      gap: 14px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+    .card:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.07); }
+    .card.top-card {
+      border-color: #c9a86c;
+      background: #fdfbf7;
+    }
+
+    .card-avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      font-weight: 600;
+      color: white;
+      overflow: hidden;
+    }
+    .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .card-content { flex: 1; min-width: 0; }
+    .card .type {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 3px;
+      color: var(--muted);
+    }
+    .card .username {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 5px;
+      word-break: break-all;
+    }
+    .card .description {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+    .card a {
+      color: var(--accent);
+      font-weight: 500;
+      font-size: 0.9rem;
+      text-decoration: none;
+    }
+    .card a:hover { text-decoration: underline; }
+
+    .category-badge {
+      display: inline-block;
+      background: var(--soft);
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 3px 9px;
+      border-radius: 20px;
+      margin-bottom: 7px;
+      font-weight: 500;
+    }
+
+    .days-left {
+      display: inline-block;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 0.72rem;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin-top: 6px;
+      font-weight: 600;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 7px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-top {
+      background: #c9a86c;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 7px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-delete, .btn-blacklist, .btn-make-top, .btn-remove-top {
+      padding: 6px 11px;
+      border-radius: 7px;
+      border: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .btn-delete { background: #f8e8e8; color: #a33; }
+    .btn-blacklist { background: #f5e0de; color: #8a5a3a; }
+    .btn-make-top { background: var(--accent-light); color: var(--accent); }
+    .btn-remove-top { background: #f5e0de; color: #8a5a3a; }
+
+    .private-badge {
+      background: #f5e0de;
+      color: #8a5a3a;
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-left: 5px;
+      font-weight: 500;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 48px 20px;
+      color: var(--muted);
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px dashed var(--border);
+      grid-column: 1 / -1;
+    }
+
+    .sidebar { position: sticky; top: 24px; align-self: start; }
+    .sidebar h3 { font-size: 1.15rem; font-weight: 600; margin-bottom: 16px; }
+
+    .sidebar-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .sidebar-box label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    .sidebar-box input, .sidebar-box select {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.95rem;
+      color: var(--text);
+      outline: none;
+    }
+    .sidebar-box input:focus, .sidebar-box select:focus { border-color: var(--accent); }
+
+     .search-box { position: relative; }
+    .search-box input { padding-left: 40px; }
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+    }
+
+    .category-results {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .category-results-header {
+      padding: 14px 18px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--soft);
+    }
+    .category-item {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .category-item:last-child { border-bottom: none; }
+    .category-item:hover { background: var(--bg); }
+
+    .cat-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      color: white;
+      font-size: 0.95rem;
+      overflow: hidden;
+    }
+    .cat-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .cat-info { flex: 1; min-width: 0; }
+    .cat-name { font-weight: 600; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cat-meta { font-size: 0.78rem; color: var(--muted); margin-top: 3px; }
+    .cat-actions { margin-top: 7px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+    .type-tag {
+      display: inline-block;
+      font-size: 0.68rem;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 600;
+      margin-right: 4px;
+    }
+    .type-tag.chat { background: #e8f0f7; color: #3b6b9a; }
+    .type-tag.channel { background: #f0eef5; color: #6b5b8c; }
+    .type-tag.bot { background: #e8f2ef; color: #4a7c6f; }
+
+    .blacklist-section {
+      display: none;
+      margin-top: 48px;
+      padding-top: 28px;
+      border-top: 1px solid var(--border);
+    }
+    .blacklist-section.visible { display: block; }
+    .blacklist-section h2 { font-size: 1.3rem; color: #a33; margin-bottom: 16px; font-weight: 600; }
+    .blacklist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--card);
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      border: 1px solid #f0d9d9;
+    }
+    .blacklist-item button {
+      background: #f8e8e8;
+      color: #a33;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+    }
+
+    footer {
+      max-width: 1320px;
+      margin: 70px auto 30px;
+      padding-top: 30px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+      margin: 0 14px;
+      cursor: pointer;
+    }
+    footer a:hover { text-decoration: underline; }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(26,26,26,0.4);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 440px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+    .modal.large { max-width: 720px; }
+    .modal h2 { margin-bottom: 6px; font-size: 1.35rem; font-weight: 600; }
+    .modal p { color: var(--muted); margin-bottom: 20px; font-size: 0.95rem; }
+    .modal label { display: block; font-size: 0.85rem; margin-bottom: 6px; color: var(--muted); font-weight: 500; }
+    .modal input, .modal textarea, .modal select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.95rem;
+      margin-bottom: 14px;
+      outline: none;
+    }
+    .modal input:focus, .modal textarea:focus, .modal select:focus { border-color: var(--accent); }
+    .modal textarea { min-height: 80px; resize: vertical; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 6px; }
+    .modal-actions button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 9px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    .btn-cancel { background: var(--soft); color: var(--muted); }
+    .btn-add { background: var(--accent); color: white; }
+
+    .price-box {
+      background: var(--accent-light);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+      margin: 16px 0;
+    }
+    .price-box .price { font-size: 1.9rem; font-weight: 700; color: var(--accent); }
+    .contact-box {
+      background: var(--soft);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+    }
+    .contact-box a {
+      display: inline-block;
+      margin-top: 12px;
+      background: var(--accent);
+      color: white;
+      padding: 11px 22px;
+      border-radius: 9px;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .legal-content { font-size: 0.9rem; line-height: 1.65; color: var(--text); }
+    .legal-content h3 { margin: 22px 0 10px; font-size: 1.05rem; }
+    .legal-content p, .legal-content li { margin-bottom: 8px; color: #333; }
+    .legal-content ul { padding-left: 20px; margin-bottom: 12px; }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Вход администратора -->
+  <div class="admin-login">
+    <div id="login-form">
+      <strong style="font-size:0.9rem;">Вход администратора</strong>
+      <input type="email" id="admin-email" placeholder="Email">
+      <input type="password" id="admin-pass" placeholder="Пароль">
+      <button onclick="loginAdmin()">Войти</button>
+    </div>
+    <div class="admin-status" id="admin-status">
+      Администратор
+      <button class="logout-btn" onclick="logoutAdmin()">Выйти</button>
+    </div>
+  </div>
+
+  <div class="page">
+    <main>
+      <header>
+        <h1>Telegra</h1>
+        <div class="subtitle">Каталог Telegram-каналов, чатов и ботов</div>
+      </header>
+
+      <div class="about">
+        <p><strong>Telegra</strong> — это независимый каталог Telegram-каналов, чатов и ботов.</p>
+        <p>Мы создали этот сервис, чтобы вам было проще находить интересные сообщества по своим вкусам и при этом избегать подозрительных и низкокачественных ресурсов.</p>
+        <p>В каталоге собраны каналы самых разных тематик: сообщества по интересам, кино и сериалы, личные блоги, официальные аккаунты известных людей, а также многое другое.</p>
+        <p>Чтобы вам было удобнее ориентироваться, мы разделили всё по понятным категориям. А если вы хотите добавить свой канал, чат или бота — это можно сделать самостоятельно через специальную форму на сайте.</p>
+        <p>Мы предлагаем:</p>
+        <ul>
+          <li><strong>Бесплатное размещение</strong> — ваш ресурс появится в каталоге</li>
+          <li><strong>Платное продвижение</strong> — возможность попасть в Топ по категории и получить больше внимания</li>
+        </ul>
+        <p>Ищите то, что вам действительно интересно. Мы помогаем делать это быстро и удобно.</p>
+      </div>
+
+      <div class="add-buttons">
+        <button class="btn btn-chat" onclick="openModal('chat')">Добавить чат</button>
+        <button class="btn btn-channel" onclick="openModal('channel')">Добавить канал</button>
+        <button class="btn btn-bot" onclick="openModal('bot')">Добавить бот</button>
+      </div>
+
+      <section class="top-section">
+        <h2>Топ размещение <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
+        <div class="top-grid" id="top-list">
+          <div class="loading">Загрузка...</div>
+        </div>
+      </section>
+
+      <section class="blacklist-section" id="blacklist-section">
+        <h2>Чёрный список</h2>
+        <div id="blacklist-list"></div>
+      </section>
+    </main>
+
+    <aside class="sidebar">
+      <h3>Поиск и категории</h3>
+
+      <div class="sidebar-box">
+        <label>Поиск по названию</label>
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="search-input" placeholder="Введите название..." oninput="applyFilters()">
+        </div>
+      </div>
+
+      <div class="sidebar-box">
+        <label>Категория</label>
+        <select id="category-filter" onchange="applyFilters()">
+          <option value="">Все категории</option>
+          <option value="Авто, мото, техника">Авто, мото, техника</option>
+          <option value="Аниме">Аниме</option>
+          <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+          <option value="Для взрослых">Для взрослых</option>
+          <option value="Для мужчин">Для мужчин</option>
+          <option value="Для женщин">Для женщин</option>
+          <option value="Для родителей">Для родителей</option>
+          <option value="Блоги">Блоги</option>
+          <option value="Еда и напитки">Еда и напитки</option>
+          <option value="Здоровье и спорт">Здоровье и спорт</option>
+          <option value="Игры и приложения">Игры и приложения</option>
+          <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+          <option value="Криптовалюта">Криптовалюта</option>
+          <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+          <option value="Маркетплейсы">Маркетплейсы</option>
+          <option value="Медицина">Медицина</option>
+          <option value="Мода и красота">Мода и красота</option>
+          <option value="Музыка">Музыка</option>
+          <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+          <option value="Новости и СМИ">Новости и СМИ</option>
+          <option value="Продажи">Продажи</option>
+          <option value="Психология">Психология</option>
+          <option value="Путешествия">Путешествия</option>
+          <option value="Развлечения и юмор">Развлечения и юмор</option>
+          <option value="SMM">SMM</option>
+          <option value="Телеграм">Телеграм</option>
+          <option value="Технологии">Технологии</option>
+          <option value="Трейдинг">Трейдинг</option>
+          <option value="Нейросети и AI">Нейросети и AI</option>
+          <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+          <option value="Футбол, хоккей">Футбол, хоккей</option>
+          <option value="Фото, искусство">Фото, искусство</option>
+          <option value="Фриланс">Фриланс</option>
+          <option value="Чаты">Чаты</option>
+          <option value="Юриспруденция">Юриспруденция</option>
+        </select>
+      </div>
+
+      <div class="category-results">
+        <div class="category-results-header" id="results-header">Введите запрос или выберите категорию</div>
+        <div id="category-items">
+          <div style="padding: 36px 16px; text-align: center; color: var(--muted); font-size: 0.9rem;">
+            Здесь появятся результаты поиска
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <footer>
+    <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
+    <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
+    <a onclick="openLegal('offer')">Публичная оферта</a>
+  </footer>
+
+  <!-- Модалка добавления -->
+  <div class="modal-overlay" id="modal">
+    <div class="modal">
+      <h2 id="modal-title">Добавить</h2>
+      <p>Публичный юзернейм или ссылка на приватный чат</p>
+      <label>Юзернейм или ссылка</label>
+      <input type="text" id="username-input" placeholder="@username или https://t.me/+xxxx">
+      <label>Категория *</label>
+      <select id="category-select">
+        <option value="">— Выберите категорию —</option>
+        <option value="Авто, мото, техника">Авто, мото, техника</option>
+        <option value="Аниме">Аниме</option>
+        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+        <option value="Для взрослых">Для взрослых</option>
+        <option value="Для мужчин">Для мужчин</option>
+        <option value="Для женщин">Для женщин</option>
+        <option value="Для родителей">Для родителей</option>
+        <option value="Блоги">Блоги</option>
+        <option value="Еда и напитки">Еда и напитки</option>
+        <option value="Здоровье и спорт">Здоровье и спорт</option>
+        <option value="Игры и приложения">Игры и приложения</option>
+        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
+        <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
+      </select>
+      <label>Описание</label>
+      <textarea id="description-input" placeholder="Краткое описание..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+        <button class="btn-add" onclick="addItem()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка ТОП -->
+  <div class="modal-overlay" id="top-modal">
+    <div class="modal">
+      <h2>Продвижение в Топ</h2>
+      <p>Выберите количество дней размещения на главной</p>
+      <label>Количество дней</label>
+      <select id="days-select" onchange="updatePrice()">
+        <option value="1">1 день</option>
+        <option value="3">3 дня</option>
+        <option value="7">7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="30">30 дней</option>
+        <option value="90">90 дней</option>
+      </select>
+      <div class="price-box">
+        <div style="font-size:0.9rem;color:var(--muted);">Стоимость</div>
+        <div class="price" id="total-price">20 ₽</div>
+        <div style="font-size:0.85rem;color:var(--muted);">1 день = 20 ₽</div>
+      </div>
+      <div class="contact-box">
+        <div style="font-weight:600;">Для оплаты напишите боту:</div>
+        <div style="font-size:1.15rem;font-weight:700;margin:8px 0;">@TG_Administrator_Vip_bot</div>
+        <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank">Перейти в бота</a>
+      </div>
+      <div class="modal-actions" style="margin-top:18px;">
+        <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка для АДМИНА: установка срока Топа -->
+  <div class="modal-overlay" id="admin-top-modal">
+    <div class="modal">
+      <h2>Добавить в Топ</h2>
+      <p>Укажите, на сколько дней разместить ресурс в Топе</p>
+      <label>Количество дней</label>
+      <select id="admin-days-select">
+        <option value="1">1 день</option>
+        <option value="3">3 дня</option>
+        <option value="7" selected>7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="30">30 дней</option>
+        <option value="90">90 дней</option>
+      </select>
+      <div class="modal-actions" style="margin-top:10px;">
+        <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
+        <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Юридические документы -->
+  <div class="modal-overlay" id="legal-modal">
+    <div class="modal large">
+      <h2 id="legal-title"></h2>
+      <div class="legal-content" id="legal-content"></div>
+      <div class="modal-actions" style="margin-top:24px;">
+        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======================
+    // НАСТРОЙКИ SUPABASE
+    // ======================
+    const SUPABASE_URL = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc5MTUxOTcyNSwiZXhwIjoyMTA3MDk1NzI1fQ.38lZyCyEmARUMJNzMti6u-1FCoLXjSFdFM6PKv73-tE';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // ======================
+    // СОСТОЯНИЕ
+    // ======================
+    let isAdmin = false;
+    let currentType = null;
+    let pendingTopId = null;
+    let allItems = [];
+    let blacklist = [];
+
+    const legalTexts = {
+      agreement: { title: 'Пользовательское соглашение', content: <h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: support@telepot.ru</p> },
+      privacy: { title: 'Политика конфиденциальности', content: <h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных на support@telepot.ru</p> },
+      offer: { title: 'Публичная оферта', content: <p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 20 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p> }
+    };
+
+    // ======================
+    // АВТОРИЗАЦИЯ
+    // ======================
+    async function checkSession() {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Проверяем, является ли пользователь админом
+        const { data } = await supabase
+          .from('admins')
+          .select('user_id')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (data) {
+          isAdmin = true;
+          document.getElementById('login-form').style.display = 'none';
+          document.getElementById('admin-status').classList.add('active');
+          document.getElementById('blacklist-section').classList.add('visible');
+        }
+      }
+    }
+
+    async function loginAdmin() {
+      const email = document.getElementById('admin-email').value.trim();
+      const password = document.getElementById('admin-pass').value;
+
+      if (!email || !password) {
+        alert('Введите email и пароль');
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        alert('Ошибка входа: ' + error.message);
+        return;
+      }
+
+      // Проверяем роль
+      const { data: adminData } = await supabase
+        .from('admins')
+        .select('user_id')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (!adminData) {
+        await supabase.auth.signOut();
+        alert('У вас нет прав администратора');
+        return;
+      }
+
+      isAdmin = true;
+      document.getElementById('login-form').style.display = 'none';
+      document.getElementById('admin-status').classList.add('active');
+      document.getElementById('blacklist-section').classList.add('visible');
+      render();
+    }
+
+    async function logoutAdmin() {
+      await supabase.auth.signOut();
+      isAdmin = false;
+      document.getElementById('login-form').style.display = 'block';
+      document.getElementById('admin-status').classList.remove('active');
+      document.getElementById('blacklist-section').classList.remove('visible');
+      render();
+    }
+
+    // ======================
+    // РАБОТА С ДАННЫМИ
+    // ======================
+    async function loadData() {
+      // Очищаем просроченные топы (делает любой, кто открыл сайт)
+      await supabase
+        .from('items')
+        .update({ is_top: false, top_until: null })
+        .lt('top_until', new Date().toISOString())
+        .eq('is_top', true);
+
+      // Загружаем все ресурсы
+      const { data: items, error } = await supabase
+        .from('items')
+        .select('*')
+        .order('added_at', { ascending: false });
+
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      allItems = items || [];
+
+      // Загружаем чёрный список
+      const { data: bl } = await supabase
+        .from('blacklist')
+        .select('value');
+
+      blacklist = (bl || []).map(x => x.value);
+
+      render();
+    }
+
+    async function addItem() {
+      let input = document.getElementById('username-input').value.trim();
+      const category = document.getElementById('category-select').value;
+      const description = document.getElementById('description-input').value.trim();
+
+      if (!input) return alert('Введите юзернейм или ссылку');
+      if (!category) return alert('Выберите категорию');
+
+      let isPrivate = false, username = null, inviteLink = null, displayName = '';
+
+      if (input.includes('t.me/+') || input.includes('t.me/joinchat/')) {
+        isPrivate = true;
+        inviteLink = input.startsWith('http') ? input : 'https://' + input;
+        displayName = 'Приватный чат';
+      } else {
+        username = input.replace('@', '').replace('https://t.me/', '').split('/')[0];
+        if (!/^[a-zA-Z0-9_]{4,32}$/.test(username)) return alert('Некорректный юзернейм');
+        displayName = '@' + username;
+      }
+
+      const checkValue = isPrivate ? inviteLink : username;
+
+      if (blacklist.some(u => u.toLowerCase() === checkValue.toLowerCase())) {
+        return alert('Этот ресурс в чёрном списке');
+      }
+
+      // Проверка на дубликат
+      const exists = allItems.some(i => 
+        (i.is_private ? i.invite_link : i.username) === checkValue
+      );
+      if (exists) return alert('Уже добавлен');
+
+      const { error } = await supabase.from('items').insert({
+        type: currentType,
+        username,
+        invite_link: inviteLink,
+        is_private: isPrivate,
+        display_name: displayName,
+        category,
+        description: description || 'Без описания'
+      });
+
+      if (error) {
+        alert('Ошибка при добавлении: ' + error.message);
+        return;
+      }
+
+      closeModal();
+      await loadData();
+    }
+
+    async function removeTop(id) {
+      const { error } = await supabase
+        .from('items')
+        .update({ is_top: false, top_until: null })
+        .eq('id', id);
+
+      if (error) alert(error.message);
+      else await loadData();
+    }
+
+    async function deleteItem(id) {
+      if (!confirm('Удалить?')) return;
+
+      const { error } = await supabase
+        .from('items')
+        .delete()
+        .eq('id', id);
+
+      if (error) alert(error.message);
+      else await loadData();
+    }
+
+    async function addToBlacklist(id, value) {
+      if (!confirm('Добавить в чёрный список?')) return;
+
+      // Добавляем в blacklist
+      await supabase.from('blacklist').insert({ value });
+
+      // Удаляем сам ресурс
+      await supabase.from('items').delete().eq('id', id);
+
+      await loadData();
+    }
+
+    async function removeFromBlacklist(value) {
+      if (!confirm('Убрать из чёрного списка?')) return;
+
+      await supabase.from('blacklist').delete().eq('value', value);
+      await loadData();
+    }
+
+      // ======================
+    // ТОП
+    // ======================
+    function openAdminTopModal(id) {
+      pendingTopId = id;
+      document.getElementById('admin-days-select').value = '7';
+      document.getElementById('admin-top-modal').classList.add('active');
+    }
+
+    function closeAdminTopModal() {
+      document.getElementById('admin-top-modal').classList.remove('active');
+      pendingTopId = null;
+    }
+
+    async function confirmAdminTop() {
+      if (!pendingTopId) return;
+
+      const days = parseInt(document.getElementById('admin-days-select').value);
+      const topUntil = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error } = await supabase
+        .from('items')
+        .update({ is_top: true, top_until: topUntil })
+        .eq('id', pendingTopId);
+
+      if (error) alert(error.message);
+      else {
+        closeAdminTopModal();
+        await loadData();
+      }
+    }
+
+    // ======================
+    // ОТОБРАЖЕНИЕ
+    // ======================
+    function getAvatar(item, size = 54) {
+      if (item.is_private) {
+        return <div class="card-avatar" style="width:\( {size}px;height: \){size}px;background:#c9a86c">🔒</div>;
+      }
+      const url = https://t.me/i/userpic/320/${item.username}.jpg;
+      const letter = (item.username || '?')[0].toUpperCase();
+      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#c9a86c','#8a6a5a','#5a7a8a'];
+      const color = colors[(item.username || '').length % colors.length];
+      return <div class="card-avatar" style="width:\( {size}px;height: \){size}px;background:${color}">
+        <img src="\( {url}" onerror="this.remove();this.parentElement.textContent=' \){letter}'">
+      </div>;
+    }
+
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const diff = new Date(topUntil) - Date.now();
+      if (diff <= 0) return 0;
+      return Math.ceil(diff / (1000 * 60 * 60 * 24));
+    }
+
+    function applyFilters() {
+      const search = document.getElementById('search-input').value.trim().toLowerCase();
+      const category = document.getElementById('category-filter').value;
+      const header = document.getElementById('results-header');
+      const container = document.getElementById('category-items');
+
+      let items = allItems.filter(i => !i.is_top || (i.top_until && new Date(i.top_until) < new Date()));
+
+      if (category) items = items.filter(i => i.category === category);
+      if (search) {
+        items = items.filter(i =>
+          (i.display_name && i.display_name.toLowerCase().includes(search)) ||
+          (i.username && i.username.toLowerCase().includes(search)) ||
+          (i.description && i.description.toLowerCase().includes(search))
+        );
+      }
+
+      if (!search && !category) {
+        header.textContent = 'Введите запрос или выберите категорию';
+      } else {
+        let text = '';
+        if (search) text += Поиск: «${search}»;
+        if (search && category) text += ' · ';
+        if (category) text += category;
+        header.textContent = \( {text} ( \){items.length});
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = <div style="padding: 36px 16px; text-align: center; color: var(--muted); font-size: 0.9rem;">Ничего не найдено</div>;
+        return;
+      }
+
+      container.innerHTML = items.map(item => {
+        const link = item.is_private ? item.invite_link : https://t.me/${item.username};
+        const typeLabel = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
+
+        return 
+          <div class="category-item">
+            ${getAvatar(item, 40).replaceAll('card-avatar', 'cat-avatar')}
+            <div class="cat-info">
+              <div class="cat-name">${item.display_name}</div>
+              <div class="cat-meta">
+                <span class="type-tag \( {item.type}"> \){typeLabel}</span>
+                ${item.category || ''} · ${item.description}
+              </div>
+              <div class="cat-actions">
+                <a href="${link}" target="_blank" style="font-size:0.8rem;color:var(--accent);">Открыть</a>
+                <button class="btn-top" onclick="openTopModal()">Топ</button>
+                ${isAdmin ? 
+                  <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">В Топ</button>
+                  <button class="btn-blacklist" onclick="addToBlacklist('\( {item.id}', ' \){item.is_private ? item.invite_link : item.username}')">ЧС</button>
+                  <button class="btn-delete" onclick="deleteItem('${item.id}')">×</button>
+                 : ''}
+              </div>
+            </div>
+          </div>;
+      }).join('');
+    }
+
+    function render() {
+      const topItems = allItems.filter(i => i.is_top && i.top_until && new Date(i.top_until) > new Date());
+      document.getElementById('top-count').textContent = topItems.length ? (${topItems.length}) : '';
+      const topList = document.getElementById('top-list');
+
+      if (topItems.length === 0) {
+        topList.innerHTML = <div class="empty">Пока нет ресурсов в Топе.<br>Добавьте ресурс и нажмите «В Топ»</div>;
+      } else {
+        topList.innerHTML = topItems.map(item => {
+          const link = item.is_private ? item.invite_link : https://t.me/${item.username};
+          const daysLeft = getDaysLeft(item.top_until);
+
+          return 
+            <div class="card top-card ${item.type}">
+              ${getAvatar(item)}
+              <div class="card-content">
+                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'}
+                  ${item.is_private ? '<span class="private-badge">Приватный</span>' : ''}
+                </div>
+                <div class="username">${item.display_name}</div>
+                <div class="category-badge">${item.category || 'Без категории'}</div>
+                <div class="description">${item.description}</div>
+                <a href="\( {link}" target="_blank"> \){item.is_private ? 'Вступить' : 'Открыть'}</a>
+                ${isAdmin ? <div class="days-left">Осталось дней: ${daysLeft}</div> : ''}
+                ${isAdmin ? 
+                  <div class="card-actions">
+                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('\( {item.id}', ' \){item.is_private ? item.invite_link : item.username}')">В чёрный список</button>
+                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
+                  </div>
+                 : ''}
+              </div>
+            </div>;
+        }).join('');
+      }
+
+      // Чёрный список
+      const blContainer = document.getElementById('blacklist-list');
+      if (blacklist.length === 0) {
+        blContainer.innerHTML = <div class="empty" style="padding:24px;">Чёрный список пуст</div>;
+      } else {
+        blContainer.innerHTML = blacklist.map(value => 
+          <div class="blacklist-item">
+            <span>${value.startsWith('http') ? 'Приватная ссылка' : '@' + value}</span>
+            <button onclick="removeFromBlacklist('${value}')">Убрать</button>
+          </div>
+        ).join('');
+      }
+
+      applyFilters();
+    }
+
+    // ======================
+    // МОДАЛКИ
+    // ======================
+    function openModal(type) {
+      currentType = type;
+      document.getElementById('modal-title').textContent =
+        type === 'chat' ? 'Добавить чат' : type === 'channel' ? 'Добавить канал' : 'Добавить бот';
+      document.getElementById('username-input').value = '';
+      document.getElementById('category-select').value = '';
+      document.getElementById('description-input').value = '';
+      document.getElementById('modal').classList.add('active');
+    }
+    function closeModal() {
+      document.getElementById('modal').classList.remove('active');
+    }
+
+    function openTopModal() {
+      document.getElementById('days-select').value = '1';
+      updatePrice();
+      document.getElementById('top-modal').classList.add('active');
+    }
+    function closeTopModal() {
+      document.getElementById('top-modal').classList.remove('active');
+    }
+    function updatePrice() {
+      const days = parseInt(document.getElementById('days-select').value);
+      document.getElementById('total-price').textContent = (days * 20) + ' ₽';
+    }
+
+    function openLegal(type) {
+      document.getElementById('legal-title').textContent = legalTexts[type].title;
+      document.getElementById('legal-content').innerHTML = legalTexts[type].content;
+      document.getElementById('legal-modal').classList.add('active');
+    }
+    function closeLegal() {
+      document.getElementById('legal-modal').classList.remove('active');
+    }
+
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
+      });
+    });
+
+    // ======================
+    // ЗАПУСК
+    // ======================
+    (async () => {
+      await checkSession();
+      await loadData();
+
+      // Автообновление каждые 5 минут
+      setInterval(loadData, 5 * 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
