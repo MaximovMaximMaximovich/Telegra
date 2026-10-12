@@ -711,7 +711,7 @@
   <div class="modal-overlay" id="top-modal">
     <div class="modal">
       <h3>Размещение в Топ</h3>
-      <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>20 ₽</strong> за 1 день.</p>
+      <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>50 ₽</strong> за 1 день.</p>
       <label>Количество дней</label>
       <select id="days-select" onchange="updatePrice()">
         <option value="1">1 день</option>
@@ -720,7 +720,7 @@
         <option value="14">14 дней</option>
         <option value="30">30 дней</option>
       </select>
-      <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">140 ₽</strong></p>
+      <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">350 ₽</strong></p>
       <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">После оплаты напишите боту <strong>@TG_Administrator_Vip_bot</strong> с username записи.</p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
@@ -792,7 +792,7 @@
       },
       offer: {
         title: 'Публичная оферта',
-        content: `<p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 20 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p>`
+        content: `<p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 50 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p>`
       }
     };
 
@@ -1240,7 +1240,7 @@
     }
     function updatePrice() {
       const days = parseInt(document.getElementById('days-select').value) || 1;
-      document.getElementById('total-price').textContent = (days * 20) + ' ₽';
+      document.getElementById('total-price').textContent = (days * 50) + ' ₽';
     }
 
     function openLegal(type) {
