@@ -412,6 +412,16 @@
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
+    .private-badge {
+      display: inline-block;
+      background: #e8eaf6;
+      color: #3949ab;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 6px;
+      vertical-align: middle;
+    }
     .item-row .actions {
       display: flex;
       gap: 4px;
@@ -660,7 +670,7 @@
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
       <label>Название (как будет в каталоге)</label>
-      <input type="text" id="item-displayname" placeholder="Например: Вписки Москва">
+      <input type="text" id="item-displayname" placeholder="Например: Новости IT / Чат по интересам">
       <label>Username (без @)</label>
       <input type="text" id="item-username" placeholder="например channelname">
       <div class="checkbox-row">
@@ -670,6 +680,9 @@
       <div id="invite-field" style="display:none;">
         <label>Invite-ссылка</label>
         <input type="text" id="item-invite" placeholder="https://t.me/+...">
+        <label style="margin-top:8px;">Ссылка на аватарку (необязательно)</label>
+        <input type="text" id="item-avatar" placeholder="https://...jpg">
+        <p style="font-size:0.75rem;color:var(--muted);margin:-4px 0 8px;">Telegram не отдаёт фото приватных чатов публично. Можно вставить прямую ссылку на картинку.</p>
       </div>
       <label>Описание (необязательно)</label>
       <textarea id="item-desc" placeholder="Краткое описание"></textarea>
@@ -966,6 +979,7 @@
       const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
       const isPrivate = document.getElementById('item-private').checked;
       const invite = document.getElementById('item-invite').value.trim();
+      const avatarUrl = (document.getElementById('item-avatar')?.value || '').trim();
       const desc = document.getElementById('item-desc').value.trim();
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
@@ -993,18 +1007,26 @@
       const displayName = customName
         || (isPrivate ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite) : ('@' + username));
 
+      const row = {
+        type: currentType,
+        username: isPrivate ? null : username,
+        invite_link: isPrivate ? invite : null,
+        is_private: isPrivate,
+        display_name: displayName,
+        description: desc || null,
+        category: category,
+        is_top: false,
+        top_until: null
+      };
+      if (avatarUrl) row.avatar_url = avatarUrl;
+
       try {
-        const { error } = await supabaseClient.from('items').insert({
-          type: currentType,
-          username: isPrivate ? null : username,
-          invite_link: isPrivate ? invite : null,
-          is_private: isPrivate,
-          display_name: displayName,
-          description: desc || null,
-          category: category,
-          is_top: false,
-          top_until: null
-        });
+        let { error } = await supabaseClient.from('items').insert(row);
+        // если колонки avatar_url ещё нет — сохраняем без неё
+        if (error && avatarUrl && /avatar_url/i.test(error.message || '')) {
+          delete row.avatar_url;
+          ({ error } = await supabaseClient.from('items').insert(row));
+        }
 
         if (error) {
           alert('Ошибка: ' + (error.message || 'не удалось добавить'));
@@ -1093,24 +1115,42 @@
     function getAvatar(item, size) {
       size = size || 54;
       const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
-      const raw = (item.username || item.display_name || item.invite_link || '?').toString();
+      const raw = (item.display_name || item.username || item.invite_link || '?').toString();
       const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
-      const color = colors[name.length % colors.length];
+      const color = item.is_private ? '#5c6bc0' : colors[name.length % colors.length];
+      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
-      // Публичный username — пробуем реальную аватарку Telegram через unavatar
-      if (item.username && !item.is_private) {
-        const uname = item.username.replace(/^@/, '');
-        const imgUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+      // Своя ссылка на аватар (для приватных)
+      if (item.avatar_url) {
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
-          <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>
-          <img src="${imgUrl}" alt="" loading="lazy"
-            onload="this.style.opacity=1"
-            onerror="this.style.display='none'"
+          ${letterHtml}
+          <img src="${item.avatar_url.replace(/"/g, '')}" alt="" loading="lazy"
+            onload="this.style.opacity=1" onerror="this.style.display='none'"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
       }
-      // Приватные / без username — цветная буква
+
+      // Публичный username — аватарка через unavatar
+      if (item.username && !item.is_private) {
+        const uname = String(item.username).replace(/^@/, '');
+        const imgUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
+          ${letterHtml}
+          <img src="${imgUrl}" alt="" loading="lazy"
+            onload="this.style.opacity=1" onerror="this.style.display='none'"
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+        </div>`;
+      }
+
+      // Приватные без ссылки на фото — буква + замочек
+      if (item.is_private) {
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
+          ${letter}
+          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+        </div>`;
+      }
+
       return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
     }
 
@@ -1163,7 +1203,7 @@
             <div class="card top-card">
               ${getAvatar(item)}
               <div class="card-content">
-                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}</div>
+                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
                 <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
                 ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
                 <div class="meta">
@@ -1193,7 +1233,7 @@
               ${getAvatar(item, 42)}
               <div class="info">
                 <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${isTopActive ? ' · Топ' : ''}</div>
+                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
                 ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
                 <div class="actions">
                   <button class="btn-top" onclick="openTopModal()">Топ</button>
@@ -1234,6 +1274,8 @@
       document.getElementById('item-username').value = '';
       document.getElementById('item-private').checked = false;
       document.getElementById('item-invite').value = '';
+      const av = document.getElementById('item-avatar');
+      if (av) av.value = '';
       document.getElementById('item-desc').value = '';
       document.getElementById('item-category').value = '';
       document.getElementById('invite-field').style.display = 'none';
