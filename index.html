@@ -954,7 +954,8 @@
       const isPrivate = document.getElementById('item-private').checked;
       const invite = document.getElementById('item-invite').value.trim();
       const desc = document.getElementById('item-desc').value.trim();
-      const category = document.getElementById('item-category').value;
+      let category = document.getElementById('item-category').value;
+      if (!category) category = 'Разное';
 
       if (!username && !isPrivate) {
         alert('Укажите username');
@@ -971,12 +972,18 @@
         return;
       }
 
+      // display_name обязателен в таблице
+      const displayName = isPrivate
+        ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite)
+        : ('@' + username);
+
       try {
         const { error } = await supabaseClient.from('items').insert({
           type: currentType,
           username: isPrivate ? null : username,
           invite_link: isPrivate ? invite : null,
           is_private: isPrivate,
+          display_name: displayName,
           description: desc || null,
           category: category,
           is_top: false,
@@ -1095,7 +1102,7 @@
       const filtered = allItems.filter(item => {
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
         if (q) {
-          const text = ((item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+          const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
           if (!text.includes(q)) return false;
         }
         return true;
@@ -1119,8 +1126,8 @@
       } else {
         topEl.innerHTML = topItems.map(item => {
           const days = getDaysLeft(item.top_until);
-          const link = item.is_private ? item.invite_link : ('https://t.me/' + item.username);
-          const name = item.is_private ? (item.invite_link || 'Приват') : ('@' + item.username);
+          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           return `
             <div class="card top-card">
               ${getAvatar(item)}
@@ -1147,8 +1154,8 @@
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
         listEl.innerHTML = filtered.map(item => {
-          const link = item.is_private ? item.invite_link : ('https://t.me/' + item.username);
-          const name = item.is_private ? (item.invite_link || 'Приват') : ('@' + item.username);
+          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
           return `
             <div class="item-row">
