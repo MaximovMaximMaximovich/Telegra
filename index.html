@@ -50,15 +50,14 @@
       z-index: 100;
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 4px 9px;
-      font-size: 0.72rem;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
       font-weight: 600;
       color: var(--muted);
       cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
       transition: all 0.2s;
-      line-height: 1.2;
     }
     .login-btn-toggle:hover {
       color: var(--accent);
@@ -66,59 +65,64 @@
     }
     .login-btn-toggle.hidden { display: none; }
 
-    /* ===== Всплывающее окно Login — маленькое, расширяется ===== */
+    /* Всплывающее окно Login — компактное */
     .login-popup {
       position: fixed;
       top: 10px;
       left: 10px;
       background: var(--card);
-      padding: 10px 12px;
-      border-radius: 10px;
-      width: 180px;
+      padding: 12px;
+      border-radius: 12px;
+      width: 200px;
       z-index: 101;
       border: 1px solid var(--border);
-      box-shadow: 0 6px 20px rgba(0,0,0,0.14);
-      font-size: 0.82rem;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+      font-size: 0.88rem;
       display: none;
-      transform-origin: top left;
-      animation: expandPopup 0.18s ease-out;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.18s ease, transform 0.18s ease;
     }
-    .login-popup.active { display: block; }
-
-    @keyframes expandPopup {
-      from { opacity: 0; transform: scale(0.75); }
-      to   { opacity: 1; transform: scale(1); }
+    .login-popup.active {
+      display: block;
+      opacity: 1;
+      transform: scale(1);
     }
-
     .login-popup strong {
-      font-size: 0.85rem;
       display: block;
       margin-bottom: 6px;
+      font-size: 0.9rem;
     }
     .login-popup input {
       width: 100%;
-      padding: 7px 9px;
-      margin: 3px 0 7px;
-      border-radius: 6px;
+      padding: 8px 10px;
+      margin: 4px 0 8px;
+      border-radius: 8px;
       border: 1px solid var(--border);
       background: var(--bg);
-      font-size: 0.82rem;
+      font-size: 0.88rem;
     }
     .login-popup button {
       width: 100%;
-      padding: 7px;
+      padding: 9px;
       background: var(--accent);
       color: white;
       border: none;
-      border-radius: 6px;
+      border-radius: 8px;
       font-weight: 600;
-      font-size: 0.82rem;
       cursor: pointer;
+      font-size: 0.88rem;
     }
     .login-popup .close-login {
       background: var(--soft);
       color: var(--muted);
       margin-top: 5px;
+    }
+    .error-msg {
+      color: #a33;
+      font-size: 0.8rem;
+      margin-top: 6px;
+      display: none;
     }
 
     .admin-badge {
@@ -129,14 +133,14 @@
       background: var(--accent-light);
       color: var(--accent);
       border: 1px solid var(--accent);
-      border-radius: 6px;
-      padding: 4px 9px;
-      font-size: 0.72rem;
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
       font-weight: 600;
       display: none;
       align-items: center;
-      gap: 7px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      gap: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .admin-badge.active { display: flex; }
     .admin-badge button {
@@ -144,7 +148,7 @@
       border: none;
       color: #a33;
       cursor: pointer;
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       font-weight: 600;
       padding: 0;
     }
@@ -270,73 +274,68 @@
     .card .username a { color: var(--text); text-decoration: none; }
     .card .username a:hover { color: var(--accent); }
     .card .desc {
-      font-size: 0.85rem;
+      font-size: 0.88rem;
       color: var(--muted);
+      margin-bottom: 8px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
-      margin-bottom: 8px;
     }
     .card .meta {
-      font-size: 0.75rem;
+      font-size: 0.78rem;
       color: var(--muted);
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
+      align-items: center;
     }
     .card .actions {
+      margin-top: 10px;
       display: flex;
       gap: 6px;
-      margin-top: 10px;
       flex-wrap: wrap;
     }
     .card .actions button {
       padding: 5px 10px;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       border-radius: 6px;
       border: 1px solid var(--border);
       background: var(--soft);
       cursor: pointer;
       font-weight: 500;
     }
-    .btn-top { background: #f5e9c8 !important; border-color: #c9a86c !important; color: #8a6d2b !important; }
+    .btn-top { background: #f5e9c8 !important; border-color: #c9a86c !important; color: #7a5c20 !important; }
     .btn-make-top { background: #e8f0ed !important; border-color: var(--accent) !important; color: var(--accent) !important; }
     .btn-blacklist { color: #a33 !important; }
     .btn-delete { color: #a33 !important; font-weight: 700 !important; }
     .btn-remove-top { color: #a33 !important; }
 
-    .days-left {
-      font-size: 0.72rem;
-      color: #8a6d2b;
-      font-weight: 600;
-    }
-
     .sidebar {
       position: sticky;
       top: 24px;
-      height: fit-content;
+      align-self: start;
     }
     .search-box {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 14px;
-      margin-bottom: 18px;
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 20px;
     }
     .search-box input {
       width: 100%;
       padding: 11px 14px;
+      border-radius: 10px;
       border: 1px solid var(--border);
-      border-radius: 9px;
-      font-size: 0.95rem;
       background: var(--bg);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
     }
     .filters {
       display: flex;
+      gap: 6px;
       flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
     }
     .filter-btn {
       padding: 7px 12px;
@@ -346,6 +345,7 @@
       background: var(--soft);
       cursor: pointer;
       font-weight: 500;
+      color: var(--muted);
     }
     .filter-btn.active {
       background: var(--accent);
@@ -354,66 +354,120 @@
     }
 
     .items-section h2 {
-      font-size: 1.35rem;
+      font-size: 1.2rem;
       font-weight: 600;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
     .items-list {
       display: flex;
       flex-direction: column;
       gap: 12px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .item-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .item-row .avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      font-weight: 600;
+      color: white;
+      overflow: hidden;
+    }
+    .item-row .avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .item-row .info { flex: 1; min-width: 0; }
+    .item-row .uname {
+      font-weight: 600;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .item-row .uname a { color: var(--text); text-decoration: none; }
+    .item-row .meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .item-row .actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .item-row .actions button {
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
     }
 
     .blacklist-section {
-      margin-top: 40px;
       display: none;
+      margin-top: 30px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
     }
     .blacklist-section h2 {
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       margin-bottom: 12px;
-      color: #a33;
     }
     .blacklist-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 12px;
-      background: #fdf2f2;
-      border-radius: 8px;
-      margin-bottom: 6px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
       font-size: 0.9rem;
     }
+    .blacklist-item:last-child { border-bottom: none; }
     .blacklist-item button {
-      background: none;
-      border: none;
-      color: #a33;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--soft);
       cursor: pointer;
-      font-size: 0.8rem;
-      font-weight: 600;
+      color: #a33;
     }
 
     footer {
       grid-column: 1 / -1;
       text-align: center;
-      margin-top: 40px;
-      padding-top: 24px;
-      border-top: 1px solid var(--border);
+      padding: 30px 0 10px;
+      font-size: 0.85rem;
       color: var(--muted);
-      font-size: 0.9rem;
     }
     footer a {
-      color: var(--accent);
-      text-decoration: none;
-      margin: 0 10px;
+      color: var(--muted);
+      text-decoration: underline;
       cursor: pointer;
+      margin: 0 8px;
     }
-    footer a:hover { text-decoration: underline; }
+    footer a:hover { color: var(--accent); }
 
-    /* ===== Модалки ===== */
+    /* Модалки */
     .modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.45);
+      background: rgba(0,0,0,0.4);
       z-index: 200;
       display: none;
       align-items: center;
@@ -421,39 +475,45 @@
       padding: 20px;
     }
     .modal-overlay.active { display: flex; }
-
     .modal {
       background: var(--card);
       border-radius: 16px;
-      padding: 28px;
+      padding: 24px;
       width: 100%;
-      max-width: 440px;
+      max-width: 420px;
       max-height: 90vh;
       overflow-y: auto;
       box-shadow: 0 20px 50px rgba(0,0,0,0.2);
     }
     .modal h3 {
       font-size: 1.25rem;
-      margin-bottom: 18px;
+      margin-bottom: 16px;
     }
     .modal label {
       display: block;
       font-size: 0.85rem;
       font-weight: 500;
-      margin-bottom: 5px;
+      margin-bottom: 4px;
       color: var(--muted);
     }
-    .modal input, .modal select, .modal textarea {
+    .modal input, .modal textarea, .modal select {
       width: 100%;
-      padding: 11px 13px;
-      margin-bottom: 14px;
-      border: 1px solid var(--border);
+      padding: 10px 12px;
       border-radius: 9px;
-      font-size: 0.95rem;
+      border: 1px solid var(--border);
       background: var(--bg);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
       font-family: inherit;
     }
-    .modal textarea { resize: vertical; min-height: 70px; }
+    .modal textarea { min-height: 70px; resize: vertical; }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .checkbox-row input { width: auto; margin: 0; }
     .modal-actions {
       display: flex;
       gap: 10px;
@@ -461,16 +521,16 @@
     }
     .btn-cancel {
       flex: 1;
-      padding: 12px;
+      padding: 11px;
       border-radius: 9px;
       border: 1px solid var(--border);
       background: var(--soft);
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 500;
     }
     .btn-add {
       flex: 1;
-      padding: 12px;
+      padding: 11px;
       border-radius: 9px;
       border: none;
       background: var(--accent);
@@ -479,33 +539,23 @@
       font-weight: 600;
     }
 
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-    .checkbox-row input { width: auto; margin: 0; }
-
-    .price-info {
-      background: var(--accent-light);
-      padding: 12px 14px;
-      border-radius: 9px;
-      margin-bottom: 14px;
-      font-size: 0.9rem;
-    }
-    .price-info strong { color: var(--accent); }
-
     .loading {
       text-align: center;
       padding: 40px;
       color: var(--muted);
     }
 
-    .error-msg {
-      color: #a33;
-      font-size: 0.85rem;
-      margin-top: 8px;
+    .status-bar {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      background: #333;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      z-index: 50;
+      opacity: 0.85;
       display: none;
     }
   </style>
@@ -515,7 +565,7 @@
   <!-- Очень маленькая кнопка Login -->
   <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
 
-  <!-- Всплывающее окно (маленькое → расширяется) -->
+  <!-- Всплывающее окно Login -->
   <div class="login-popup" id="login-popup">
     <strong>Вход</strong>
     <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
@@ -628,36 +678,35 @@
         <button class="btn-cancel" onclick="closeModal()">Отмена</button>
         <button class="btn-add" onclick="addItem()">Добавить</button>
       </div>
-      <div class="error-msg" id="add-error"></div>
     </div>
   </div>
 
-  <!-- Модалка Топ (для пользователей) -->
+  <!-- Модалка оплаты Топ -->
   <div class="modal-overlay" id="top-modal">
     <div class="modal">
-      <h3>Разместить в Топ</h3>
-      <p style="margin-bottom:14px;color:var(--muted);font-size:0.9rem;">Стоимость: 20 ₽ за день. Оплата через Telegram-бота.</p>
+      <h3>Размещение в Топ</h3>
+      <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>20 ₽</strong> за 1 день.</p>
       <label>Количество дней</label>
       <select id="days-select" onchange="updatePrice()">
-        <option value="1">1 день — 20 ₽</option>
-        <option value="3">3 дня — 60 ₽</option>
-        <option value="7">7 дней — 140 ₽</option>
-        <option value="14">14 дней — 280 ₽</option>
-        <option value="30">30 дней — 600 ₽</option>
+        <option value="1">1 день</option>
+        <option value="3">3 дня</option>
+        <option value="7" selected>7 дней</option>
+        <option value="14">14 дней</option>
+        <option value="30">30 дней</option>
       </select>
-      <div class="price-info">Итого: <strong id="total-price">20 ₽</strong></div>
-      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:16px;">После оплаты администратор вручную добавит вас в Топ.</p>
+      <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">140 ₽</strong></p>
+      <p style="font-size:0.85rem;color:var(--muted);margin-bottom:14px;">После оплаты напишите боту <strong>@your_bot</strong> с username записи.</p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
       </div>
     </div>
   </div>
 
-  <!-- Модалка админ-Топ -->
+  <!-- Модалка админа: добавить в Топ -->
   <div class="modal-overlay" id="admin-top-modal">
     <div class="modal">
       <h3>Добавить в Топ (админ)</h3>
-      <label>На сколько дней</label>
+      <label>Дней</label>
       <input type="number" id="admin-top-days" value="7" min="1" max="365">
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
@@ -666,28 +715,37 @@
     </div>
   </div>
 
-  <!-- Юридические модалки -->
+  <!-- Юридические тексты -->
   <div class="modal-overlay" id="legal-modal">
     <div class="modal">
       <h3 id="legal-title"></h3>
-      <div id="legal-content" style="font-size:0.9rem;line-height:1.6;color:#444;"></div>
-      <div class="modal-actions" style="margin-top:20px;">
+      <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
         <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
       </div>
     </div>
   </div>
 
+  <div class="status-bar" id="status-bar"></div>
+
   <script>
     // ======================
-    // SUPABASE — правильные данные
+    // SUPABASE
     // ======================
     const SUPABASE_URL = 'https://wrolhdnedzcpuizgohg.supabase.co';
-    // Только публичный (anon) ключ!
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
 
-    // НИКОГДА не вставляй service_role ключ в код сайта!
-
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Безопасная инициализация — если библиотека не загрузилась, сайт всё равно работает
+    let supabaseClient = null;
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } else {
+        console.warn('Supabase library not loaded yet');
+      }
+    } catch (e) {
+      console.error('Supabase init error:', e);
+    }
 
     let isAdmin = false;
     let currentType = null;
@@ -712,6 +770,15 @@
       }
     };
 
+    function showStatus(msg, ms) {
+      const el = document.getElementById('status-bar');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
+    }
+
     // ===== Login popup =====
     function toggleLoginPopup() {
       loginPopupOpen = !loginPopupOpen;
@@ -721,7 +788,7 @@
       if (loginPopupOpen) {
         popup.classList.add('active');
         toggle.classList.add('hidden');
-        err.style.display = 'none';
+        if (err) err.style.display = 'none';
       } else {
         popup.classList.remove('active');
         toggle.classList.remove('hidden');
@@ -729,6 +796,7 @@
     }
 
     async function checkSession() {
+      if (!supabaseClient) return;
       try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (session) {
@@ -753,68 +821,77 @@
       const email = document.getElementById('admin-email').value.trim();
       const password = document.getElementById('admin-pass').value;
       const errEl = document.getElementById('login-error');
-      errEl.style.display = 'none';
-
       if (!email || !password) {
         errEl.textContent = 'Введите email и пароль';
         errEl.style.display = 'block';
         return;
       }
-
+      if (!supabaseClient) {
+        errEl.textContent = 'База данных недоступна. Обновите страницу.';
+        errEl.style.display = 'block';
+        return;
+      }
       try {
         const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) {
-          errEl.textContent = 'Неверный email или пароль';
+          errEl.textContent = error.message || 'Ошибка входа';
           errEl.style.display = 'block';
           return;
         }
-
         const { data: adminData } = await supabaseClient
           .from('admins')
           .select('user_id')
           .eq('user_id', data.user.id)
           .maybeSingle();
-
         if (!adminData) {
           await supabaseClient.auth.signOut();
           errEl.textContent = 'Нет прав администратора';
           errEl.style.display = 'block';
           return;
         }
-
         isAdmin = true;
         document.getElementById('admin-badge').classList.add('active');
         document.getElementById('login-toggle').classList.add('hidden');
         document.getElementById('login-popup').classList.remove('active');
         document.getElementById('blacklist-section').style.display = 'block';
         loginPopupOpen = false;
+        showStatus('Вы вошли как админ');
         render();
       } catch (e) {
         console.error(e);
-        errEl.textContent = 'Ошибка входа';
+        errEl.textContent = 'Ошибка сети';
         errEl.style.display = 'block';
       }
     }
 
     async function logoutAdmin() {
-      await supabaseClient.auth.signOut();
+      if (supabaseClient) {
+        try { await supabaseClient.auth.signOut(); } catch (e) {}
+      }
       isAdmin = false;
       document.getElementById('admin-badge').classList.remove('active');
       document.getElementById('login-toggle').classList.remove('hidden');
       document.getElementById('blacklist-section').style.display = 'none';
+      showStatus('Вы вышли');
       render();
     }
 
-    // ===== Данные =====
     async function loadData() {
+      if (!supabaseClient) {
+        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        return;
+      }
       try {
-        // Чистим просроченные топы (только если админ — иначе RLS не пустит)
+        // Очистка просроченных топов (только для админа, RLS защищает)
         if (isAdmin) {
-          await supabaseClient
-            .from('items')
-            .update({ is_top: false, top_until: null })
-            .lt('top_until', new Date().toISOString())
-            .eq('is_top', true);
+          try {
+            await supabaseClient
+              .from('items')
+              .update({ is_top: false, top_until: null })
+              .lt('top_until', new Date().toISOString())
+              .eq('is_top', true);
+          } catch (e) {}
         }
 
         const { data: items, error } = await supabaseClient
@@ -824,7 +901,7 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки. Проверьте консоль.</div>';
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
           document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
           return;
         }
@@ -832,18 +909,21 @@
         allItems = items || [];
 
         const { data: bl } = await supabaseClient.from('blacklist').select('value');
-        blacklist = (bl || []).map(b => b.value);
+        blacklist = (bl || []).map(r => r.value);
 
         render();
       } catch (e) {
-        console.error('loadData fatal:', e);
+        console.error('loadData error:', e);
+        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
       }
     }
 
     async function addItem() {
-      const errEl = document.getElementById('add-error');
-      errEl.style.display = 'none';
-
+      if (!supabaseClient) {
+        alert('База данных недоступна. Обновите страницу.');
+        return;
+      }
       const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
       const isPrivate = document.getElementById('item-private').checked;
       const invite = document.getElementById('item-invite').value.trim();
@@ -851,20 +931,17 @@
       const category = document.getElementById('item-category').value;
 
       if (!username && !isPrivate) {
-        errEl.textContent = 'Укажите username';
-        errEl.style.display = 'block';
+        alert('Укажите username');
         return;
       }
       if (isPrivate && !invite) {
-        errEl.textContent = 'Укажите invite-ссылку';
-        errEl.style.display = 'block';
+        alert('Укажите invite-ссылку');
         return;
       }
 
       const valueToCheck = isPrivate ? invite : username;
       if (blacklist.includes(valueToCheck)) {
-        errEl.textContent = 'Этот ресурс в чёрном списке';
-        errEl.style.display = 'block';
+        alert('Этот канал/чат в чёрном списке');
         return;
       }
 
@@ -881,49 +958,59 @@
         });
 
         if (error) {
+          alert('Ошибка: ' + (error.message || 'не удалось добавить'));
           console.error(error);
-          errEl.textContent = 'Ошибка: ' + (error.message || 'не удалось добавить');
-          errEl.style.display = 'block';
           return;
         }
-
         closeModal();
+        showStatus('Добавлено!');
         await loadData();
       } catch (e) {
         console.error(e);
-        errEl.textContent = 'Ошибка сети';
-        errEl.style.display = 'block';
+        alert('Ошибка сети');
       }
     }
 
     async function removeTop(id) {
-      if (!isAdmin) return;
-      const { error } = await supabaseClient
-        .from('items')
-        .update({ is_top: false, top_until: null })
-        .eq('id', id);
-      if (!error) await loadData();
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: false, top_until: null })
+          .eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Убрано из Топа'); await loadData(); }
+      } catch (e) { console.error(e); }
     }
 
     async function deleteItem(id) {
-      if (!isAdmin) return;
+      if (!supabaseClient || !isAdmin) return;
       if (!confirm('Удалить запись?')) return;
-      const { error } = await supabaseClient.from('items').delete().eq('id', id);
-      if (!error) await loadData();
+      try {
+        const { error } = await supabaseClient.from('items').delete().eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Удалено'); await loadData(); }
+      } catch (e) { console.error(e); }
     }
 
     async function addToBlacklist(id, value) {
-      if (!isAdmin) return;
+      if (!supabaseClient || !isAdmin) return;
       if (!confirm('Добавить в чёрный список и удалить?')) return;
-      await supabaseClient.from('blacklist').insert({ value });
-      await supabaseClient.from('items').delete().eq('id', id);
-      await loadData();
+      try {
+        await supabaseClient.from('blacklist').insert({ value });
+        await supabaseClient.from('items').delete().eq('id', id);
+        showStatus('В чёрный список');
+        await loadData();
+      } catch (e) { console.error(e); alert('Ошибка'); }
     }
 
     async function removeFromBlacklist(value) {
-      if (!isAdmin) return;
-      await supabaseClient.from('blacklist').delete().eq('value', value);
-      await loadData();
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        await supabaseClient.from('blacklist').delete().eq('value', value);
+        showStatus('Убрано из ЧС');
+        await loadData();
+      } catch (e) { console.error(e); }
     }
 
     function openAdminTopModal(id) {
@@ -934,73 +1021,80 @@
       document.getElementById('admin-top-modal').classList.remove('active');
       pendingTopId = null;
     }
+
     async function confirmAdminTop() {
-      if (!isAdmin || !pendingTopId) return;
+      if (!supabaseClient || !isAdmin || !pendingTopId) return;
       const days = parseInt(document.getElementById('admin-top-days').value) || 7;
       const until = new Date();
       until.setDate(until.getDate() + days);
-      const { error } = await supabaseClient
-        .from('items')
-        .update({ is_top: true, top_until: until.toISOString() })
-        .eq('id', pendingTopId);
-      if (!error) {
-        closeAdminTopModal();
-        await loadData();
-      }
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: true, top_until: until.toISOString() })
+          .eq('id', pendingTopId);
+        if (error) alert(error.message);
+        else {
+          closeAdminTopModal();
+          showStatus('Добавлено в Топ');
+          await loadData();
+        }
+      } catch (e) { console.error(e); }
     }
 
-    // ===== UI helpers =====
-    function getAvatar(item, size = 54) {
-      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8a6d2b','#a35d5d','#5d7a9a'];
-      const name = item.username || item.invite_link || '?';
-      const letter = name.replace(/[^a-zA-Zа-яА-Я0-9]/g,'').charAt(0).toUpperCase() || '?';
-      const color = colors[letter.charCodeAt(0) % colors.length];
-      return `<div class="card-avatar" style="background:${color};width:${size}px;height:${size}px;font-size:${size*0.4}px;">${letter}</div>`;
+    function getAvatar(item, size) {
+      size = size || 54;
+      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
+      const name = (item.username || item.invite_link || '?').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
+      const letter = (name[0] || '?').toUpperCase();
+      const color = colors[name.length % colors.length];
+      return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};font-size:${size*0.4}px;">${letter}</div>`;
     }
 
     function getDaysLeft(topUntil) {
-      if (!topUntil) return '';
+      if (!topUntil) return 0;
       const diff = new Date(topUntil) - new Date();
-      if (diff <= 0) return '';
-      const days = Math.ceil(diff / 86400000);
-      return `<span class="days-left">${days} дн.</span>`;
+      return Math.max(0, Math.ceil(diff / 86400000));
     }
 
     function setFilter(f) {
       currentFilter = f;
-      document.querySelectorAll('.filter-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.filter === f);
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
       });
       applyFilters();
     }
 
     function applyFilters() {
-      const q = (document.getElementById('search-input').value || '').toLowerCase().trim();
-      let filtered = allItems.filter(item => {
+      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+      const filtered = allItems.filter(item => {
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
-        if (!q) return true;
-        const name = (item.username || item.invite_link || '').toLowerCase();
-        const desc = (item.description || '').toLowerCase();
-        const cat = (item.category || '').toLowerCase();
-        return name.includes(q) || desc.includes(q) || cat.includes(q);
+        if (q) {
+          const text = ((item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+          if (!text.includes(q)) return false;
+        }
+        return true;
       });
 
-      // Топ (активные)
+      // Топ (только актуальные)
       const now = new Date();
-      const topItems = filtered.filter(i => i.is_top && i.top_until && new Date(i.top_until) > now);
-      const normalItems = filtered.filter(i => !(i.is_top && i.top_until && new Date(i.top_until) > now));
+      const topItems = allItems.filter(item => {
+        if (!item.is_top) return false;
+        if (item.top_until && new Date(item.top_until) < now) return false;
+        return true;
+      });
 
       document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
-      document.getElementById('items-count').textContent = `(${normalItems.length})`;
+      document.getElementById('items-count').textContent = filtered.length ? `(${filtered.length})` : '';
 
       // Рендер топа
       const topEl = document.getElementById('top-list');
-      if (topItems.length === 0) {
-        topEl.innerHTML = '<div class="loading" style="grid-column:1/-1;">Пока пусто</div>';
+      if (!topItems.length) {
+        topEl.innerHTML = '<div class="loading">Пока пусто</div>';
       } else {
         topEl.innerHTML = topItems.map(item => {
-          const link = item.is_private ? item.invite_link : `https://t.me/${item.username}`;
-          const name = item.is_private ? (item.invite_link || 'Приватный') : '@' + item.username;
+          const days = getDaysLeft(item.top_until);
+          const link = item.is_private ? item.invite_link : ('https://t.me/' + item.username);
+          const name = item.is_private ? (item.invite_link || 'Приват') : ('@' + item.username);
           return `
             <div class="card top-card">
               ${getAvatar(item)}
@@ -1008,9 +1102,10 @@
                 <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}</div>
                 <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
                 ${item.description ? `<div class="desc">${item.description}</div>` : ''}
-                <div class="meta">${getDaysLeft(item.top_until)}</div>
-                ${isAdmin ? `
-                  <div class="actions">
+                <div class="meta">
+                  <span>Топ: ${days} дн.</span>
+                </div>
+                ${isAdmin ? `<div class="actions">
                     <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">В чёрный список</button>
                     <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
@@ -1020,21 +1115,21 @@
         }).join('');
       }
 
-      // Рендер обычных
+      // Рендер списка
       const listEl = document.getElementById('items-list');
-      if (normalItems.length === 0) {
+      if (!filtered.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
-        listEl.innerHTML = normalItems.map(item => {
-          const link = item.is_private ? item.invite_link : `https://t.me/${item.username}`;
-          const name = item.is_private ? (item.invite_link || 'Приватный') : '@' + item.username;
+        listEl.innerHTML = filtered.map(item => {
+          const link = item.is_private ? item.invite_link : ('https://t.me/' + item.username);
+          const name = item.is_private ? (item.invite_link || 'Приват') : ('@' + item.username);
+          const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
           return `
-            <div class="card">
-              ${getAvatar(item, 48)}
-              <div class="card-content">
-                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}</div>
-                <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                ${item.description ? `<div class="desc">${item.description}</div>` : ''}
+            <div class="item-row">
+              ${getAvatar(item, 42)}
+              <div class="info">
+                <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
+                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${isTopActive ? ' · Топ' : ''}</div>
                 <div class="actions">
                   <button class="btn-top" onclick="openTopModal()">Топ</button>
                   ${isAdmin ? `
@@ -1048,9 +1143,9 @@
       }
 
       // Чёрный список
+      const blEl = document.getElementById('blacklist-list');
       if (isAdmin) {
-        const blEl = document.getElementById('blacklist-list');
-        if (blacklist.length === 0) {
+        if (!blacklist.length) {
           blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
         } else {
           blEl.innerHTML = blacklist.map(value => `
@@ -1076,7 +1171,6 @@
       document.getElementById('item-desc').value = '';
       document.getElementById('item-category').value = 'Разное';
       document.getElementById('invite-field').style.display = 'none';
-      document.getElementById('add-error').style.display = 'none';
       document.getElementById('add-modal').classList.add('active');
     }
 
@@ -1097,7 +1191,7 @@
       document.getElementById('top-modal').classList.remove('active');
     }
     function updatePrice() {
-      const days = parseInt(document.getElementById('days-select').value);
+      const days = parseInt(document.getElementById('days-select').value) || 1;
       document.getElementById('total-price').textContent = (days * 20) + ' ₽';
     }
 
@@ -1117,8 +1211,24 @@
       });
     });
 
-    // Старт
+    // Старт — с повторной попыткой инициализации Supabase
     (async () => {
+      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
+      if (!supabaseClient && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {}
+      }
+      // Ещё одна попытка через 1.5 сек (на медленных сетях)
+      if (!supabaseClient) {
+        await new Promise(r => setTimeout(r, 1500));
+        if (window.supabase && window.supabase.createClient) {
+          try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          } catch (e) {}
+        }
+      }
+
       await checkSession();
       await loadData();
       setInterval(loadData, 5 * 60 * 1000);
