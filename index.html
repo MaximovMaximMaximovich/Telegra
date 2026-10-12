@@ -703,4 +703,774 @@
         <option value="Игры и приложения">Игры и приложения</option>
         <option value="Инвестиции и финансы">Инвестиции и финансы</option>
         <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</op
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
+        <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+        <button class="btn-add" onclick="addItem()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка оплаты Топ -->
+  <div class="modal-overlay" id="top-modal">
+    <div class="modal">
+      <h3>Размещение в Топ</h3>
+
+      <!-- Шаг 1: выбор дней -->
+      <div id="top-step-1">
+        <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>50 ₽</strong> за 1 день.</p>
+        <label>Количество дней</label>
+        <select id="days-select" onchange="updatePrice()">
+          <option value="1">1 день</option>
+          <option value="3">3 дня</option>
+          <option value="7" selected>7 дней</option>
+          <option value="14">14 дней</option>
+          <option value="30">30 дней</option>
+        </select>
+        <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">350 ₽</strong></p>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeTopModal()">Отмена</button>
+          <button class="btn-add" onclick="confirmTopDays()">ОК</button>
+        </div>
+      </div>
+
+      <!-- Шаг 2: ссылка на бота -->
+      <div id="top-step-2" style="display:none;">
+        <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
+          Для оплаты напишите боту сумму и username записи.
+        </p>
+        <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
+          Итого: <strong id="top-final-price">350 ₽</strong>
+        </p>
+        <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
+           style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
+          Открыть @TG_Administrator_Vip_bot
+        </a>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: сменить бота для оплаты (только админ) -->
+  <div class="modal-overlay" id="bot-settings-modal">
+    <div class="modal">
+      <h3>Ссылка для оплаты</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Username бота или канала, куда писать об оплате Топа (без @).</p>
+      <label>Username бота</label>
+      <input type="text" id="payment-bot-input" placeholder="например MyPayBot">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBotSettings()">Отмена</button>
+        <button class="btn-add" onclick="savePaymentBot()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка админа: добавить в Топ -->
+  <div class="modal-overlay" id="admin-top-modal">
+    <div class="modal">
+      <h3>Добавить в Топ (админ)</h3>
+      <label>Дней</label>
+      <input type="number" id="admin-top-days" value="7" min="1" max="365">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
+        <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Юридические тексты -->
+  <div class="modal-overlay" id="legal-modal">
+    <div class="modal">
+      <h3 id="legal-title"></h3>
+      <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar"></div>
+
+  <script>
+    // ======================
+    // SUPABASE
+    // ======================
+    const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
+
+    // Безопасная инициализация — если библиотека не загрузилась, сайт всё равно работает
+    let supabaseClient = null;
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } else {
+        console.warn('Supabase library not loaded yet');
+      }
+    } catch (e) {
+      console.error('Supabase init error:', e);
+    }
+
+    let isAdmin = false;
+    let currentType = null;
+    let pendingTopId = null;
+    let allItems = [];
+    let blacklist = [];
+    let currentFilter = 'all';
+    let loginPopupOpen = false;
+    let paymentBot = 'TG_Administrator_Vip_bot'; // username без @, можно менять админом
+
+    function normalizeBotUsername(v) {
+      return String(v || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+        .split('/')[0]
+        .split('?')[0];
+    }
+
+    function applyPaymentBotUI() {
+      const bot = normalizeBotUsername(paymentBot) || 'TG_Administrator_Vip_bot';
+      paymentBot = bot;
+      const link = document.getElementById('payment-bot-link');
+      if (link) {
+        link.href = 'https://t.me/' + bot;
+        link.textContent = 'Открыть @' + bot;
+      }
+      const about = document.getElementById('about-contact');
+      if (about) {
+        about.href = 'https://t.me/' + bot;
+        about.textContent = '@' + bot;
+      }
+    }
+
+    async function loadPaymentBot() {
+      if (!supabaseClient) {
+        applyPaymentBotUI();
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient
+          .from('settings')
+          .select('value')
+          .eq('key', 'payment_bot')
+          .maybeSingle();
+        if (!error && data && data.value) {
+          paymentBot = normalizeBotUsername(data.value);
+        }
+      } catch (e) {
+        console.warn('loadPaymentBot:', e);
+      }
+      applyPaymentBotUI();
+    }
+
+    function openBotSettings() {
+      if (!isAdmin) return;
+      document.getElementById('payment-bot-input').value = paymentBot;
+      document.getElementById('bot-settings-modal').classList.add('active');
+    }
+    function closeBotSettings() {
+      document.getElementById('bot-settings-modal').classList.remove('active');
+    }
+
+    async function savePaymentBot() {
+      if (!isAdmin || !supabaseClient) return;
+      const bot = normalizeBotUsername(document.getElementById('payment-bot-input').value);
+      if (!bot) {
+        alert('Укажите username бота');
+        return;
+      }
+      try {
+        const { error } = await supabaseClient
+          .from('settings')
+          .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
+        if (error) {
+          alert('Ошибка сохранения. Выполни SQL для таблицы settings (см. инструкцию).\n' + (error.message || ''));
+          return;
+        }
+        paymentBot = bot;
+        applyPaymentBotUI();
+        closeBotSettings();
+        showStatus('Бот для оплаты: @' + bot);
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+      }
+    }
+
+    const legalTexts = {
+      agreement: {
+        title: 'Пользовательское соглашение',
+        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: @TG_Administrator_Vip_bot</p>`
+      },
+      privacy: {
+        title: 'Политика конфиденциальности',
+        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных у @TG_Administrator_Vip_bot</p>`
+      },
+      offer: {
+        title: 'Публичная оферта',
+        content: `<p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 50 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p>`
+      }
+    };
+
+    function showStatus(msg, ms) {
+      const el = document.getElementById('status-bar');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
+    }
+
+    // ===== Login popup =====
+    function toggleLoginPopup() {
+      loginPopupOpen = !loginPopupOpen;
+      const popup = document.getElementById('login-popup');
+      const toggle = document.getElementById('login-toggle');
+      const err = document.getElementById('login-error');
+      if (loginPopupOpen) {
+        popup.classList.add('active');
+        toggle.classList.add('hidden');
+        if (err) err.style.display = 'none';
+      } else {
+        popup.classList.remove('active');
+        toggle.classList.remove('hidden');
+      }
+    }
+
+    async function checkSession() {
+      if (!supabaseClient) return;
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+          const { data } = await supabaseClient
+            .from('admins')
+            .select('user_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (data) {
+            isAdmin = true;
+            document.getElementById('admin-badge').classList.add('active');
+            document.getElementById('login-toggle').classList.add('hidden');
+            document.getElementById('blacklist-section').style.display = 'block';
+          }
+        }
+      } catch (e) {
+        console.error('checkSession error:', e);
+      }
+    }
+
+    async function loginAdmin() {
+      const email = document.getElementById('admin-email').value.trim();
+      const password = document.getElementById('admin-pass').value;
+      const errEl = document.getElementById('login-error');
+      if (!email || !password) {
+        errEl.textContent = 'Введите email и пароль';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!supabaseClient) {
+        errEl.textContent = 'База данных недоступна. Обновите страницу.';
+        errEl.style.display = 'block';
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          errEl.textContent = error.message || 'Ошибка входа';
+          errEl.style.display = 'block';
+          return;
+        }
+        const { data: adminData } = await supabaseClient
+          .from('admins')
+          .select('user_id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        if (!adminData) {
+          await supabaseClient.auth.signOut();
+          errEl.textContent = 'Нет прав администратора';
+          errEl.style.display = 'block';
+          return;
+        }
+        isAdmin = true;
+        document.getElementById('admin-badge').classList.add('active');
+        document.getElementById('login-toggle').classList.add('hidden');
+        document.getElementById('login-popup').classList.remove('active');
+        document.getElementById('blacklist-section').style.display = 'block';
+        loginPopupOpen = false;
+        showStatus('Вы вошли как админ');
+        render();
+      } catch (e) {
+        console.error(e);
+        errEl.textContent = 'Ошибка сети';
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function logoutAdmin() {
+      if (supabaseClient) {
+        try { await supabaseClient.auth.signOut(); } catch (e) {}
+      }
+      isAdmin = false;
+      document.getElementById('admin-badge').classList.remove('active');
+      document.getElementById('login-toggle').classList.remove('hidden');
+      document.getElementById('blacklist-section').style.display = 'none';
+      showStatus('Вы вышли');
+      render();
+    }
+
+    async function loadData() {
+      if (!supabaseClient) {
+        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        return;
+      }
+      try {
+        // Очистка просроченных топов (только для админа, RLS защищает)
+        if (isAdmin) {
+          try {
+            await supabaseClient
+              .from('items')
+              .update({ is_top: false, top_until: null })
+              .lt('top_until', new Date().toISOString())
+              .eq('is_top', true);
+          } catch (e) {}
+        }
+
+        const { data: items, error } = await supabaseClient
+          .from('items')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('loadData items error:', error);
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
+          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
+          return;
+        }
+
+        allItems = items || [];
+
+        const { data: bl } = await supabaseClient.from('blacklist').select('value');
+        blacklist = (bl || []).map(r => r.value);
+
+        render();
+      } catch (e) {
+        console.error('loadData error:', e);
+        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+      }
+    }
+
+    async function addItem() {
+      if (!supabaseClient) {
+        alert('База данных недоступна. Обновите страницу.');
+        return;
+      }
+      const customName = document.getElementById('item-displayname').value.trim();
+      const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
+      const isPrivate = document.getElementById('item-private').checked;
+      const invite = document.getElementById('item-invite').value.trim();
+      const avatarUrl = (document.getElementById('item-avatar')?.value || '').trim();
+      const desc = document.getElementById('item-desc').value.trim();
+      let category = document.getElementById('item-category').value;
+      if (!category) category = 'Разное';
+
+      if (!username && !isPrivate) {
+        alert('Укажите username');
+        return;
+      }
+      if (isPrivate && !invite) {
+        alert('Укажите invite-ссылку');
+        return;
+      }
+      if (isPrivate && !customName) {
+        alert('Укажите название приватного чата');
+        return;
+      }
+
+      const valueToCheck = isPrivate ? invite : username;
+      if (blacklist.includes(valueToCheck)) {
+        alert('Этот канал/чат в чёрном списке');
+        return;
+      }
+
+      // display_name: своё название, иначе @username
+      const displayName = customName
+        || (isPrivate ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite) : ('@' + username));
+
+      const row = {
+        type: currentType,
+        username: isPrivate ? null : username,
+        invite_link: isPrivate ? invite : null,
+        is_private: isPrivate,
+        display_name: displayName,
+        description: desc || null,
+        category: category,
+        is_top: false,
+        top_until: null
+      };
+      if (avatarUrl) row.avatar_url = avatarUrl;
+
+      try {
+        let { error } = await supabaseClient.from('items').insert(row);
+        // если колонки avatar_url ещё нет — сохраняем без неё
+        if (error && avatarUrl && /avatar_url/i.test(error.message || '')) {
+          delete row.avatar_url;
+          ({ error } = await supabaseClient.from('items').insert(row));
+        }
+
+        if (error) {
+          alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+          console.error(error);
+          return;
+        }
+        closeModal();
+        showStatus('Добавлено!');
+        await loadData();
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+      }
+    }
+
+    async function removeTop(id) {
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: false, top_until: null })
+          .eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Убрано из Топа'); await loadData(); }
+      } catch (e) { console.error(e); }
+    }
+
+    async function deleteItem(id) {
+      if (!supabaseClient || !isAdmin) return;
+      if (!confirm('Удалить запись?')) return;
+      try {
+        const { error } = await supabaseClient.from('items').delete().eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Удалено'); await loadData(); }
+      } catch (e) { console.error(e); }
+    }
+
+    async function addToBlacklist(id, value) {
+      if (!supabaseClient || !isAdmin) return;
+      if (!confirm('Добавить в чёрный список и удалить?')) return;
+      try {
+        await supabaseClient.from('blacklist').insert({ value });
+        await supabaseClient.from('items').delete().eq('id', id);
+        showStatus('В чёрный список');
+        await loadData();
+      } catch (e) { console.error(e); alert('Ошибка'); }
+    }
+
+    async function removeFromBlacklist(value) {
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        await supabaseClient.from('blacklist').delete().eq('value', value);
+        showStatus('Убрано из ЧС');
+        await loadData();
+      } catch (e) { console.error(e); }
+    }
+
+    function openAdminTopModal(id) {
+      pendingTopId = id;
+      document.getElementById('admin-top-modal').classList.add('active');
+    }
+    function closeAdminTopModal() {
+      document.getElementById('admin-top-modal').classList.remove('active');
+      pendingTopId = null;
+    }
+
+    async function confirmAdminTop() {
+      if (!supabaseClient || !isAdmin || !pendingTopId) return;
+      const days = parseInt(document.getElementById('admin-top-days').value) || 7;
+      const until = new Date();
+      until.setDate(until.getDate() + days);
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: true, top_until: until.toISOString() })
+          .eq('id', pendingTopId);
+        if (error) alert(error.message);
+        else {
+          closeAdminTopModal();
+          showStatus('Добавлено в Топ');
+          await loadData();
+        }
+      } catch (e) { console.error(e); }
+    }
+
+    function getAvatar(item, size) {
+      size = size || 54;
+      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
+      const raw = (item.display_name || item.username || item.invite_link || '?').toString();
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
+      const letter = (name[0] || '?').toUpperCase();
+      const color = item.is_private ? '#5c6bc0' : colors[name.length % colors.length];
+      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
+
+      // Своя ссылка на аватар (для приватных)
+      if (item.avatar_url) {
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
+          ${letterHtml}
+          <img src="${item.avatar_url.replace(/"/g, '')}" alt="" loading="lazy"
+            onload="this.style.opacity=1" onerror="this.style.display='none'"
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+        </div>`;
+      }
+
+      // Публичный username / бот — аватарка через unavatar
+      let uname = item.username ? String(item.username) : '';
+      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
+      if (uname && !item.is_private && !uname.startsWith('+')) {
+        const imgUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
+          ${letterHtml}
+          <img src="${imgUrl}" alt="" loading="lazy"
+            onload="this.style.opacity=1" onerror="this.style.display='none'"
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+        </div>`;
+      }
+
+      // Приватные без ссылки на фото — буква + замочек
+      if (item.is_private) {
+        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
+          ${letter}
+          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+        </div>`;
+      }
+
+      return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
+    }
+
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const diff = new Date(topUntil) - new Date();
+      return Math.max(0, Math.ceil(diff / 86400000));
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
+      });
+      applyFilters();
+    }
+
+    function applyFilters() {
+      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+      const filtered = allItems.filter(item => {
+        if (currentFilter !== 'all' && item.type !== currentFilter) return false;
+        if (q) {
+          const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+          if (!text.includes(q)) return false;
+        }
+        return true;
+      });
+
+      // Топ (только актуальные)
+      const now = new Date();
+      const topItems = allItems.filter(item => {
+        if (!item.is_top) return false;
+        if (item.top_until && new Date(item.top_until) < now) return false;
+        return true;
+      });
+
+      document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
+      document.getElementById('items-count').textContent = filtered.length ? `(${filtered.length})` : '';
+
+      // Рендер топа
+      const topEl = document.getElementById('top-list');
+      if (!topItems.length) {
+        topEl.innerHTML = '<div class="loading">Пока пусто</div>';
+      } else {
+        topEl.innerHTML = topItems.map(item => {
+          const days = getDaysLeft(item.top_until);
+          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          return `
+            <div class="card top-card">
+              ${getAvatar(item)}
+              <div class="card-content">
+                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
+                ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
+                <div class="meta">
+                  <span>Топ: ${days} дн.</span>
+                </div>
+                ${isAdmin ? `<div class="actions">
+                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">В чёрный список</button>
+                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
+                  </div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // Рендер списка
+      const listEl = document.getElementById('items-list');
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
+      } else {
+        listEl.innerHTML = filtered.map(item => {
+          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
+          return `
+            <div class="item-row">
+              ${getAvatar(item, 42)}
+              <div class="info">
+                <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
+                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
+                <div class="actions">
+                  <button class="btn-top" onclick="openTopModal()">Топ</button>
+                  ${isAdmin ? `
+                    <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">В Топ</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">ЧС</button>
+                    <button class="btn-delete" onclick="deleteItem('${item.id}')">×</button>` : ''}
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+
+      // Чёрный список
+      const blEl = document.getElementById('blacklist-list');
+      if (isAdmin) {
+        if (!blacklist.length) {
+          blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
+        } else {
+          blEl.innerHTML = blacklist.map(value => `
+            <div class="blacklist-item">
+              <span>${value}</span>
+              <button onclick="removeFromBlacklist('${value.replace(/'/g,"\\'")}')">Убрать</button>
+            </div>`).join('');
+        }
+      }
+    }
+
+    function render() {
+      applyFilters();
+    }
+
+    function openModal(type) {
+      currentType = type;
+      const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
+      document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+      document.getElementById('item-displayname').value = '';
+      document.getElementById('item-username').value = '';
+      document.getElementById('item-private').checked = false;
+      document.getElementById('item-invite').value = '';
+      const av = document.getElementById('item-avatar');
+      if (av) av.value = '';
+      document.getElementById('item-desc').value = '';
+      document.getElementById('item-category').value = '';
+      document.getElementById('invite-field').style.display = 'none';
+      document.getElementById('add-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('add-modal').classList.remove('active');
+    }
+
+    function togglePrivate() {
+      const checked = document.getElementById('item-private').checked;
+      document.getElementById('invite-field').style.display = checked ? 'block' : 'none';
+    }
+
+    function openTopModal() {
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
+      document.getElementById('top-modal').classList.add('active');
+      updatePrice();
+    }
+    function closeTopModal() {
+      document.getElementById('top-modal').classList.remove('active');
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
+    }
+    function updatePrice() {
+      const days = parseInt(document.getElementById('days-select').value) || 1;
+      const sum = (days * 50) + ' ₽';
+      document.getElementById('total-price').textContent = sum;
+      const finalEl = document.getElementById('top-final-price');
+      if (finalEl) finalEl.textContent = sum;
+    }
+    function confirmTopDays() {
+      updatePrice();
+      applyPaymentBotUI();
+      document.getElementById('top-step-1').style.display = 'none';
+      document.getElementById('top-step-2').style.display = 'block';
+    }
+
+    function openLegal(type) {
+      document.getElementById('legal-title').textContent = legalTexts[type].title;
+      document.getElementById('legal-content').innerHTML = legalTexts[type].content;
+      document.getElementById('legal-modal').classList.add('active');
+    }
+    function closeLegal() {
+      document.getElementById('legal-modal').classList.remove('active');
+    }
+
+    // Закрытие модалок по клику на фон
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
+      });
+    });
+
+    // Старт — с повторной попыткой инициализации Supabase
+    (async () => {
+      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
+      if (!supabaseClient && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {}
+      }
+      // Ещё одна попытка через 1.5 сек (на медленных сетях)
+      if (!supabaseClient) {
+        await new Promise(r => setTimeout(r, 1500));
+        if (window.supabase && window.supabase.createClient) {
+          try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+          } catch (e) {}
+        }
+      }
+
+      await checkSession();
+      await loadPaymentBot();
+      await loadData();
+      setInterval(loadData, 5 * 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
