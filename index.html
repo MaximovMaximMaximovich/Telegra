@@ -402,6 +402,16 @@
       color: var(--muted);
       margin-top: 2px;
     }
+    .item-row .item-desc {
+      font-size: 0.82rem;
+      color: #444;
+      margin-top: 4px;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
     .item-row .actions {
       display: flex;
       gap: 4px;
@@ -649,6 +659,8 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
+      <label>Название (как будет в каталоге)</label>
+      <input type="text" id="item-displayname" placeholder="Например: Вписки Москва">
       <label>Username (без @)</label>
       <input type="text" id="item-username" placeholder="например channelname">
       <div class="checkbox-row">
@@ -950,6 +962,7 @@
         alert('База данных недоступна. Обновите страницу.');
         return;
       }
+      const customName = document.getElementById('item-displayname').value.trim();
       const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
       const isPrivate = document.getElementById('item-private').checked;
       const invite = document.getElementById('item-invite').value.trim();
@@ -965,6 +978,10 @@
         alert('Укажите invite-ссылку');
         return;
       }
+      if (isPrivate && !customName) {
+        alert('Укажите название приватного чата');
+        return;
+      }
 
       const valueToCheck = isPrivate ? invite : username;
       if (blacklist.includes(valueToCheck)) {
@@ -972,10 +989,9 @@
         return;
       }
 
-      // display_name обязателен в таблице
-      const displayName = isPrivate
-        ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite)
-        : ('@' + username);
+      // display_name: своё название, иначе @username
+      const displayName = customName
+        || (isPrivate ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite) : ('@' + username));
 
       try {
         const { error } = await supabaseClient.from('items').insert({
@@ -1149,7 +1165,7 @@
               <div class="card-content">
                 <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}</div>
                 <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                ${item.description ? `<div class="desc">${item.description}</div>` : ''}
+                ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
                 <div class="meta">
                   <span>Топ: ${days} дн.</span>
                 </div>
@@ -1178,6 +1194,7 @@
               <div class="info">
                 <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
                 <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
                 <div class="actions">
                   <button class="btn-top" onclick="openTopModal()">Топ</button>
                   ${isAdmin ? `
@@ -1213,6 +1230,7 @@
       currentType = type;
       const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+      document.getElementById('item-displayname').value = '';
       document.getElementById('item-username').value = '';
       document.getElementById('item-private').checked = false;
       document.getElementById('item-invite').value = '';
