@@ -1185,14 +1185,49 @@
       });
     }
 
-    // Название/описание публичного username из Telegram (og:title)
+    // Проверка дубля прямо в базе (надёжнее при массовом импорте)
+    async function existsInDb(username, invite) {
+      if (!supabaseClient) return false;
+      try {
+        if (username) {
+          const u = normalizeUsername(username);
+          const { data } = await supabaseClient
+            .from('items')
+            .select('id, username')
+            .ilike('username', u)
+            .limit(5);
+          if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
+        }
+        if (invite) {
+          const inv = normalizeInvite(invite);
+          const { data } = await supabaseClient
+            .from('items')
+            .select('id, invite_link')
+            .eq('invite_link', invite)
+            .limit(3);
+          if ((data || []).length) return true;
+          // на всякий случай сравнение в нормализованном виде
+          const { data: allInv } = await supabaseClient
+            .from('items')
+            .select('id, invite_link')
+            .not('invite_link', 'is', null)
+            .limit(500);
+          if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+        }
+      } catch (e) {
+        console.warn('existsInDb', e);
+      }
+      return false;
+    }
+
+    // Название / описание / аватар из Telegram (og:*)
     async function fetchTgMeta(username) {
       const uname = normalizeUsername(username);
-      if (!uname) return { title: null, description: null };
+      if (!uname) return { title: null, description: null, avatar: null };
       try {
         const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://t.me/' + uname);
         const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 8000);
+        const t = setTimeout(() => ctrl.abort(), 10000);
         const res = await fetch(url, { signal: ctrl.signal });
         clearTimeout(t);
         const html = await res.text();
@@ -1200,23 +1235,49 @@
           || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
         const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
           || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
+        const imgM = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
+          || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
         let title = titleM ? titleM[1].trim() : null;
         if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+        let avatar = imgM ? imgM[1].trim() : null;
+        // игнорируем дефолтную заглушку telegram
+        if (avatar && /telegram\.org|t_logo|favicon/i.test(avatar)) avatar = null;
         return {
           title: title || ('@' + uname),
-          description: descM ? descM[1].trim() : null
+          description: descM ? descM[1].trim() : null,
+          avatar: avatar || null
         };
       } catch (e) {
-        return { title: '@' + uname, description: null };
+        return { title: '@' + uname, description: null, avatar: null };
       }
     }
 
     async function insertItemRow(row) {
+      // финальная защита от дубля username
+      if (row.username) {
+        if (isDuplicate(row.username, null) || await existsInDb(row.username, null)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
+      }
+      if (row.invite_link) {
+        if (isDuplicate(null, row.invite_link) || await existsInDb(null, row.invite_link)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
+      }
+
       let { error } = await supabaseClient.from('items').insert(row);
       if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
         const copy = { ...row };
         delete copy.avatar_url;
+        // не вставляем второй раз, если первая вставка могла пройти частично — проверяем дубль
+        if (row.username && await existsInDb(row.username, null)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
         ({ error } = await supabaseClient.from('items').insert(copy));
+      }
+      // уникальный конфликт postgres
+      if (error && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
+        return { message: 'duplicate', code: 'DUPLICATE' };
       }
       return error;
     }
@@ -1261,10 +1322,12 @@
           is_top: false,
           top_until: null
         };
+        if (meta.avatar) row.avatar_url = meta.avatar;
         try {
           const error = await insertItemRow(row);
           if (error) {
-            alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+            if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
+            else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
             return;
           }
           closeModal();
@@ -1351,8 +1414,16 @@
       document.getElementById('bulk-modal').classList.remove('active');
     }
 
+    let bulkRunning = false;
+
     async function runBulkImport() {
       if (!isAdmin || !supabaseClient) return;
+      if (bulkRunning) {
+        alert('Импорт уже идёт, подождите…');
+        return;
+      }
+      bulkRunning = true;
+
       const type = document.getElementById('bulk-type').value;
       const category = document.getElementById('bulk-category').value || 'Разное';
       const raw = document.getElementById('bulk-list').value || '';
@@ -1361,21 +1432,34 @@
       const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
 
       if (!usernames.length) {
+        bulkRunning = false;
         alert('Вставьте usernames через пробел, например: @ch1 @ch2 @ch3');
         return;
       }
 
+      // актуальные данные из базы перед импортом
+      try { await loadData(); } catch (e) {}
+
+      const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
       let ok = 0, skip = 0, fail = 0;
-      showStatus('Импорт… 0/' + usernames.length, 60000);
+
+      showStatus('Импорт… 0/' + usernames.length, 120000);
       for (let i = 0; i < usernames.length; i++) {
         const u = usernames[i];
-        if (isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
+        if (seen.has(u) || isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
+          skip++;
+          showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' (пропуск)', 120000);
+          continue;
+        }
+        // проверка в БД
+        if (await existsInDb(u, null)) {
+          seen.add(u);
           skip++;
           continue;
         }
         try {
           const meta = await fetchTgMeta(u);
-          const error = await insertItemRow({
+          const row = {
             type,
             username: u,
             invite_link: null,
@@ -1385,17 +1469,28 @@
             category,
             is_top: false,
             top_until: null
-          });
-          if (error) fail++;
-          else {
+          };
+          if (meta.avatar) row.avatar_url = meta.avatar;
+
+          const error = await insertItemRow(row);
+          if (error) {
+            if (error.code === 'DUPLICATE') {
+              skip++;
+              seen.add(u);
+            } else fail++;
+          } else {
             ok++;
-            allItems.push({ username: u, invite_link: null }); // чтобы isDuplicate видел в этом же прогоне
+            seen.add(u);
+            allItems.push({ username: u, invite_link: null, display_name: row.display_name });
           }
         } catch (e) {
           fail++;
         }
-        showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 60000);
+        // небольшая пауза, чтобы не дублировать из‑за гонок и не забить прокси
+        await new Promise(r => setTimeout(r, 350));
+        showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
       }
+      bulkRunning = false;
       closeBulkModal();
       showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
       await loadData();
@@ -1477,34 +1572,36 @@
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
       const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
-      const color = item.is_private ? '#5c6bc0' : colors[name.length % colors.length];
+      const isPriv = !!item.is_private;
+      const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
       const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
-      // Своя ссылка на аватар (для приватных)
-      if (item.avatar_url) {
-        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;">
-          ${letterHtml}
-          <img src="${item.avatar_url.replace(/"/g, '')}" alt="" loading="lazy"
-            onload="this.style.opacity=1" onerror="this.style.display='none'"
-            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
-        </div>`;
+      let uname = item.username ? String(item.username) : '';
+      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
+
+      // 1) сохранённый avatar_url (из Telegram og:image)
+      // 2) unavatar для публичных username
+      const sources = [];
+      if (item.avatar_url) sources.push(String(item.avatar_url).replace(/"/g, ''));
+      if (uname && !isPriv && !uname.startsWith('+')) {
+        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
       }
 
-      // Публичный username / бот — аватарка через unavatar
-      let uname = item.username ? String(item.username) : '';
-      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
-      if (uname && !item.is_private && !uname.startsWith('+')) {
-        const imgUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+      if (sources.length) {
+        const primary = sources[0];
+        const fallback = sources[1] || '';
+        const onerr = fallback
+          ? `this.onerror=function(){this.style.display='none'};this.src='${fallback.replace(/'/g, "\\'")}';`
+          : `this.style.display='none'`;
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
           ${letterHtml}
-          <img src="${imgUrl}" alt="" loading="lazy"
-            onload="this.style.opacity=1" onerror="this.style.display='none'"
+          <img src="${primary}" alt="" loading="lazy" referrerpolicy="no-referrer"
+            onload="this.style.opacity=1" onerror="${onerr}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
       }
 
-      // Приватные без ссылки на фото — буква + замочек
-      if (item.is_private) {
+      if (isPriv) {
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
           ${letter}
           <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
