@@ -36,10 +36,167 @@
       display: grid;
       grid-template-columns: 1fr 340px;
       gap: 32px;
+      width: 100%;
     }
 
+    img, video, iframe { max-width: 100%; height: auto; }
+    button, input, select, textarea { max-width: 100%; font: inherit; }
+    .card, .item-row, .search-box, .about { overflow-wrap: anywhere; word-break: break-word; }
+
+    /* ===== Адаптив: планшет ===== */
     @media (max-width: 1000px) {
-      .page { grid-template-columns: 1fr; }
+      body { padding: 16px; }
+      .page {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      .sidebar { order: -1; }
+      header h1 { font-size: 2.2rem; }
+      .top-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+      .items-list { max-height: none; }
+      .admin-badge { top: 12px; right: 12px; flex-wrap: wrap; max-width: calc(100vw - 24px); }
+    }
+
+    /* ===== Адаптив: телефон ===== */
+    @media (max-width: 640px) {
+      body { padding: 12px; padding-bottom: 32px; }
+      .page { gap: 18px; }
+
+      header { margin-bottom: 18px; }
+      header h1 {
+        font-size: 1.75rem;
+        letter-spacing: -0.02em;
+      }
+      header .subtitle { font-size: 0.9rem; }
+
+      .about { padding: 16px; font-size: 0.92rem; }
+      .about ul { margin-left: 18px; }
+
+      .add-buttons { gap: 8px; }
+      .btn {
+        flex: 1 1 calc(50% - 8px);
+        min-width: 140px;
+        padding: 12px 14px;
+        font-size: 0.88rem;
+        text-align: center;
+      }
+
+      .top-section h2,
+      .items-section h2 { font-size: 1.1rem; }
+
+      .top-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+
+      .card {
+        padding: 12px;
+        gap: 10px;
+      }
+      .card-avatar { width: 48px !important; height: 48px !important; }
+      .card .username { font-size: 0.95rem; }
+      .card .desc { font-size: 0.82rem; }
+      .card .actions { gap: 6px; }
+      .card .actions button {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+      }
+
+      .item-row { padding: 10px; gap: 10px; }
+      .item-row .uname { font-size: 0.95rem; }
+      .item-row .meta { font-size: 0.78rem; }
+      .item-row .actions button {
+        padding: 5px 8px;
+        font-size: 0.72rem;
+      }
+
+      .search-box { padding: 12px; }
+      .search-box input {
+        font-size: 16px; /* без зума iOS */
+        padding: 12px;
+      }
+      .filter-btn {
+        padding: 8px 12px;
+        font-size: 0.82rem;
+      }
+      .category-box select {
+        font-size: 16px;
+        padding: 12px;
+      }
+
+      .login-btn-toggle {
+        top: 8px;
+        left: 8px;
+        padding: 6px 10px;
+      }
+      .login-popup {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+        width: auto;
+        max-width: none;
+      }
+      .admin-badge {
+        top: 8px;
+        right: 8px;
+        left: auto;
+        font-size: 0.75rem;
+        gap: 4px;
+      }
+      .admin-badge button {
+        padding: 4px 8px;
+        font-size: 0.72rem;
+      }
+
+      .modal {
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 16px 16px 0 0;
+        max-height: 92vh;
+        overflow-y: auto;
+      }
+      .modal-overlay {
+        align-items: flex-end;
+        padding: 0;
+      }
+      .modal input,
+      .modal textarea,
+      .modal select {
+        font-size: 16px;
+      }
+
+      footer {
+        font-size: 0.8rem;
+        text-align: center;
+        padding: 16px 8px;
+      }
+      footer a { display: inline-block; margin: 4px 8px; }
+    }
+
+    /* ===== Очень узкие экраны ===== */
+    @media (max-width: 380px) {
+      body { padding: 8px; }
+      header h1 { font-size: 1.5rem; }
+      .btn { flex: 1 1 100%; }
+      .filter-btn { flex: 1 1 auto; text-align: center; }
+    }
+
+    /* ===== Широкий десктоп ===== */
+    @media (min-width: 1400px) {
+      .page {
+        max-width: 1400px;
+        grid-template-columns: 1fr 380px;
+        gap: 40px;
+      }
+    }
+
+    /* ===== Удобство касаний ===== */
+    @media (hover: none) and (pointer: coarse) {
+      .btn, .filter-btn, .card .actions button, .item-row .actions button {
+        min-height: 44px;
+      }
+      .btn:hover { transform: none; }
     }
 
     /* ===== Login: очень маленькая кнопка ===== */
