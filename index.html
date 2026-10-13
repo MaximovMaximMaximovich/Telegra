@@ -741,16 +741,18 @@
 
       <!-- Шаг 1: выбор дней -->
       <div id="top-step-1">
-        <p style="margin-bottom:14px;color:var(--muted);font-size:0.95rem;">Стоимость: <strong>50 ₽</strong> за 1 день.</p>
+        <p style="margin-bottom:8px;color:var(--muted);font-size:0.95rem;">До 3 дней — <strong>60 ₽</strong>/день. Скидка с 7 дней. Месяц — <strong>1000 ₽</strong>.</p>
+        <p id="price-hint" style="margin-bottom:12px;font-size:0.82rem;color:var(--muted);"></p>
         <label>Количество дней</label>
         <select id="days-select" onchange="updatePrice()">
-          <option value="1">1 день</option>
-          <option value="3">3 дня</option>
-          <option value="7" selected>7 дней</option>
-          <option value="14">14 дней</option>
-          <option value="30">30 дней</option>
+          <option value="1">1 день — 60 ₽</option>
+          <option value="2">2 дня — 120 ₽</option>
+          <option value="3">3 дня — 180 ₽</option>
+          <option value="7" selected>7 дней — 300 ₽</option>
+          <option value="14">14 дней — 520 ₽</option>
+          <option value="30">30 дней — 1000 ₽</option>
         </select>
-        <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">350 ₽</strong></p>
+        <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">300 ₽</strong></p>
         <div class="modal-actions">
           <button class="btn-cancel" onclick="closeTopModal()">Отмена</button>
           <button class="btn-add" onclick="confirmTopDays()">ОК</button>
@@ -763,7 +765,7 @@
           Для оплаты напишите боту сумму и username записи.
         </p>
         <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
-          Итого: <strong id="top-final-price">350 ₽</strong>
+          Итого: <strong id="top-final-price">300 ₽</strong>
         </p>
         <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
            style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
@@ -1008,7 +1010,7 @@
       },
       offer: {
         title: 'Публичная оферта',
-        content: `<p>Публичная оферта на платные услуги продвижения в Топ. Стоимость: 50 ₽ / день. Оплата — 100% предоплата. Возврат средств не производится.</p>`
+        content: `<p>Публичная оферта на платные услуги продвижения в Топ. До 3 дней — 60 ₽/день без скидки (1 — 60 ₽, 2 — 120 ₽, 3 — 180 ₽). Скидка с 7 дней: 7 — 300 ₽, 14 — 520 ₽, 30 — 1000 ₽. Оплата — 100% предоплата. Возврат средств не производится.</p>`
       }
     };
 
@@ -1125,16 +1127,14 @@
         return;
       }
       try {
-        // Очистка просроченных топов (только для админа, RLS защищает)
-        if (isAdmin) {
-          try {
-            await supabaseClient
-              .from('items')
-              .update({ is_top: false, top_until: null })
-              .lt('top_until', new Date().toISOString())
-              .eq('is_top', true);
-          } catch (e) {}
-        }
+        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
+        try {
+          await supabaseClient
+            .from('items')
+            .update({ is_top: false, top_until: null })
+            .lt('top_until', new Date().toISOString())
+            .eq('is_top', true);
+        } catch (e) {}
 
         const { data: items, error } = await supabaseClient
           .from('items')
@@ -1148,7 +1148,14 @@
           return;
         }
 
-        allItems = items || [];
+        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
+        const nowIso = Date.now();
+        allItems = (items || []).map(it => {
+          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
+            return { ...it, is_top: false, top_until: null };
+          }
+          return it;
+        });
 
         const { data: bl } = await supabaseClient.from('blacklist').select('value');
         blacklist = (bl || []).map(r => r.value);
@@ -1774,12 +1781,33 @@
       document.getElementById('top-step-1').style.display = 'block';
       document.getElementById('top-step-2').style.display = 'none';
     }
+    // До 3 дней — без скидки (60 ₽/день). Скидка с 7+ дней. 30 дней = 1000 ₽
+    function calcTopPrice(days) {
+      const table = { 1: 60, 2: 120, 3: 180, 7: 300, 14: 520, 30: 1000 };
+      if (table[days] != null) return table[days];
+      if (days <= 3) return days * 60;
+      // линейно между 3 дн (180) и 30 дн (1000)
+      return Math.round(180 + 820 * (days - 3) / 27);
+    }
+
     function updatePrice() {
       const days = parseInt(document.getElementById('days-select').value) || 1;
-      const sum = (days * 50) + ' ₽';
+      const total = calcTopPrice(days);
+      const perDay = Math.round(total / days);
+      const full = days * 60;
+      const save = full - total;
+      const sum = total + ' ₽';
       document.getElementById('total-price').textContent = sum;
       const finalEl = document.getElementById('top-final-price');
       if (finalEl) finalEl.textContent = sum;
+      const hint = document.getElementById('price-hint');
+      if (hint) {
+        if (days <= 3) {
+          hint.textContent = 'Без скидки: 60 ₽/день';
+        } else {
+          hint.textContent = '≈ ' + perDay + ' ₽/день (экономия ' + save + ' ₽)';
+        }
+      }
     }
     function confirmTopDays() {
       updatePrice();
@@ -1826,8 +1854,23 @@
       await loadPaymentBot();
       await loadData();
       setInterval(loadData, 5 * 60 * 1000);
-      // ротация списка каждые 5 минут без перезагрузки данных
-      setInterval(() => { applyFilters(); }, 5 * 60 * 1000);
+      // каждую минуту: снять просроченный Топ с экрана + ротация списка
+      setInterval(() => {
+        const now = Date.now();
+        let changed = false;
+        allItems = allItems.map(it => {
+          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
+            changed = true;
+            return { ...it, is_top: false, top_until: null };
+          }
+          return it;
+        });
+        applyFilters();
+        if (changed && isAdmin) {
+          // админ дополнительно сбрасывает в БД
+          loadData();
+        }
+      }, 60 * 1000);
     })();
   </script>
 </body>
