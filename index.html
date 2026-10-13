@@ -676,7 +676,7 @@
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-            <option value="Для взрослых">Для взрослых</option>
+            <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
             <option value="Для женщин">Для женщин</option>
             <option value="Для родителей">Для родителей</option>
@@ -756,7 +756,7 @@
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых">Для взрослых</option>
+        <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
         <option value="Для женщин">Для женщин</option>
         <option value="Для родителей">Для родителей</option>
@@ -884,7 +884,7 @@
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых">Для взрослых</option>
+        <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
         <option value="Для женщин">Для женщин</option>
         <option value="Для родителей">Для родителей</option>
@@ -1715,7 +1715,12 @@
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
         if (currentCategory) {
           const cat = (item.category || 'Разное').trim();
-          if (cat !== currentCategory) return false;
+          // "Для взрослых" и "Для взрослых 18+" — одна категория
+          if (currentCategory === 'Для взрослых 18+') {
+            if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
+          } else if (cat !== currentCategory) {
+            return false;
+          }
         }
         if (q) {
           const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
