@@ -646,6 +646,31 @@
       opacity: 0.85;
       display: none;
     }
+    .add-progress {
+      display: none;
+      margin: 14px 0 8px;
+    }
+    .add-progress.active { display: block; }
+    .progress-track {
+      height: 10px;
+      background: var(--soft);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2c5f4e, #4a9a7c);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .progress-text {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -782,11 +807,13 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <label>Название</label>
+      <label>Название канала</label>
       <input type="text" id="item-name" placeholder="Название канала / чата / бота">
       <label>Ссылка</label>
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite">
-      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Сайт сам определит: открытый или приватный</p>
+      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
+      <label>Описание</label>
+      <textarea id="item-desc" placeholder="Необязательно — если пусто, подтянем из Telegram"></textarea>
       <label>Категория</label>
       <select id="item-category">
         <option value="">Выберите категорию</option>
@@ -827,9 +854,13 @@
         <option value="Юриспруденция">Юриспруденция</option>
       </select>
 
+      <div class="add-progress" id="add-progress">
+        <div class="progress-track"><div class="progress-fill" id="add-progress-fill"></div></div>
+        <div class="progress-text" id="add-progress-text">Загрузка данных из Telegram…</div>
+      </div>
       <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
-        <button class="btn-add" onclick="addItem()">Добавить</button>
+        <button class="btn-cancel" id="add-cancel-btn" onclick="closeModal()">Отмена</button>
+        <button class="btn-add" id="add-submit-btn" onclick="addItem()">Добавить</button>
       </div>
     </div>
   </div>
@@ -1324,10 +1355,11 @@
       return false;
     }
 
-    // Название / описание / аватар из Telegram (og:*) — несколько прокси
-    async function fetchTgMeta(username) {
+    // Название / описание / аватар из Telegram (og:*) — несколько прокси + unavatar
+    async function fetchTgMeta(username, onProgress) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
+      const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
 
       function parseMeta(html) {
         if (!html || html.length < 50) return null;
@@ -1361,27 +1393,42 @@
         };
       }
 
+      setP(15, 'Подключение к Telegram…');
       const proxies = [
         (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
         (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
         (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
       ];
       const target = 'https://t.me/' + uname;
+      let meta = null;
 
-      for (const make of proxies) {
+      for (let i = 0; i < proxies.length; i++) {
+        setP(20 + i * 18, 'Загрузка данных (' + (i + 1) + '/' + proxies.length + ')…');
         try {
           const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 9000);
-          const res = await fetch(make(target), { signal: ctrl.signal });
+          const timer = setTimeout(() => ctrl.abort(), 12000);
+          const res = await fetch(proxies[i](target), { signal: ctrl.signal });
           clearTimeout(timer);
           if (!res.ok) continue;
           const html = await res.text();
-          const meta = parseMeta(html);
-          if (meta) return meta;
+          const parsed = parseMeta(html);
+          if (parsed) {
+            meta = parsed;
+            if (parsed.avatar && parsed.description) break;
+            // если чего-то не хватает — пробуем ещё прокси, но сохраняем лучшее
+          }
         } catch (e) {}
       }
-      // fallback: хотя бы username; аватар подтянется через unavatar на странице
-      return { title: '@' + uname, description: null, avatar: null };
+
+      setP(80, 'Подгрузка аватарки…');
+      if (!meta) meta = { title: '@' + uname, description: null, avatar: null };
+      // всегда сохраняем рабочий URL аватарки (unavatar), если TG не отдал фото
+      if (!meta.avatar) {
+        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+      }
+
+      setP(95, 'Почти готово…');
+      return meta;
     }
 
     async function insertItemRow(row) {
@@ -1440,6 +1487,32 @@
       return { ok: true, isPrivate: false, invite: null, username: u };
     }
 
+    function setAddProgress(pct, text) {
+      const box = document.getElementById('add-progress');
+      const fill = document.getElementById('add-progress-fill');
+      const txt = document.getElementById('add-progress-text');
+      if (!box) return;
+      box.classList.add('active');
+      if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      if (txt && text) txt.textContent = text;
+    }
+    function hideAddProgress() {
+      const box = document.getElementById('add-progress');
+      const fill = document.getElementById('add-progress-fill');
+      if (box) box.classList.remove('active');
+      if (fill) fill.style.width = '0%';
+      const btn = document.getElementById('add-submit-btn');
+      const cancel = document.getElementById('add-cancel-btn');
+      if (btn) btn.disabled = false;
+      if (cancel) cancel.disabled = false;
+    }
+    function lockAddForm(lock) {
+      const btn = document.getElementById('add-submit-btn');
+      const cancel = document.getElementById('add-cancel-btn');
+      if (btn) btn.disabled = !!lock;
+      if (cancel) cancel.disabled = !!lock;
+    }
+
     async function addItem() {
       if (!supabaseClient) {
         alert('База данных недоступна. Обновите страницу.');
@@ -1447,6 +1520,7 @@
       }
       const name = (document.getElementById('item-name')?.value || '').trim();
       const linkRaw = (document.getElementById('item-link')?.value || '').trim();
+      const userDesc = (document.getElementById('item-desc')?.value || '').trim();
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
 
@@ -1465,85 +1539,98 @@
         return;
       }
 
-      if (parsed.isPrivate) {
-        if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
-          alert('Эта ссылка уже есть в каталоге');
-          return;
-        }
-        if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
-          alert('Эта ссылка в чёрном списке');
-          return;
-        }
-        const row = {
-          type: currentType,
-          username: null,
-          invite_link: parsed.invite,
-          is_private: true,
-          display_name: name,
-          description: null,
-          category: category,
-          is_top: false,
-          top_until: null
-        };
-        try {
+      lockAddForm(true);
+      setAddProgress(5, 'Проверка…');
+
+      try {
+        if (parsed.isPrivate) {
+          if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
+            hideAddProgress();
+            alert('Эта ссылка уже есть в каталоге');
+            return;
+          }
+          if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
+            hideAddProgress();
+            alert('Эта ссылка в чёрном списке');
+            return;
+          }
+          setAddProgress(50, 'Сохранение…');
+          const row = {
+            type: currentType,
+            username: null,
+            invite_link: parsed.invite,
+            is_private: true,
+            display_name: name,
+            description: userDesc || null,
+            category: category,
+            is_top: false,
+            top_until: null
+          };
           const error = await insertItemRow(row);
           if (error) {
+            hideAddProgress();
             if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
             else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
             return;
           }
+          setAddProgress(100, 'Готово!');
           closeModal();
+          hideAddProgress();
           showStatus('Добавлено!');
           await loadData();
-        } catch (e) {
-          console.error(e);
-          alert('Ошибка сети');
+          return;
         }
-        return;
-      }
 
-      // public
-      const username = normalizeUsername(parsed.username);
-      if (isDuplicate(username, null) || await existsInDb(username, null)) {
-        alert('Этот канал/чат/бот уже есть в каталоге');
-        return;
-      }
-      if (blacklist.some(b => normalizeUsername(b) === username)) {
-        alert('Этот канал/чат в чёрном списке');
-        return;
-      }
+        // public
+        const username = normalizeUsername(parsed.username);
+        if (isDuplicate(username, null) || await existsInDb(username, null)) {
+          hideAddProgress();
+          alert('Этот канал/чат/бот уже есть в каталоге');
+          return;
+        }
+        if (blacklist.some(b => normalizeUsername(b) === username)) {
+          hideAddProgress();
+          alert('Этот канал/чат в чёрном списке');
+          return;
+        }
 
-      showStatus('Загрузка данных из Telegram…', 10000);
-      const meta = await fetchTgMeta(username);
-      const row = {
-        type: currentType,
-        username: username,
-        invite_link: null,
-        is_private: false,
-        display_name: name || meta.title || ('@' + username),
-        description: meta.description || null,
-        category: category,
-        is_top: false,
-        top_until: null
-      };
-      if (meta.avatar) row.avatar_url = meta.avatar;
-      try {
+        setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
+        const meta = await fetchTgMeta(username, setAddProgress);
+
+        const row = {
+          type: currentType,
+          username: username,
+          invite_link: null,
+          is_private: false,
+          display_name: name || meta.title || ('@' + username),
+          description: userDesc || meta.description || null,
+          category: category,
+          is_top: false,
+          top_until: null,
+          avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username))
+        };
+
+        setAddProgress(92, 'Сохранение в каталог…');
         const error = await insertItemRow(row);
         if (error) {
+          hideAddProgress();
           if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
           else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
           return;
         }
+        setAddProgress(100, 'Готово!');
         closeModal();
+        hideAddProgress();
         showStatus('Добавлено!');
         await loadData();
       } catch (e) {
         console.error(e);
+        hideAddProgress();
         alert('Ошибка сети');
       }
     }
 
-        function closePrivateNameModal() {
+            function closePrivateNameModal() {
       document.getElementById('private-name-modal').classList.remove('active');
       pendingPrivate = null;
     }
@@ -1934,13 +2021,17 @@
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
       const nameEl = document.getElementById('item-name');
       const linkEl = document.getElementById('item-link');
+      const descEl = document.getElementById('item-desc');
       if (nameEl) nameEl.value = '';
       if (linkEl) linkEl.value = '';
+      if (descEl) descEl.value = '';
       document.getElementById('item-category').value = '';
+      hideAddProgress();
       document.getElementById('add-modal').classList.add('active');
     }
 
     function closeModal() {
+      hideAddProgress();
       document.getElementById('add-modal').classList.remove('active');
     }
 
