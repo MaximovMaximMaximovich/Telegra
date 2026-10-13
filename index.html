@@ -656,6 +656,7 @@
           <li>Размещение в Топ</li>
           <li>Удобный поиск и фильтры</li>
         </ul>
+        <p>Если вы нашли свой канал в нашем каталоге и видите, что он не загрузился (без аватарки и информации), вы можете его перезалить. Для этого обратитесь к администратору сайта, чтобы удалить старую запись.</p>
         <p>По вопросам: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
       </div>
     </main>
@@ -724,7 +725,6 @@
     <footer>
       <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
       <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
-      <a onclick="openLegal('offer')">Публичная оферта</a>
       <div style="margin-top:12px;">© Telegra 2026</div>
     </footer>
   </div>
@@ -1070,10 +1070,6 @@
       privacy: {
         title: 'Политика конфиденциальности',
         content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных у @TG_Administrator_Vip_bot</p>`
-      },
-      offer: {
-        title: 'Публичная оферта',
-        content: `<p>Публичная оферта на платные услуги продвижения в Топ. До 3 дней — 60 ₽/день без скидки (1 — 60 ₽, 2 — 120 ₽, 3 — 180 ₽). Скидка с 7 дней: 7 — 300 ₽, 14 — 520 ₽, 30 — 1000 ₽. Оплата — 100% предоплата. Возврат средств не производится.</p>`
       }
     };
 
@@ -1290,36 +1286,64 @@
       return false;
     }
 
-    // Название / описание / аватар из Telegram (og:*)
+    // Название / описание / аватар из Telegram (og:*) — несколько прокси
     async function fetchTgMeta(username) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
-      try {
-        const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://t.me/' + uname);
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 10000);
-        const res = await fetch(url, { signal: ctrl.signal });
-        clearTimeout(t);
-        const html = await res.text();
+
+      function parseMeta(html) {
+        if (!html || html.length < 50) return null;
         const titleM = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i)
-          || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
+          || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i)
+          || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
         const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
           || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
         const imgM = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
           || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
         let title = titleM ? titleM[1].trim() : null;
-        if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+        if (title) {
+          title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+          title = title.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+        }
         let avatar = imgM ? imgM[1].trim() : null;
-        // игнорируем дефолтную заглушку telegram
-        if (avatar && /telegram\.org|t_logo|favicon/i.test(avatar)) avatar = null;
+        if (avatar) {
+          avatar = avatar.replace(/&amp;/g, '&');
+          if (/telegram\.org|t_logo|favicon|img\/Telegram/i.test(avatar)) avatar = null;
+        }
+        let description = descM ? descM[1].trim() : null;
+        if (description) {
+          description = description.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
+          if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
+        }
+        if (!title && !avatar && !description) return null;
         return {
           title: title || ('@' + uname),
-          description: descM ? descM[1].trim() : null,
+          description: description,
           avatar: avatar || null
         };
-      } catch (e) {
-        return { title: '@' + uname, description: null, avatar: null };
       }
+
+      const proxies = [
+        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+        (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+      ];
+      const target = 'https://t.me/' + uname;
+
+      for (const make of proxies) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 9000);
+          const res = await fetch(make(target), { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+          const html = await res.text();
+          const meta = parseMeta(html);
+          if (meta) return meta;
+        } catch (e) {}
+      }
+      // fallback: хотя бы username; аватар подтянется через unavatar на странице
+      return { title: '@' + uname, description: null, avatar: null };
     }
 
     async function insertItemRow(row) {
@@ -1557,7 +1581,7 @@
           fail++;
         }
         // небольшая пауза, чтобы не дублировать из‑за гонок и не забить прокси
-        await new Promise(r => setTimeout(r, 350));
+        await new Promise(r => setTimeout(r, 700));
         showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
       }
       bulkRunning = false;
@@ -1649,24 +1673,26 @@
       let uname = item.username ? String(item.username) : '';
       uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
-      // 1) сохранённый avatar_url (из Telegram og:image)
-      // 2) unavatar для публичных username
+      // 1) avatar_url  2) unavatar  3) ещё один unavatar-фолбэк
       const sources = [];
       if (item.avatar_url) sources.push(String(item.avatar_url).replace(/"/g, ''));
       if (uname && !isPriv && !uname.startsWith('+')) {
         sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
+        sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
       }
 
       if (sources.length) {
-        const primary = sources[0];
-        const fallback = sources[1] || '';
-        const onerr = fallback
-          ? `this.onerror=function(){this.style.display='none'};this.src='${fallback.replace(/'/g, "\\'")}';`
-          : `this.style.display='none'`;
+        const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        // цепочка onerror: следующий источник, в конце скрыть
+        let onerrChain = "this.style.display='none'";
+        for (let i = sources.length - 1; i >= 1; i--) {
+          const src = esc(sources[i]);
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
+        }
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
           ${letterHtml}
-          <img src="${primary}" alt="" loading="lazy" referrerpolicy="no-referrer"
-            onload="this.style.opacity=1" onerror="${onerr}"
+          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
+            onload="this.style.opacity=1" onerror="${onerrChain}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
       }
