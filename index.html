@@ -23,7 +23,12 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
+      background:
+        radial-gradient(ellipse 120% 80% at 10% -10%, rgba(44,95,78,0.12), transparent 50%),
+        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(107,91,140,0.1), transparent 45%),
+        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(201,168,108,0.08), transparent 40%),
+        linear-gradient(165deg, #f3f1ec 0%, #eae7e1 40%, #f7f6f3 100%);
+      background-attachment: fixed;
       color: var(--text);
       min-height: 100vh;
       padding: 24px;
@@ -163,6 +168,7 @@
       font-size: 3.4rem;
       font-weight: 700;
       letter-spacing: -1px;
+      text-shadow: 0 2px 0 rgba(255,255,255,0.8), 0 8px 24px rgba(44,95,78,0.15);
       background: linear-gradient(120deg, #1a1a1a 0%, #2c5f4e 50%, #1a1a1a 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -175,15 +181,19 @@
     }
 
     .about {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
+      background: linear-gradient(160deg, #ffffff 0%, #f5f3ef 100%);
+      border: 1px solid rgba(255,255,255,0.85);
+      border-radius: 18px;
       padding: 28px 32px;
       margin-top: 50px;
       margin-bottom: 20px;
       font-size: 1rem;
       line-height: 1.7;
       color: #333;
+      box-shadow:
+        0 8px 16px rgba(0,0,0,0.05),
+        0 24px 48px rgba(44,95,78,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.95);
     }
     .about p { margin-bottom: 14px; }
     .about p:last-child { margin-bottom: 0; }
@@ -203,15 +213,24 @@
       font-size: 0.95rem;
       font-weight: 600;
       border: none;
-      border-radius: 11px;
+      border-radius: 12px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s;
       color: white;
+      box-shadow: 0 4px 0 rgba(0,0,0,0.15), 0 8px 18px rgba(0,0,0,0.12);
     }
-    .btn-chat { background: #3b6b9a; }
-    .btn-channel { background: #6b5b8c; }
-    .btn-bot { background: #4a7c6f; }
-    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+    .btn-chat { background: linear-gradient(180deg, #4a7fb0 0%, #3b6b9a 100%); }
+    .btn-channel { background: linear-gradient(180deg, #7d6ba0 0%, #6b5b8c 100%); }
+    .btn-bot { background: linear-gradient(180deg, #5a9485 0%, #4a7c6f 100%); }
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 0 rgba(0,0,0,0.12), 0 14px 28px rgba(0,0,0,0.16);
+      filter: brightness(1.05);
+    }
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 0 rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1);
+    }
 
     .top-section h2 {
       font-size: 1.45rem;
@@ -225,18 +244,27 @@
     }
 
     .card {
-      background: var(--card);
-      border-radius: 14px;
+      background: linear-gradient(145deg, #ffffff 0%, #f8f7f4 100%);
+      border-radius: 16px;
       padding: 18px;
       display: flex;
       gap: 14px;
-      border: 1px solid var(--border);
-      transition: all 0.2s;
+      border: 1px solid rgba(255,255,255,0.8);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
     }
-    .card:hover { box-shadow: 0 10px 28px rgba(0,0,0,0.07); }
+    .card:hover {
+      transform: translateY(-6px) scale(1.01);
+      box-shadow: 0 12px 20px rgba(0,0,0,0.08), 0 28px 48px rgba(44,95,78,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+    }
     .card.top-card {
-      border-color: #c9a86c;
-      background: #fdfbf7;
+      border-color: rgba(201,168,108,0.55);
+      background: linear-gradient(145deg, #fffdf8 0%, #faf3e4 100%);
+      box-shadow: 0 6px 12px rgba(201,168,108,0.15), 0 14px 32px rgba(201,168,108,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+    }
+    .card.top-card:hover {
+      transform: translateY(-8px) scale(1.015);
+      box-shadow: 0 16px 28px rgba(201,168,108,0.2), 0 32px 56px rgba(201,168,108,0.18);
     }
 
     .card-avatar {
@@ -247,6 +275,8 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.35);
+      border: 2px solid rgba(255,255,255,0.7);
       font-size: 1.3rem;
       font-weight: 600;
       color: white;
@@ -317,11 +347,15 @@
       align-self: start;
     }
     .search-box {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
+      background: linear-gradient(145deg, #ffffff 0%, #f6f4f0 100%);
+      border: 1px solid rgba(255,255,255,0.85);
+      border-radius: 16px;
       padding: 16px;
       margin-bottom: 20px;
+      box-shadow:
+        0 6px 14px rgba(0,0,0,0.05),
+        0 16px 32px rgba(0,0,0,0.06),
+        inset 0 1px 0 rgba(255,255,255,0.95);
     }
     .search-box input {
       width: 100%;
@@ -386,13 +420,19 @@
       overflow-y: auto;
     }
     .item-row {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
+      background: linear-gradient(145deg, #ffffff 0%, #f9f8f5 100%);
+      border: 1px solid rgba(229,226,220,0.9);
+      border-radius: 14px;
       padding: 14px;
       display: flex;
       gap: 12px;
       align-items: flex-start;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.03), 0 8px 18px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.9);
+      transition: transform 0.22s ease, box-shadow 0.22s ease;
+    }
+    .item-row:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.07), 0 18px 36px rgba(44,95,78,0.1);
     }
     .item-row .avatar {
       width: 42px;
@@ -516,14 +556,23 @@
     }
     .modal-overlay.active { display: flex; }
     .modal {
-      background: var(--card);
-      border-radius: 16px;
+      background: linear-gradient(165deg, #ffffff 0%, #f7f5f1 100%);
+      border-radius: 20px;
       padding: 24px;
       width: 100%;
       max-width: 420px;
       max-height: 90vh;
       overflow-y: auto;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+      border: 1px solid rgba(255,255,255,0.9);
+      box-shadow:
+        0 20px 40px rgba(0,0,0,0.15),
+        0 40px 80px rgba(44,95,78,0.12),
+        inset 0 1px 0 rgba(255,255,255,1);
+      transform: translateZ(0);
+    }
+    .modal-overlay {
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     .modal h3 {
       font-size: 1.25rem;
@@ -734,26 +783,14 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <div id="public-fields">
-        <label>Username (без @)</label>
-        <input type="text" id="item-username" placeholder="например channelname">
-        <p style="font-size:0.78rem;color:var(--muted);margin:-6px 0 10px;">Название подтянется из Telegram автоматически</p>
-      </div>
-      <div class="checkbox-row">
-        <input type="checkbox" id="item-private" onchange="togglePrivate()">
-        <label for="item-private" style="margin:0;">Приватный (invite-ссылка)</label>
-      </div>
-      <div id="invite-field" style="display:none;">
-        <label>Invite-ссылка</label>
-        <input type="text" id="item-invite" placeholder="https://t.me/+...">
-        <label style="margin-top:8px;">Ссылка на аватарку (необязательно)</label>
-        <input type="text" id="item-avatar" placeholder="https://...jpg">
-      </div>
-      <label>Описание (необязательно)</label>
-      <textarea id="item-desc" placeholder="Краткое описание"></textarea>
+      <label>Название</label>
+      <input type="text" id="item-name" placeholder="Название канала / чата / бота">
+      <label>Ссылка</label>
+      <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite">
+      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Сайт сам определит: открытый или приватный</p>
       <label>Категория</label>
       <select id="item-category">
-        <option value="">Все категории</option>
+        <option value="">Выберите категорию</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
@@ -790,6 +827,7 @@
         <option value="Чаты">Чаты</option>
         <option value="Юриспруденция">Юриспруденция</option>
       </select>
+
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeModal()">Отмена</button>
         <button class="btn-add" onclick="addItem()">Добавить</button>
@@ -1377,51 +1415,81 @@
       return error;
     }
 
+    function parseTelegramLink(raw) {
+      let s = String(raw || '').trim();
+      if (!s) return { ok: false };
+      // private invite
+      if (/t\.me\/\+/i.test(s) || /t\.me\/joinchat\//i.test(s) || s.startsWith('+')) {
+        let link = s;
+        if (s.startsWith('+')) link = 'https://t.me/' + s;
+        if (!/^https?:\/\//i.test(link)) {
+          if (/^t\.me\//i.test(link)) link = 'https://' + link;
+        }
+        return { ok: true, isPrivate: true, invite: link, username: null };
+      }
+      // username forms: @name, t.me/name, https://t.me/name, plain name
+      let u = s.replace(/^@/, '');
+      u = u.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
+      u = u.split('/')[0].split('?')[0].trim();
+      if (!u || u.startsWith('+')) return { ok: false };
+      if (!/^[a-zA-Z0-9_]{3,}$/.test(u) && !/^[a-zA-Z0-9_]+$/.test(u)) {
+        // still accept if looks like username
+        if (!/^[a-zA-Z][a-zA-Z0-9_]{2,31}$/.test(u)) {
+          // might be invalid
+        }
+      }
+      return { ok: true, isPrivate: false, invite: null, username: u };
+    }
+
     async function addItem() {
       if (!supabaseClient) {
         alert('База данных недоступна. Обновите страницу.');
         return;
       }
-      const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
-      const isPrivate = document.getElementById('item-private').checked;
-      const invite = document.getElementById('item-invite').value.trim();
-      const avatarUrl = (document.getElementById('item-avatar')?.value || '').trim();
-      const desc = document.getElementById('item-desc').value.trim();
+      const name = (document.getElementById('item-name')?.value || '').trim();
+      const linkRaw = (document.getElementById('item-link')?.value || '').trim();
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
 
-      if (!isPrivate) {
-        if (!username) {
-          alert('Укажите username');
-          return;
-        }
-        if (isDuplicate(username, null)) {
-          alert('Этот канал/чат/бот уже есть в каталоге');
-          return;
-        }
-        if (blacklist.some(b => normalizeUsername(b) === normalizeUsername(username))) {
-          alert('Этот канал/чат в чёрном списке');
-          return;
-        }
+      if (!name) {
+        alert('Укажите название');
+        return;
+      }
+      if (!linkRaw) {
+        alert('Укажите ссылку');
+        return;
+      }
 
-        showStatus('Загрузка данных из Telegram…', 10000);
-        const meta = await fetchTgMeta(username);
+      const parsed = parseTelegramLink(linkRaw);
+      if (!parsed.ok) {
+        alert('Не удалось распознать ссылку. Пример: @channel, t.me/channel или https://t.me/+xxxx');
+        return;
+      }
+
+      if (parsed.isPrivate) {
+        if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
+          alert('Эта ссылка уже есть в каталоге');
+          return;
+        }
+        if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
+          alert('Эта ссылка в чёрном списке');
+          return;
+        }
         const row = {
           type: currentType,
-          username: normalizeUsername(username),
-          invite_link: null,
-          is_private: false,
-          display_name: meta.title || ('@' + username),
-          description: desc || meta.description || null,
+          username: null,
+          invite_link: parsed.invite,
+          is_private: true,
+          display_name: name,
+          description: null,
           category: category,
           is_top: false,
           top_until: null
         };
-        if (meta.avatar) row.avatar_url = meta.avatar;
         try {
           const error = await insertItemRow(row);
           if (error) {
-            if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
+            if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
             else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
             return;
           }
@@ -1435,33 +1503,48 @@
         return;
       }
 
-      // Приватный: сначала invite, потом окно названия
-      if (!invite) {
-        alert('Укажите invite-ссылку');
+      // public
+      const username = normalizeUsername(parsed.username);
+      if (isDuplicate(username, null) || await existsInDb(username, null)) {
+        alert('Этот канал/чат/бот уже есть в каталоге');
         return;
       }
-      if (isDuplicate(null, invite)) {
-        alert('Эта ссылка уже есть в каталоге');
-        return;
-      }
-      if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(invite))) {
-        alert('Эта ссылка в чёрном списке');
+      if (blacklist.some(b => normalizeUsername(b) === username)) {
+        alert('Этот канал/чат в чёрном списке');
         return;
       }
 
-      pendingPrivate = {
+      showStatus('Загрузка данных из Telegram…', 10000);
+      const meta = await fetchTgMeta(username);
+      const row = {
         type: currentType,
-        invite,
-        avatarUrl,
-        desc,
-        category
+        username: username,
+        invite_link: null,
+        is_private: false,
+        display_name: name || meta.title || ('@' + username),
+        description: meta.description || null,
+        category: category,
+        is_top: false,
+        top_until: null
       };
-      closeModal();
-      document.getElementById('private-name-input').value = '';
-      document.getElementById('private-name-modal').classList.add('active');
+      if (meta.avatar) row.avatar_url = meta.avatar;
+      try {
+        const error = await insertItemRow(row);
+        if (error) {
+          if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
+          else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+          return;
+        }
+        closeModal();
+        showStatus('Добавлено!');
+        await loadData();
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+      }
     }
 
-    function closePrivateNameModal() {
+        function closePrivateNameModal() {
       document.getElementById('private-name-modal').classList.remove('active');
       pendingPrivate = null;
     }
@@ -1850,28 +1933,16 @@
       currentType = type;
       const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
-      document.getElementById('item-username').value = '';
-      document.getElementById('item-private').checked = false;
-      document.getElementById('item-invite').value = '';
-      const av = document.getElementById('item-avatar');
-      if (av) av.value = '';
-      document.getElementById('item-desc').value = '';
+      const nameEl = document.getElementById('item-name');
+      const linkEl = document.getElementById('item-link');
+      if (nameEl) nameEl.value = '';
+      if (linkEl) linkEl.value = '';
       document.getElementById('item-category').value = '';
-      document.getElementById('invite-field').style.display = 'none';
-      const pf = document.getElementById('public-fields');
-      if (pf) pf.style.display = 'block';
       document.getElementById('add-modal').classList.add('active');
     }
 
     function closeModal() {
       document.getElementById('add-modal').classList.remove('active');
-    }
-
-    function togglePrivate() {
-      const checked = document.getElementById('item-private').checked;
-      document.getElementById('invite-field').style.display = checked ? 'block' : 'none';
-      const pf = document.getElementById('public-fields');
-      if (pf) pf.style.display = checked ? 'none' : 'block';
     }
 
     function openTopModal() {
