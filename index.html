@@ -594,7 +594,14 @@
       margin-bottom: 12px;
       font-family: inherit;
     }
-    .modal textarea { min-height: 70px; resize: vertical; }
+    .modal textarea {
+      min-height: 90px;
+      resize: vertical;
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      background: #fff;
+    }
     .checkbox-row {
       display: flex;
       align-items: center;
@@ -807,14 +814,14 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <label>Название канала</label>
-      <input type="text" id="item-name" placeholder="Название канала / чата / бота">
-      <label>Ссылка</label>
-      <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite">
+      <label>1. Название канала</label>
+      <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
+      <label>2. Ссылка</label>
+      <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
       <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
-      <label>Описание</label>
-      <textarea id="item-desc" placeholder="Необязательно — если пусто, подтянем из Telegram"></textarea>
-      <label>Категория</label>
+      <label>3. Описание</label>
+      <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым — тогда подтянем из Telegram" style="min-height:90px;width:100%;display:block;"></textarea>
+      <label>4. Категория</label>
       <select id="item-category">
         <option value="">Выберите категорию</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
