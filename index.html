@@ -598,6 +598,7 @@
   <!-- Бейдж админа -->
   <div class="admin-badge" id="admin-badge">
     <span>Админ</span>
+    <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
   </div>
@@ -670,10 +671,11 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <label>Название (как будет в каталоге)</label>
-      <input type="text" id="item-displayname" placeholder="Например: Крипто-новости / Общение">
-      <label>Username (без @)</label>
-      <input type="text" id="item-username" placeholder="например channelname">
+      <div id="public-fields">
+        <label>Username (без @)</label>
+        <input type="text" id="item-username" placeholder="например channelname">
+        <p style="font-size:0.78rem;color:var(--muted);margin:-6px 0 10px;">Название подтянется из Telegram автоматически</p>
+      </div>
       <div class="checkbox-row">
         <input type="checkbox" id="item-private" onchange="togglePrivate()">
         <label for="item-private" style="margin:0;">Приватный (invite-ссылка)</label>
@@ -683,7 +685,6 @@
         <input type="text" id="item-invite" placeholder="https://t.me/+...">
         <label style="margin-top:8px;">Ссылка на аватарку (необязательно)</label>
         <input type="text" id="item-avatar" placeholder="https://...jpg">
-        <p style="font-size:0.75rem;color:var(--muted);margin:-4px 0 8px;">Telegram не отдаёт фото приватных чатов публично. Можно вставить прямую ссылку на картинку.</p>
       </div>
       <label>Описание (необязательно)</label>
       <textarea id="item-desc" placeholder="Краткое описание"></textarea>
@@ -789,6 +790,49 @@
     </div>
   </div>
 
+  <!-- Модалка: название приватного чата -->
+  <div class="modal-overlay" id="private-name-modal">
+    <div class="modal">
+      <h3>Введите название чата/канала</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Для приватной ссылки название нужно указать вручную.</p>
+      <label>Название</label>
+      <input type="text" id="private-name-input" placeholder="Например: Закрытый чат IT">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePrivateNameModal()">Отмена</button>
+        <button class="btn-add" onclick="confirmPrivateName()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: массовое добавление (админ) -->
+  <div class="modal-overlay" id="bulk-modal">
+    <div class="modal">
+      <h3>Массовое добавление</h3>
+      <label>Раздел</label>
+      <select id="bulk-type">
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <label>Категория</label>
+      <select id="bulk-category">
+        <option value="Разное">Разное</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+      </select>
+      <label>Usernames через запятую (с @)</label>
+      <textarea id="bulk-list" placeholder="@channel1, @channel2, @mybot" style="min-height:120px;"></textarea>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:-6px;">Дубликаты и уже существующие будут пропущены. Названия подтянутся из Telegram.</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
+        <button class="btn-add" onclick="runBulkImport()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Модалка админа: добавить в Топ -->
   <div class="modal-overlay" id="admin-top-modal">
     <div class="modal">
@@ -837,11 +881,13 @@
     let isAdmin = false;
     let currentType = null;
     let pendingTopId = null;
+    let pendingPrivate = null; // данные для второго шага (название приватного)
     let allItems = [];
     let blacklist = [];
     let currentFilter = 'all';
     let loginPopupOpen = false;
-    let paymentBot = 'TG_Administrator_Vip_bot'; // username без @, можно менять админом
+    let paymentBot = 'TG_Administrator_Vip_bot';
+    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000)); // ротация каждые 5 мин
 
     function normalizeBotUsername(v) {
       return String(v || '')
@@ -1085,12 +1131,71 @@
       }
     }
 
+    function normalizeUsername(u) {
+      return String(u || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+        .split('/')[0]
+        .split('?')[0]
+        .toLowerCase();
+    }
+
+    function normalizeInvite(link) {
+      return String(link || '').trim().replace(/\/+$/, '').toLowerCase();
+    }
+
+    function isDuplicate(username, invite) {
+      const u = username ? normalizeUsername(username) : '';
+      const inv = invite ? normalizeInvite(invite) : '';
+      return allItems.some(it => {
+        if (u && it.username && normalizeUsername(it.username) === u) return true;
+        if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return true;
+        return false;
+      });
+    }
+
+    // Название/описание публичного username из Telegram (og:title)
+    async function fetchTgMeta(username) {
+      const uname = normalizeUsername(username);
+      if (!uname) return { title: null, description: null };
+      try {
+        const url = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://t.me/' + uname);
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 8000);
+        const res = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        const html = await res.text();
+        const titleM = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i)
+          || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
+        const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
+          || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
+        let title = titleM ? titleM[1].trim() : null;
+        if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+        return {
+          title: title || ('@' + uname),
+          description: descM ? descM[1].trim() : null
+        };
+      } catch (e) {
+        return { title: '@' + uname, description: null };
+      }
+    }
+
+    async function insertItemRow(row) {
+      let { error } = await supabaseClient.from('items').insert(row);
+      if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
+        const copy = { ...row };
+        delete copy.avatar_url;
+        ({ error } = await supabaseClient.from('items').insert(copy));
+      }
+      return error;
+    }
+
     async function addItem() {
       if (!supabaseClient) {
         alert('База данных недоступна. Обновите страницу.');
         return;
       }
-      const customName = document.getElementById('item-displayname').value.trim();
       const username = document.getElementById('item-username').value.trim().replace(/^@/, '');
       const isPrivate = document.getElementById('item-private').checked;
       const invite = document.getElementById('item-invite').value.trim();
@@ -1099,62 +1204,170 @@
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
 
-      if (!username && !isPrivate) {
-        alert('Укажите username');
+      if (!isPrivate) {
+        if (!username) {
+          alert('Укажите username');
+          return;
+        }
+        if (isDuplicate(username, null)) {
+          alert('Этот канал/чат/бот уже есть в каталоге');
+          return;
+        }
+        if (blacklist.some(b => normalizeUsername(b) === normalizeUsername(username))) {
+          alert('Этот канал/чат в чёрном списке');
+          return;
+        }
+
+        showStatus('Загрузка данных из Telegram…', 10000);
+        const meta = await fetchTgMeta(username);
+        const row = {
+          type: currentType,
+          username: normalizeUsername(username),
+          invite_link: null,
+          is_private: false,
+          display_name: meta.title || ('@' + username),
+          description: desc || meta.description || null,
+          category: category,
+          is_top: false,
+          top_until: null
+        };
+        try {
+          const error = await insertItemRow(row);
+          if (error) {
+            alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+            return;
+          }
+          closeModal();
+          showStatus('Добавлено!');
+          await loadData();
+        } catch (e) {
+          console.error(e);
+          alert('Ошибка сети');
+        }
         return;
       }
-      if (isPrivate && !invite) {
+
+      // Приватный: сначала invite, потом окно названия
+      if (!invite) {
         alert('Укажите invite-ссылку');
         return;
       }
-      if (isPrivate && !customName) {
-        alert('Укажите название приватного чата');
+      if (isDuplicate(null, invite)) {
+        alert('Эта ссылка уже есть в каталоге');
+        return;
+      }
+      if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(invite))) {
+        alert('Эта ссылка в чёрном списке');
         return;
       }
 
-      const valueToCheck = isPrivate ? invite : username;
-      if (blacklist.includes(valueToCheck)) {
-        alert('Этот канал/чат в чёрном списке');
-        return;
-      }
-
-      // display_name: своё название, иначе @username
-      const displayName = customName
-        || (isPrivate ? (invite.replace(/^https?:\/\/t\.me\//, '') || invite) : ('@' + username));
-
-      const row = {
+      pendingPrivate = {
         type: currentType,
-        username: isPrivate ? null : username,
-        invite_link: isPrivate ? invite : null,
-        is_private: isPrivate,
-        display_name: displayName,
-        description: desc || null,
-        category: category,
+        invite,
+        avatarUrl,
+        desc,
+        category
+      };
+      closeModal();
+      document.getElementById('private-name-input').value = '';
+      document.getElementById('private-name-modal').classList.add('active');
+    }
+
+    function closePrivateNameModal() {
+      document.getElementById('private-name-modal').classList.remove('active');
+      pendingPrivate = null;
+    }
+
+    async function confirmPrivateName() {
+      if (!pendingPrivate || !supabaseClient) return;
+      const name = document.getElementById('private-name-input').value.trim();
+      if (!name) {
+        alert('Введите название чата/канала');
+        return;
+      }
+      const row = {
+        type: pendingPrivate.type,
+        username: null,
+        invite_link: pendingPrivate.invite,
+        is_private: true,
+        display_name: name,
+        description: pendingPrivate.desc || null,
+        category: pendingPrivate.category,
         is_top: false,
         top_until: null
       };
-      if (avatarUrl) row.avatar_url = avatarUrl;
-
+      if (pendingPrivate.avatarUrl) row.avatar_url = pendingPrivate.avatarUrl;
       try {
-        let { error } = await supabaseClient.from('items').insert(row);
-        // если колонки avatar_url ещё нет — сохраняем без неё
-        if (error && avatarUrl && /avatar_url/i.test(error.message || '')) {
-          delete row.avatar_url;
-          ({ error } = await supabaseClient.from('items').insert(row));
-        }
-
+        const error = await insertItemRow(row);
         if (error) {
           alert('Ошибка: ' + (error.message || 'не удалось добавить'));
-          console.error(error);
           return;
         }
-        closeModal();
+        closePrivateNameModal();
         showStatus('Добавлено!');
         await loadData();
       } catch (e) {
         console.error(e);
         alert('Ошибка сети');
       }
+    }
+
+    function openBulkModal() {
+      if (!isAdmin) return;
+      document.getElementById('bulk-list').value = '';
+      document.getElementById('bulk-modal').classList.add('active');
+    }
+    function closeBulkModal() {
+      document.getElementById('bulk-modal').classList.remove('active');
+    }
+
+    async function runBulkImport() {
+      if (!isAdmin || !supabaseClient) return;
+      const type = document.getElementById('bulk-type').value;
+      const category = document.getElementById('bulk-category').value || 'Разное';
+      const raw = document.getElementById('bulk-list').value || '';
+      const parts = raw.split(/[,;\n]+/).map(s => s.trim()).filter(Boolean);
+      const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
+
+      if (!usernames.length) {
+        alert('Вставьте usernames через запятую, например: @ch1, @ch2');
+        return;
+      }
+
+      let ok = 0, skip = 0, fail = 0;
+      showStatus('Импорт… 0/' + usernames.length, 60000);
+      for (let i = 0; i < usernames.length; i++) {
+        const u = usernames[i];
+        if (isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
+          skip++;
+          continue;
+        }
+        try {
+          const meta = await fetchTgMeta(u);
+          const error = await insertItemRow({
+            type,
+            username: u,
+            invite_link: null,
+            is_private: false,
+            display_name: meta.title || ('@' + u),
+            description: meta.description || null,
+            category,
+            is_top: false,
+            top_until: null
+          });
+          if (error) fail++;
+          else {
+            ok++;
+            allItems.push({ username: u, invite_link: null }); // чтобы isDuplicate видел в этом же прогоне
+          }
+        } catch (e) {
+          fail++;
+        }
+        showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 60000);
+      }
+      closeBulkModal();
+      showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+      await loadData();
     }
 
     async function removeTop(id) {
@@ -1284,7 +1497,16 @@
       applyFilters();
     }
 
+    function rotateList(arr) {
+      if (!arr || arr.length < 2) return arr || [];
+      const offset = listRotateOffset % arr.length;
+      return arr.slice(offset).concat(arr.slice(0, offset));
+    }
+
     function applyFilters() {
+      // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
+      listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+
       const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
       const filtered = allItems.filter(item => {
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
@@ -1295,7 +1517,7 @@
         return true;
       });
 
-      // Топ (только актуальные)
+      // Топ (только актуальные) — порядок фиксированный
       const now = new Date();
       const topItems = allItems.filter(item => {
         if (!item.is_top) return false;
@@ -1303,8 +1525,11 @@
         return true;
       });
 
+      // Обычный список — крутится как колесо (топ в нём тоже может быть, но ротация всего filtered)
+      const rotated = rotateList(filtered);
+
       document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
-      document.getElementById('items-count').textContent = filtered.length ? `(${filtered.length})` : '';
+      document.getElementById('items-count').textContent = rotated.length ? `(${rotated.length})` : '';
 
       // Рендер топа
       const topEl = document.getElementById('top-list');
@@ -1335,12 +1560,12 @@
         }).join('');
       }
 
-      // Рендер списка
+      // Рендер списка (с ротацией)
       const listEl = document.getElementById('items-list');
-      if (!filtered.length) {
+      if (!rotated.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
-        listEl.innerHTML = filtered.map(item => {
+        listEl.innerHTML = rotated.map(item => {
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
@@ -1386,7 +1611,6 @@
       currentType = type;
       const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
-      document.getElementById('item-displayname').value = '';
       document.getElementById('item-username').value = '';
       document.getElementById('item-private').checked = false;
       document.getElementById('item-invite').value = '';
@@ -1395,6 +1619,8 @@
       document.getElementById('item-desc').value = '';
       document.getElementById('item-category').value = '';
       document.getElementById('invite-field').style.display = 'none';
+      const pf = document.getElementById('public-fields');
+      if (pf) pf.style.display = 'block';
       document.getElementById('add-modal').classList.add('active');
     }
 
@@ -1405,6 +1631,8 @@
     function togglePrivate() {
       const checked = document.getElementById('item-private').checked;
       document.getElementById('invite-field').style.display = checked ? 'block' : 'none';
+      const pf = document.getElementById('public-fields');
+      if (pf) pf.style.display = checked ? 'none' : 'block';
     }
 
     function openTopModal() {
@@ -1470,6 +1698,8 @@
       await loadPaymentBot();
       await loadData();
       setInterval(loadData, 5 * 60 * 1000);
+      // ротация списка каждые 5 минут без перезагрузки данных
+      setInterval(() => { applyFilters(); }, 5 * 60 * 1000);
     })();
   </script>
 </body>
