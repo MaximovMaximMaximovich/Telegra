@@ -352,6 +352,26 @@
       color: white;
       border-color: var(--accent);
     }
+    .category-box {
+      margin-top: 12px;
+    }
+    .category-box label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .category-box select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.9rem;
+      color: var(--text);
+      cursor: pointer;
+    }
 
     .items-section h2 {
       font-size: 1.2rem;
@@ -649,6 +669,48 @@
           <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">Каналы</button>
           <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Боты</button>
         </div>
+        <div class="category-box">
+          <label for="category-filter">Категория</label>
+          <select id="category-filter" onchange="setCategoryFilter(this.value)">
+            <option value="">Все категории</option>
+            <option value="Авто, мото, техника">Авто, мото, техника</option>
+            <option value="Аниме">Аниме</option>
+            <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+            <option value="Для взрослых">Для взрослых</option>
+            <option value="Для мужчин">Для мужчин</option>
+            <option value="Для женщин">Для женщин</option>
+            <option value="Для родителей">Для родителей</option>
+            <option value="Блоги">Блоги</option>
+            <option value="Еда и напитки">Еда и напитки</option>
+            <option value="Здоровье и спорт">Здоровье и спорт</option>
+            <option value="Игры и приложения">Игры и приложения</option>
+            <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+            <option value="Криптовалюта">Криптовалюта</option>
+            <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+            <option value="Маркетплейсы">Маркетплейсы</option>
+            <option value="Медицина">Медицина</option>
+            <option value="Мода и красота">Мода и красота</option>
+            <option value="Музыка">Музыка</option>
+            <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+            <option value="Новости и СМИ">Новости и СМИ</option>
+            <option value="Продажи">Продажи</option>
+            <option value="Психология">Психология</option>
+            <option value="Путешествия">Путешествия</option>
+            <option value="Развлечения и юмор">Развлечения и юмор</option>
+            <option value="SMM">SMM</option>
+            <option value="Телеграм">Телеграм</option>
+            <option value="Технологии">Технологии</option>
+            <option value="Трейдинг">Трейдинг</option>
+            <option value="Нейросети и AI">Нейросети и AI</option>
+            <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+            <option value="Футбол, хоккей">Футбол, хоккей</option>
+            <option value="Фото, искусство">Фото, искусство</option>
+            <option value="Фриланс">Фриланс</option>
+            <option value="Чаты">Чаты</option>
+            <option value="Юриспруденция">Юриспруденция</option>
+            <option value="Разное">Разное</option>
+          </select>
+        </div>
       </div>
 
       <section class="items-section">
@@ -917,6 +979,7 @@
     let allItems = [];
     let blacklist = [];
     let currentFilter = 'all';
+    let currentCategory = '';
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
     let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000)); // ротация каждые 5 мин
@@ -1632,6 +1695,11 @@
       applyFilters();
     }
 
+    function setCategoryFilter(cat) {
+      currentCategory = cat || '';
+      applyFilters();
+    }
+
     function rotateList(arr) {
       if (!arr || arr.length < 2) return arr || [];
       const offset = listRotateOffset % arr.length;
@@ -1645,6 +1713,10 @@
       const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
       const filtered = allItems.filter(item => {
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
+        if (currentCategory) {
+          const cat = (item.category || 'Разное').trim();
+          if (cat !== currentCategory) return false;
+        }
         if (q) {
           const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
           if (!text.includes(q)) return false;
