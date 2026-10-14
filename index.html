@@ -165,7 +165,7 @@
     }
     header h1 {
       font-family: 'Playfair Display', Georgia, serif;
-      font-size: 3.4rem;
+      font-size: 4rem;
       font-weight: 700;
       letter-spacing: -0.5px;
       color: #1a1a1a;
@@ -685,7 +685,7 @@
       .page { grid-template-columns: 1fr; gap: 16px; }
       body { padding: 12px; }
       header { margin-bottom: 18px; }
-      header h1 { font-size: 2.15rem; }
+      header h1 { font-size: 2.5rem; }
       header .subtitle { font-size: 0.95rem; }
       .add-buttons { margin-bottom: 20px; gap: 10px; }
       .btn { padding: 12px 16px; font-size: 0.88rem; }
@@ -705,7 +705,7 @@
 
     @media (max-width: 600px) {
       body { padding: 10px; }
-      header h1 { font-size: 1.8rem; }
+      header h1 { font-size: 2.1rem; }
       header .subtitle { font-size: 0.85rem; }
       .add-buttons { flex-direction: column; align-items: stretch; }
       .btn { width: 100%; }
@@ -733,6 +733,7 @@
   <div class="admin-badge" id="admin-badge">
     <span>Админ</span>
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
+    <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
   </div>
@@ -759,7 +760,6 @@
 
       <section class="recent-section">
         <h2>Недавно добавленные <span id="recent-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
-        <p style="font-size:0.78rem;color:var(--muted);margin:-6px 0 10px;">Каналы, чаты и боты, добавленные посетителями (по одному). Хранятся здесь 3 дня.</p>
         <div class="recent-list" id="recent-list">
           <div class="loading">Пока пусто</div>
         </div>
@@ -862,7 +862,7 @@
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
       <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
       <label>3. Описание</label>
-      <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым — тогда подтянем из Telegram" style="min-height:90px;width:100%;display:block;"></textarea>
+      <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
       <label>4. Категория</label>
       <select id="item-category">
         <option value="">Выберите категорию</option>
@@ -1041,6 +1041,73 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
         <button class="btn-add" onclick="runBulkImport()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Массовое обновление метаданных -->
+  <div class="modal-overlay" id="refresh-meta-modal">
+    <div class="modal">
+      <h3>Обновить метаданные</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Подтянет название, описание и аватар из Telegram для публичных записей.
+        Приватные пропускаются. Может занять несколько минут.
+      </p>
+      <label>Категория</label>
+      <select id="refresh-meta-category">
+        <option value="">Все категории</option>
+        <option value="Авто, мото, техника">Авто, мото, техника</option>
+        <option value="Аниме">Аниме</option>
+        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+        <option value="Для взрослых 18+">Для взрослых 18+</option>
+        <option value="Для мужчин">Для мужчин</option>
+        <option value="Для женщин">Для женщин</option>
+        <option value="Для родителей">Для родителей</option>
+        <option value="Блоги">Блоги</option>
+        <option value="Еда и напитки">Еда и напитки</option>
+        <option value="Здоровье и спорт">Здоровье и спорт</option>
+        <option value="Игры и приложения">Игры и приложения</option>
+        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
+        <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
+        <option value="Разное">Разное</option>
+      </select>
+      <label>Тип (необязательно)</label>
+      <select id="refresh-meta-type">
+        <option value="">Все типы</option>
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <label class="checkbox-row" style="margin-bottom:12px;">
+        <input type="checkbox" id="refresh-meta-only-empty" checked>
+        <span style="font-size:0.88rem;color:var(--muted);">Только без аватара / слабые данные</span>
+      </label>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeRefreshMetaModal()">Отмена</button>
+        <button class="btn-add" onclick="runRefreshMetaByCategory()">Обновить</button>
       </div>
     </div>
   </div>
@@ -1771,6 +1838,7 @@
     }
 
     let bulkRunning = false;
+    let refreshMetaRunning = false;
 
     async function runBulkImport() {
       if (!isAdmin || !supabaseClient) return;
@@ -1894,6 +1962,138 @@
         await loadData();
       } catch (e) { console.error(e); }
     }
+
+
+    function isDefaultTgLogo(url) {
+      if (!url) return true;
+      return /t_logo|favicon|img\/Telegram|telegram\.org\/img\//i.test(url);
+    }
+
+    function isWeakMeta(item) {
+      if (!item.avatar_url) return true;
+      if (isDefaultTgLogo(item.avatar_url)) return true;
+      if (/unavatar\.io/i.test(item.avatar_url)) return true;
+      if (!item.description) return true;
+      if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
+      return false;
+    }
+
+    async function refreshMeta(id) {
+      if (!supabaseClient || !isAdmin) return;
+      const item = allItems.find(x => String(x.id) === String(id));
+      if (!item || !item.username || item.is_private) {
+        alert('Нет публичного username для обновления');
+        return;
+      }
+      showStatus('Обновление метаданных…', 15000);
+      try {
+        const meta = await fetchTgMeta(item.username);
+        const patch = {
+          avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
+        };
+        if (meta.title) patch.display_name = meta.title;
+        if (meta.description) patch.description = meta.description;
+        const { error } = await supabaseClient.from('items').update(patch).eq('id', id);
+        if (error) alert(error.message);
+        else {
+          showStatus('Метаданные обновлены');
+          await loadData();
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Не удалось обновить');
+      }
+    }
+
+    function openRefreshMetaModal() {
+      if (!isAdmin) return;
+      document.getElementById('refresh-meta-modal').classList.add('active');
+    }
+    function closeRefreshMetaModal() {
+      if (typeof refreshMetaRunning !== 'undefined' && refreshMetaRunning) {
+        if (!confirm('Обновление ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+      }
+      document.getElementById('refresh-meta-modal').classList.remove('active');
+    }
+
+    async function runRefreshMetaByCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      if (refreshMetaRunning) {
+        alert('Обновление уже идёт, подождите…');
+        return;
+      }
+      const cat = (document.getElementById('refresh-meta-category')?.value || '').trim();
+      const type = (document.getElementById('refresh-meta-type')?.value || '').trim();
+      const onlyEmpty = !!document.getElementById('refresh-meta-only-empty')?.checked;
+
+      const list = allItems.filter(it => {
+        if (it.is_private || !it.username) return false;
+        if (type && it.type !== type) return false;
+        if (cat) {
+          const itemCat = (it.category || 'Разное').trim();
+          if (cat === 'Для взрослых 18+') {
+            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
+          } else if (itemCat !== cat) {
+            return false;
+          }
+        }
+        if (onlyEmpty && !isWeakMeta(it)) return false;
+        return true;
+      });
+
+      if (!list.length) {
+        alert('Нет подходящих публичных записей для обновления');
+        return;
+      }
+      if (!confirm('Обновить метаданные для ' + list.length + ' записей?\nЭто может занять несколько минут.')) {
+        return;
+      }
+
+      refreshMetaRunning = true;
+      closeRefreshMetaModal();
+      let ok = 0, fail = 0, skip = 0;
+
+      for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        showStatus('Мета ' + (i + 1) + '/' + list.length + ': @' + item.username, 120000);
+        try {
+          const meta = await fetchTgMeta(item.username);
+          if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
+            skip++;
+            await new Promise(r => setTimeout(r, 400));
+            continue;
+          }
+          const patch = {};
+          if (meta.avatar) patch.avatar_url = meta.avatar;
+          else if (!item.avatar_url) {
+            patch.avatar_url = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
+          }
+          if (meta.title) patch.display_name = meta.title;
+          if (meta.description) patch.description = meta.description;
+
+          if (!Object.keys(patch).length) {
+            skip++;
+          } else {
+            const { error } = await supabaseClient.from('items').update(patch).eq('id', item.id);
+            if (error) fail++;
+            else {
+              ok++;
+              const idx = allItems.findIndex(x => String(x.id) === String(item.id));
+              if (idx >= 0) allItems[idx] = { ...allItems[idx], ...patch };
+            }
+          }
+        } catch (e) {
+          console.warn('refresh meta', item.username, e);
+          fail++;
+        }
+        await new Promise(r => setTimeout(r, 800));
+      }
+
+      refreshMetaRunning = false;
+      showStatus('Мета готово: +' + ok + (skip ? ', пропуск ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+      await loadData();
+    }
+
 
     function openAdminTopModal(id) {
       pendingTopId = id;
@@ -2094,6 +2294,7 @@
                 <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
                     <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+                    ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить аватар и описание">Мета</button>` : ''}
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
                   </div>` : ''}
@@ -2101,8 +2302,6 @@
             </div>`;
         }).join('');
       }
-
-      // Рендер списка      }
 
       // Рендер списка (с ротацией)
       const listEl = document.getElementById('items-list');
@@ -2127,6 +2326,7 @@
                   <button class="btn-top" onclick="openTopModal()">В Топ</button>
                   ${isAdmin ? `
                     <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
+                    ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить метаданные">↻ Мета</button>` : ''}
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
                 </div>
@@ -2134,8 +2334,6 @@
             </div>`;
         }).join('');
       }
-
-      // Чёрный список      }
 
       // Чёрный список
       const blEl = document.getElementById('blacklist-list');
