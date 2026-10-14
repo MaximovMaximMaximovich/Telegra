@@ -1,2159 +1,2265 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Telegra — Каталог Telegram каналов, чатов и ботов</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
+ <meta charset="UTF-8">
+ <meta name="viewport" content="width=device-width, initial-scale=1.0">
+ <title>Telegra — Каталог Telegram каналов, чатов и ботов</title>
+ <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+ <style>
+ @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
-    :root {
-      --bg: #f7f6f3;
-      --card: #ffffff;
-      --text: #1a1a1a;
-      --muted: #6b6b6b;
-      --border: #e5e2dc;
-      --accent: #2c5f4e;
-      --accent-light: #e8f0ed;
-      --soft: #f0eeea;
-    }
+ :root {
+ --bg: #f7f6f3;
+ --card: #ffffff;
+ --text: #1a1a1a;
+ --muted: #6b6b6b;
+ --border: #e5e2dc;
+ --accent: #2c5f4e;
+ --accent-light: #e8f0ed;
+ --soft: #f0eeea;
+ }
 
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+ * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background:
-        radial-gradient(ellipse 120% 80% at 10% -10%, rgba(44,95,78,0.12), transparent 50%),
-        radial-gradient(ellipse 90% 60% at 100% 0%, rgba(107,91,140,0.1), transparent 45%),
-        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(201,168,108,0.08), transparent 40%),
-        linear-gradient(165deg, #f3f1ec 0%, #eae7e1 40%, #f7f6f3 100%);
-      background-attachment: fixed;
-      color: var(--text);
-      min-height: 100vh;
-      padding: 24px;
-      line-height: 1.5;
-    }
+ body {
+ font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+ background:
+ radial-gradient(ellipse 120% 80% at 10% -10%, rgba(44,95,78,0.12), transparent 50%),
+ radial-gradient(ellipse 90% 60% at 100% 0%, rgba(107,91,140,0.1), transparent 45%),
+ radial-gradient(ellipse 70% 50% at 50% 100%, rgba(201,168,108,0.08), transparent 40%),
+ linear-gradient(165deg, #f3f1ec 0%, #eae7e1 40%, #f7f6f3 100%);
+ background-attachment: fixed;
+ color: var(--text);
+ min-height: 100vh;
+ padding: 24px;
+ line-height: 1.5;
+ }
 
-    .page {
-      max-width: 1320px;
-      margin: 0 auto;
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 32px;
-    }
+ .page {
+ max-width: 1320px;
+ margin: 0 auto;
+ display: grid;
+ grid-template-columns: 1fr 340px;
+ gap: 32px;
+ }
 
-    @media (max-width: 1000px) {
-      .page { grid-template-columns: 1fr; }
-    }
+ @media (max-width: 1000px) {
+ .page { grid-template-columns: 1fr; }
+ }
 
-    .login-btn-toggle {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 100;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 5px 10px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      color: var(--muted);
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      transition: all 0.2s;
-    }
-    .login-btn-toggle:hover {
-      color: var(--accent);
-      border-color: var(--accent);
-    }
-    .login-btn-toggle.hidden { display: none; }
+ .login-btn-toggle {
+ position: fixed;
+ top: 10px;
+ left: 10px;
+ z-index: 100;
+ background: var(--card);
+ border: 1px solid var(--border);
+ border-radius: 8px;
+ padding: 5px 10px;
+ font-size: 0.75rem;
+ font-weight: 600;
+ color: var(--muted);
+ cursor: pointer;
+ box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+ transition: all 0.2s;
+ }
+ .login-btn-toggle:hover {
+ color: var(--accent);
+ border-color: var(--accent);
+ }
+ .login-btn-toggle.hidden { display: none; }
 
-    .login-popup {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      background: var(--card);
-      padding: 12px;
-      border-radius: 12px;
-      width: 200px;
-      z-index: 101;
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
-      font-size: 0.88rem;
-      display: none;
-      opacity: 0;
-      transform: scale(0.85);
-      transition: opacity 0.18s ease, transform 0.18s ease;
-    }
-    .login-popup.active {
-      display: block;
-      opacity: 1;
-      transform: scale(1);
-    }
-    .login-popup strong {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 0.9rem;
-    }
-    .login-popup input {
-      width: 100%;
-      padding: 8px 10px;
-      margin: 4px 0 8px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      font-size: 0.88rem;
-    }
-    .login-popup button {
-      width: 100%;
-      padding: 9px;
-      background: var(--accent);
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 0.88rem;
-    }
-    .login-popup .close-login {
-      background: var(--soft);
-      color: var(--muted);
-      margin-top: 5px;
-    }
-    .error-msg {
-      color: #a33;
-      font-size: 0.8rem;
-      margin-top: 6px;
-      display: none;
-    }
+ .login-popup {
+ position: fixed;
+ top: 10px;
+ left: 10px;
+ background: var(--card);
+ padding: 12px;
+ border-radius: 12px;
+ width: 200px;
+ z-index: 101;
+ border: 1px solid var(--border);
+ box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+ font-size: 0.88rem;
+ display: none;
+ opacity: 0;
+ transform: scale(0.85);
+ transition: opacity 0.18s ease, transform 0.18s ease;
+ }
+ .login-popup.active {
+ display: block;
+ opacity: 1;
+ transform: scale(1);
+ }
+ .login-popup strong {
+ display: block;
+ margin-bottom: 6px;
+ font-size: 0.9rem;
+ }
+ .login-popup input {
+ width: 100%;
+ padding: 8px 10px;
+ margin: 4px 0 8px;
+ border-radius: 8px;
+ border: 1px solid var(--border);
+ background: var(--bg);
+ font-size: 0.88rem;
+ }
+ .login-popup button {
+ width: 100%;
+ padding: 9px;
+ background: var(--accent);
+ color: white;
+ border: none;
+ border-radius: 8px;
+ font-weight: 600;
+ cursor: pointer;
+ font-size: 0.88rem;
+ }
+ .login-popup .close-login {
+ background: var(--soft);
+ color: var(--muted);
+ margin-top: 5px;
+ }
+ .error-msg {
+ color: #a33;
+ font-size: 0.8rem;
+ margin-top: 6px;
+ display: none;
+ }
 
-    .admin-badge {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      z-index: 100;
-      background: var(--accent-light);
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      padding: 5px 10px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      display: none;
-      align-items: center;
-      gap: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .admin-badge.active { display: flex; }
-    .admin-badge button {
-      background: none;
-      border: none;
-      color: #a33;
-      cursor: pointer;
-      font-size: 0.72rem;
-      font-weight: 600;
-      padding: 0;
-    }
+ .admin-badge {
+ position: fixed;
+ top: 10px;
+ left: 10px;
+ z-index: 100;
+ background: var(--accent-light);
+ color: var(--accent);
+ border: 1px solid var(--accent);
+ border-radius: 8px;
+ padding: 5px 10px;
+ font-size: 0.75rem;
+ font-weight: 600;
+ display: none;
+ align-items: center;
+ gap: 8px;
+ flex-wrap: wrap;
+ max-width: calc(100vw - 24px);
+ box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+ }
+ .admin-badge.active { display: flex; }
+ .admin-badge button {
+ background: none;
+ border: none;
+ color: #a33;
+ cursor: pointer;
+ font-size: 0.72rem;
+ font-weight: 600;
+ padding: 0;
+ }
 
-    header {
-      text-align: center;
-      margin-bottom: 28px;
-      padding-top: 8px;
-    }
-    header h1 {
-      font-family: 'Playfair Display', Georgia, serif;
-      font-size: 3.4rem;
-      font-weight: 700;
-      letter-spacing: -1px;
-      background: linear-gradient(120deg, #1a1a1a 0%, #2c5f4e 50%, #1a1a1a 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      margin-bottom: 6px;
-    }
-    header .subtitle {
-      font-size: 1.1rem;
-      color: var(--muted);
-    }
+ header {
+ text-align: center;
+ margin-bottom: 28px;
+ padding-top: 8px;
+ }
+ header h1 {
+ font-family: 'Playfair Display', Georgia, serif;
+ font-size: 3.4rem;
+ font-weight: 700;
+ letter-spacing: -1px;
+ background: linear-gradient(120deg, #1a1a1a 0%, #2c5f4e 50%, #1a1a1a 100%);
+ -webkit-background-clip: text;
+ -webkit-text-fill-color: transparent;
+ background-clip: text;
+ margin-bottom: 6px;
+ }
+ header .subtitle {
+ font-size: 1.1rem;
+ color: var(--muted);
+ }
 
-    .about {
-      background: linear-gradient(160deg, #ffffff 0%, #f5f3ef 100%);
-      border: 1px solid rgba(255,255,255,0.85);
-      border-radius: 18px;
-      padding: 28px 32px;
-      margin-top: 50px;
-      margin-bottom: 20px;
-      font-size: 1rem;
-      line-height: 1.7;
-      color: #333;
-      box-shadow:
-        0 8px 16px rgba(0,0,0,0.05),
-        0 24px 48px rgba(44,95,78,0.08),
-        inset 0 1px 0 rgba(255,255,255,0.95);
-    }
-    .about p { margin-bottom: 14px; }
-    .about p:last-child { margin-bottom: 0; }
-    .about strong { color: var(--text); }
-    .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
-    .about li { margin-bottom: 7px; }
+ .about {
+ background: linear-gradient(160deg, #ffffff 0%, #f5f3ef 100%);
+ border: 1px solid rgba(255,255,255,0.85);
+ border-radius: 18px;
+ padding: 28px 32px;
+ margin-top: 50px;
+ margin-bottom: 20px;
+ font-size: 1rem;
+ line-height: 1.7;
+ color: #333;
+ box-shadow:
+ 0 8px 16px rgba(0,0,0,0.05),
+ 0 24px 48px rgba(44,95,78,0.08),
+ inset 0 1px 0 rgba(255,255,255,0.95);
+ }
+ .about p { margin-bottom: 14px; }
+ .about p:last-child { margin-bottom: 0; }
+ .about strong { color: var(--text); }
+ .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
+ .about li { margin-bottom: 7px; }
 
-    .add-buttons {
-      display: flex;
-      gap: 14px;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-bottom: 40px;
-    }
-    .btn {
-      padding: 14px 26px;
-      font-size: 0.95rem;
-      font-weight: 600;
-      border: none;
-      border-radius: 12px;
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s;
-      color: white;
-      box-shadow: 0 4px 0 rgba(0,0,0,0.15), 0 8px 18px rgba(0,0,0,0.12);
-    }
-    .btn-chat { background: linear-gradient(180deg, #4a7fb0 0%, #3b6b9a 100%); }
-    .btn-channel { background: linear-gradient(180deg, #7d6ba0 0%, #6b5b8c 100%); }
-    .btn-bot { background: linear-gradient(180deg, #5a9485 0%, #4a7c6f 100%); }
-    .btn:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 6px 0 rgba(0,0,0,0.12), 0 14px 28px rgba(0,0,0,0.16);
-      filter: brightness(1.05);
-    }
-    .btn:active {
-      transform: translateY(1px);
-      box-shadow: 0 2px 0 rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1);
-    }
+ .add-buttons {
+ display: flex;
+ gap: 14px;
+ justify-content: center;
+ flex-wrap: wrap;
+ margin-bottom: 40px;
+ }
+ .btn {
+ padding: 14px 26px;
+ font-size: 0.95rem;
+ font-weight: 600;
+ border: none;
+ border-radius: 12px;
+ cursor: pointer;
+ transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s;
+ color: white;
+ box-shadow: 0 4px 0 rgba(0,0,0,0.15), 0 8px 18px rgba(0,0,0,0.12);
+ }
+ .btn-chat { background: linear-gradient(180deg, #4a7fb0 0%, #3b6b9a 100%); }
+ .btn-channel { background: linear-gradient(180deg, #7d6ba0 0%, #6b5b8c 100%); }
+ .btn-bot { background: linear-gradient(180deg, #5a9485 0%, #4a7c6f 100%); }
+ .btn:hover {
+ transform: translateY(-3px);
+ box-shadow: 0 6px 0 rgba(0,0,0,0.12), 0 14px 28px rgba(0,0,0,0.16);
+ filter: brightness(1.05);
+ }
+ .btn:active {
+ transform: translateY(1px);
+ box-shadow: 0 2px 0 rgba(0,0,0,0.15), 0 4px 10px rgba(0,0,0,0.1);
+ }
 
-    .top-section h2 {
-      font-size: 1.45rem;
-      font-weight: 600;
-      margin-bottom: 20px;
-    }
-    .top-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
-      gap: 18px;
-    }
+ .top-section h2 {
+ font-size: 1.45rem;
+ font-weight: 600;
+ margin-bottom: 20px;
+ }
+ .top-grid {
+ display: grid;
+ grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+ gap: 18px;
+ }
 
-    .card {
-      background: linear-gradient(145deg, #ffffff 0%, #f8f7f4 100%);
-      border-radius: 16px;
-      padding: 18px;
-      display: flex;
-      gap: 14px;
-      border: 1px solid rgba(255,255,255,0.8);
-      box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
-      transition: transform 0.28s ease, box-shadow 0.28s ease;
-    }
-    .card:hover {
-      transform: translateY(-6px) scale(1.01);
-      box-shadow: 0 12px 20px rgba(0,0,0,0.08), 0 28px 48px rgba(44,95,78,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
-    }
-    .card.top-card {
-      border-color: rgba(201,168,108,0.55);
-      background: linear-gradient(145deg, #fffdf8 0%, #faf3e4 100%);
-      box-shadow: 0 6px 12px rgba(201,168,108,0.15), 0 14px 32px rgba(201,168,108,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
-    }
-    .card.top-card:hover {
-      transform: translateY(-8px) scale(1.015);
-      box-shadow: 0 16px 28px rgba(201,168,108,0.2), 0 32px 56px rgba(201,168,108,0.18);
-    }
+ .card {
+ background: linear-gradient(145deg, #ffffff 0%, #f8f7f4 100%);
+ border-radius: 16px;
+ padding: 18px;
+ display: flex;
+ gap: 14px;
+ border: 1px solid rgba(255,255,255,0.8);
+ box-shadow: 0 4px 6px rgba(0,0,0,0.04), 0 10px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.9);
+ transition: transform 0.28s ease, box-shadow 0.28s ease;
+ }
+ .card:hover {
+ transform: translateY(-6px) scale(1.01);
+ box-shadow: 0 12px 20px rgba(0,0,0,0.08), 0 28px 48px rgba(44,95,78,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+ }
+ .card.top-card {
+ border-color: rgba(201,168,108,0.55);
+ background: linear-gradient(145deg, #fffdf8 0%, #faf3e4 100%);
+ box-shadow: 0 6px 12px rgba(201,168,108,0.15), 0 14px 32px rgba(201,168,108,0.12), inset 0 1px 0 rgba(255,255,255,0.95);
+ }
+ .card.top-card:hover {
+ transform: translateY(-8px) scale(1.015);
+ box-shadow: 0 16px 28px rgba(201,168,108,0.2), 0 32px 56px rgba(201,168,108,0.18);
+ }
 
-    .card-avatar {
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.35);
-      border: 2px solid rgba(255,255,255,0.7);
-      font-size: 1.3rem;
-      font-weight: 600;
-      color: white;
-      overflow: hidden;
-    }
-    .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+ .card-avatar {
+ width: 54px;
+ height: 54px;
+ border-radius: 50%;
+ flex-shrink: 0;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ box-shadow: 0 4px 10px rgba(0,0,0,0.12), inset 0 1px 2px rgba(255,255,255,0.35);
+ border: 2px solid rgba(255,255,255,0.7);
+ font-size: 1.3rem;
+ font-weight: 600;
+ color: white;
+ overflow: hidden;
+ }
+ .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-    .card-content { flex: 1; min-width: 0; }
-    .card .type {
-      font-size: 0.7rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
-      margin-bottom: 3px;
-      color: var(--muted);
-    }
-    .card .username {
-      font-size: 1.1rem;
-      font-weight: 600;
-      margin-bottom: 4px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .card .username a { color: var(--text); text-decoration: none; }
-    .card .username a:hover { color: var(--accent); }
-    .card .desc {
-      font-size: 0.88rem;
-      color: var(--muted);
-      margin-bottom: 8px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .card .meta {
-      font-size: 0.78rem;
-      color: var(--muted);
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .card .actions {
-      margin-top: 10px;
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .card .actions button {
-      padding: 5px 10px;
-      font-size: 0.75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--soft);
-      cursor: pointer;
-      font-weight: 500;
-    }
-    .btn-top { background: #f5e9c8 !important; border-color: #c9a86c !important; color: #7a5c20 !important; }
-    .btn-make-top { background: #e8f0ed !important; border-color: var(--accent) !important; color: var(--accent) !important; }
-    .btn-blacklist { color: #a33 !important; }
-    .btn-delete { color: #a33 !important; font-weight: 700 !important; }
-    .btn-remove-top { color: #a33 !important; }
+ .card-content { flex: 1; min-width: 0; }
+ .card .type {
+ font-size: 0.7rem;
+ font-weight: 600;
+ text-transform: uppercase;
+ letter-spacing: 0.4px;
+ margin-bottom: 3px;
+ color: var(--muted);
+ }
+ .card .username {
+ font-size: 1.1rem;
+ font-weight: 600;
+ margin-bottom: 4px;
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ }
+ .card .username a { color: var(--text); text-decoration: none; }
+ .card .username a:hover { color: var(--accent); }
+ .card .desc {
+ font-size: 0.88rem;
+ color: var(--muted);
+ margin-bottom: 8px;
+ display: -webkit-box;
+ -webkit-line-clamp: 2;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+ }
+ .card .meta {
+ font-size: 0.78rem;
+ color: var(--muted);
+ display: flex;
+ gap: 10px;
+ flex-wrap: wrap;
+ align-items: center;
+ }
+ .card .actions {
+ margin-top: 10px;
+ display: flex;
+ gap: 6px;
+ flex-wrap: wrap;
+ }
+ .card .actions button {
+ padding: 5px 10px;
+ font-size: 0.75rem;
+ border-radius: 6px;
+ border: 1px solid var(--border);
+ background: var(--soft);
+ cursor: pointer;
+ font-weight: 500;
+ }
+ .btn-top { background: #f5e9c8 !important; border-color: #c9a86c !important; color: #7a5c20 !important; }
+ .btn-make-top { background: #e8f0ed !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+ .btn-blacklist { color: #a33 !important; }
+ .btn-delete { color: #a33 !important; font-weight: 700 !important; }
+ .btn-remove-top { color: #a33 !important; }
 
-    .sidebar {
-      position: sticky;
-      top: 24px;
-      align-self: start;
-    }
-    .search-box {
-      background: linear-gradient(145deg, #ffffff 0%, #f6f4f0 100%);
-      border: 1px solid rgba(255,255,255,0.85);
-      border-radius: 16px;
-      padding: 16px;
-      margin-bottom: 20px;
-      box-shadow:
-        0 6px 14px rgba(0,0,0,0.05),
-        0 16px 32px rgba(0,0,0,0.06),
-        inset 0 1px 0 rgba(255,255,255,0.95);
-    }
-    .search-box input {
-      width: 100%;
-      padding: 11px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      font-size: 0.95rem;
-      margin-bottom: 12px;
-    }
-    .filters {
-      display: flex;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .filter-btn {
-      padding: 7px 12px;
-      font-size: 0.8rem;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--soft);
-      cursor: pointer;
-      font-weight: 500;
-      color: var(--muted);
-    }
-    .filter-btn.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
-    }
-    .category-box {
-      margin-top: 12px;
-    }
-    .category-box label {
-      display: block;
-      font-size: 0.78rem;
-      color: var(--muted);
-      margin-bottom: 6px;
-      font-weight: 500;
-    }
-    .category-box select {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      font-size: 0.9rem;
-      color: var(--text);
-      cursor: pointer;
-    }
+ .sidebar {
+ position: sticky;
+ top: 24px;
+ align-self: start;
+ }
+ .search-box {
+ background: linear-gradient(145deg, #ffffff 0%, #f6f4f0 100%);
+ border: 1px solid rgba(255,255,255,0.85);
+ border-radius: 16px;
+ padding: 16px;
+ margin-bottom: 20px;
+ box-shadow:
+ 0 6px 14px rgba(0,0,0,0.05),
+ 0 16px 32px rgba(0,0,0,0.06),
+ inset 0 1px 0 rgba(255,255,255,0.95);
+ }
+ .search-box input {
+ width: 100%;
+ padding: 11px 14px;
+ border-radius: 10px;
+ border: 1px solid var(--border);
+ background: var(--bg);
+ font-size: 0.95rem;
+ margin-bottom: 12px;
+ }
+ .filters {
+ display: flex;
+ gap: 6px;
+ flex-wrap: wrap;
+ }
+ .filter-btn {
+ padding: 7px 12px;
+ font-size: 0.8rem;
+ border-radius: 8px;
+ border: 1px solid var(--border);
+ background: var(--soft);
+ cursor: pointer;
+ font-weight: 500;
+ color: var(--muted);
+ }
+ .filter-btn.active {
+ background: var(--accent);
+ color: white;
+ border-color: var(--accent);
+ }
+ .category-box { margin-top: 12px; }
+ .category-box label {
+ display: block;
+ font-size: 0.78rem;
+ color: var(--muted);
+ margin-bottom: 6px;
+ font-weight: 500;
+ }
+ .category-box select {
+ width: 100%;
+ padding: 10px 12px;
+ border-radius: 10px;
+ border: 1px solid var(--border);
+ background: var(--bg);
+ font-size: 0.9rem;
+ color: var(--text);
+ cursor: pointer;
+ }
 
-    .items-section h2 {
-      font-size: 1.2rem;
-      font-weight: 600;
-      margin-bottom: 14px;
-    }
-    .items-list {
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      max-height: 70vh;
-      overflow-y: auto;
-    }
-    .item-row {
-      background: #fff;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 7px 9px;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
-      transition: box-shadow 0.15s ease;
-    }
-    .item-row:hover {
-      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
-    }
-    .item-row .avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 0.8rem;
-      font-weight: 600;
-      color: white;
-      overflow: hidden;
-    }
-    .item-row .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .item-row .info { flex: 1; min-width: 0; }
-    .item-row .uname {
-      font-weight: 600;
-      font-size: 0.84rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      line-height: 1.2;
-    }
-    .item-row .uname a { color: var(--text); text-decoration: none; }
-    .item-row .meta {
-      font-size: 0.68rem;
-      color: var(--muted);
-      margin-top: 0;
-      line-height: 1.2;
-    }
-    .item-row .item-desc {
-      font-size: 0.72rem;
-      color: #666;
-      margin-top: 1px;
-      line-height: 1.25;
-      display: -webkit-box;
-      -webkit-line-clamp: 1;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .private-badge {
-      display: inline-block;
-      background: #e8eaf6;
-      color: #3949ab;
-      font-size: 0.7rem;
-      font-weight: 600;
-      padding: 1px 7px;
-      border-radius: 6px;
-      vertical-align: middle;
-    }
-    .item-row .actions {
-      display: flex;
-      gap: 4px;
-      margin-top: 3px;
-      flex-wrap: wrap;
-    }
-    .item-row .actions button {
-      padding: 3px 7px;
-      font-size: 0.65rem;
-      border-radius: 5px;
-      border: 1px solid var(--border);
-      background: var(--soft);
-      cursor: pointer;
-    }
+ .items-section h2 {
+ font-size: 1.2rem;
+ font-weight: 600;
+ margin-bottom: 14px;
+ }
+ .items-list {
+ display: flex;
+ flex-direction: column;
+ gap: 5px;
+ max-height: 70vh;
+ overflow-y: auto;
+ }
+ .item-row {
+ background: #fff;
+ border: 1px solid var(--border);
+ border-radius: 10px;
+ padding: 7px 9px;
+ display: flex;
+ gap: 8px;
+ align-items: center;
+ box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+ transition: box-shadow 0.15s ease;
+ }
+ .item-row:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+ .item-row .info { flex: 1; min-width: 0; }
+ .item-row .uname {
+ font-weight: 600;
+ font-size: 0.84rem;
+ white-space: nowrap;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ line-height: 1.2;
+ }
+ .item-row .uname a { color: var(--text); text-decoration: none; }
+ .item-row .meta {
+ font-size: 0.68rem;
+ color: var(--muted);
+ line-height: 1.2;
+ }
+ .item-row .item-desc {
+ font-size: 0.72rem;
+ color: #666;
+ margin-top: 1px;
+ line-height: 1.25;
+ display: -webkit-box;
+ -webkit-line-clamp: 1;
+ -webkit-box-orient: vertical;
+ overflow: hidden;
+ text-overflow: ellipsis;
+ }
+ .private-badge {
+ display: inline-block;
+ background: #e8eaf6;
+ color: #3949ab;
+ font-size: 0.7rem;
+ font-weight: 600;
+ padding: 1px 7px;
+ border-radius: 6px;
+ vertical-align: middle;
+ }
+ .item-row .actions {
+ display: flex;
+ gap: 4px;
+ margin-top: 3px;
+ flex-wrap: wrap;
+ }
+ .item-row .actions button {
+ padding: 3px 7px;
+ font-size: 0.65rem;
+ border-radius: 5px;
+ border: 1px solid var(--border);
+ background: var(--soft);
+ cursor: pointer;
+ }
 
-    .blacklist-section {
-      display: none;
-      margin-top: 30px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 18px;
-    }
-    .blacklist-section h2 {
-      font-size: 1.1rem;
-      margin-bottom: 12px;
-    }
-    .blacklist-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
-    }
-    .blacklist-item:last-child { border-bottom: none; }
-    .blacklist-item button {
-      padding: 4px 10px;
-      font-size: 0.75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      background: var(--soft);
-      cursor: pointer;
-      color: #a33;
-    }
+ .blacklist-section {
+ display: none;
+ margin-top: 30px;
+ background: var(--card);
+ border: 1px solid var(--border);
+ border-radius: 14px;
+ padding: 18px;
+ }
+ .blacklist-section h2 { font-size: 1.1rem; margin-bottom: 12px; }
+ .blacklist-item {
+ display: flex;
+ justify-content: space-between;
+ align-items: center;
+ padding: 8px 0;
+ border-bottom: 1px solid var(--border);
+ font-size: 0.9rem;
+ }
+ .blacklist-item:last-child { border-bottom: none; }
+ .blacklist-item button {
+ padding: 4px 10px;
+ font-size: 0.75rem;
+ border-radius: 6px;
+ border: 1px solid var(--border);
+ background: var(--soft);
+ cursor: pointer;
+ color: #a33;
+ }
 
-    footer {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 30px 0 10px;
-      font-size: 0.85rem;
-      color: var(--muted);
-    }
-    footer a {
-      color: var(--muted);
-      text-decoration: underline;
-      cursor: pointer;
-      margin: 0 8px;
-    }
-    footer a:hover { color: var(--accent); }
+ footer {
+ grid-column: 1 / -1;
+ text-align: center;
+ padding: 30px 0 10px;
+ font-size: 0.85rem;
+ color: var(--muted);
+ }
+ footer a {
+ color: var(--muted);
+ text-decoration: underline;
+ cursor: pointer;
+ margin: 0 8px;
+ }
+ footer a:hover { color: var(--accent); }
 
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(0,0,0,0.4);
-      z-index: 200;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-    .modal-overlay.active { display: flex; }
-    .modal {
-      background: linear-gradient(165deg, #ffffff 0%, #f7f5f1 100%);
-      border-radius: 20px;
-      padding: 24px;
-      width: 100%;
-      max-width: 420px;
-      max-height: 90vh;
-      overflow-y: auto;
-      border: 1px solid rgba(255,255,255,0.9);
-      box-shadow:
-        0 20px 40px rgba(0,0,0,0.15),
-        0 40px 80px rgba(44,95,78,0.12),
-        inset 0 1px 0 rgba(255,255,255,1);
-      transform: translateZ(0);
-    }
-    .modal h3 {
-      font-size: 1.25rem;
-      margin-bottom: 16px;
-    }
-    .modal label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 500;
-      margin-bottom: 4px;
-      color: var(--muted);
-    }
-    .modal input, .modal textarea, .modal select {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 9px;
-      border: 1px solid var(--border);
-      background: var(--bg);
-      font-size: 0.95rem;
-      margin-bottom: 12px;
-      font-family: inherit;
-    }
-    .modal textarea {
-      min-height: 90px;
-      resize: vertical;
-      display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
-      background: #fff;
-    }
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .checkbox-row input { width: auto; margin: 0; }
-    .modal-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-    }
-    .btn-cancel {
-      flex: 1;
-      padding: 11px;
-      border-radius: 9px;
-      border: 1px solid var(--border);
-      background: var(--soft);
-      cursor: pointer;
-      font-weight: 500;
-    }
-    .btn-add {
-      flex: 1;
-      padding: 11px;
-      border-radius: 9px;
-      border: none;
-      background: var(--accent);
-      color: white;
-      cursor: pointer;
-      font-weight: 600;
-    }
+ .modal-overlay {
+ position: fixed;
+ inset: 0;
+ background: rgba(0,0,0,0.4);
+ z-index: 200;
+ display: none;
+ align-items: center;
+ justify-content: center;
+ padding: 20px;
+ backdrop-filter: blur(6px);
+ -webkit-backdrop-filter: blur(6px);
+ }
+ .modal-overlay.active { display: flex; }
+ .modal {
+ background: linear-gradient(165deg, #ffffff 0%, #f7f5f1 100%);
+ border-radius: 20px;
+ padding: 24px;
+ width: 100%;
+ max-width: 420px;
+ max-height: 90vh;
+ overflow-y: auto;
+ border: 1px solid rgba(255,255,255,0.9);
+ box-shadow:
+ 0 20px 40px rgba(0,0,0,0.15),
+ 0 40px 80px rgba(44,95,78,0.12),
+ inset 0 1px 0 rgba(255,255,255,1);
+ }
+ .modal h3 { font-size: 1.25rem; margin-bottom: 16px; }
+ .modal label {
+ display: block;
+ font-size: 0.85rem;
+ font-weight: 500;
+ margin-bottom: 4px;
+ color: var(--muted);
+ }
+ .modal input, .modal textarea, .modal select {
+ width: 100%;
+ padding: 10px 12px;
+ border-radius: 9px;
+ border: 1px solid var(--border);
+ background: var(--bg);
+ font-size: 0.95rem;
+ margin-bottom: 12px;
+ font-family: inherit;
+ }
+ .modal textarea {
+ min-height: 90px;
+ resize: vertical;
+ display: block !important;
+ background: #fff;
+ }
+ .checkbox-row {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ margin-bottom: 12px;
+ }
+ .checkbox-row input { width: auto; margin: 0; }
+ .modal-actions {
+ display: flex;
+ gap: 10px;
+ margin-top: 8px;
+ }
+ .btn-cancel {
+ flex: 1;
+ padding: 11px;
+ border-radius: 9px;
+ border: 1px solid var(--border);
+ background: var(--soft);
+ cursor: pointer;
+ font-weight: 500;
+ }
+ .btn-add {
+ flex: 1;
+ padding: 11px;
+ border-radius: 9px;
+ border: none;
+ background: var(--accent);
+ color: white;
+ cursor: pointer;
+ font-weight: 600;
+ }
 
-    .loading {
-      text-align: center;
-      padding: 40px;
-      color: var(--muted);
-    }
+ .loading {
+ text-align: center;
+ padding: 40px;
+ color: var(--muted);
+ }
 
-    .status-bar {
-      position: fixed;
-      bottom: 12px;
-      right: 12px;
-      background: #333;
-      color: #fff;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      z-index: 50;
-      opacity: 0.85;
-      display: none;
-    }
-    .add-progress {
-      display: none;
-      margin: 14px 0 8px;
-    }
-    .add-progress.active { display: block; }
-    .progress-track {
-      height: 10px;
-      background: var(--soft);
-      border-radius: 999px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-    }
-    .progress-fill {
-      height: 100%;
-      width: 0%;
-      background: linear-gradient(90deg, #2c5f4e, #4a9a7c);
-      border-radius: 999px;
-      transition: width 0.35s ease;
-    }
-    .progress-text {
-      margin-top: 8px;
-      font-size: 0.8rem;
-      color: var(--muted);
-      text-align: center;
-    }
-  </style>
+ .status-bar {
+ position: fixed;
+ bottom: 12px;
+ right: 12px;
+ background: #333;
+ color: #fff;
+ padding: 6px 12px;
+ border-radius: 8px;
+ font-size: 0.75rem;
+ z-index: 50;
+ opacity: 0.85;
+ display: none;
+ }
+ .add-progress { display: none; margin: 14px 0 8px; }
+ .add-progress.active { display: block; }
+ .progress-track {
+ height: 10px;
+ background: var(--soft);
+ border-radius: 999px;
+ overflow: hidden;
+ border: 1px solid var(--border);
+ }
+ .progress-fill {
+ height: 100%;
+ width: 0%;
+ background: linear-gradient(90deg, #2c5f4e, #4a9a7c);
+ border-radius: 999px;
+ transition: width 0.35s ease;
+ }
+ .progress-text {
+ margin-top: 8px;
+ font-size: 0.8rem;
+ color: var(--muted);
+ text-align: center;
+ }
+ </style>
 </head>
 <body>
 
-  <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
-
-  <div class="login-popup" id="login-popup">
-    <strong>Вход</strong>
-    <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
-    <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password">
-    <button onclick="loginAdmin()">Войти</button>
-    <button class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
-    <div class="error-msg" id="login-error"></div>
-  </div>
-
-  <div class="admin-badge" id="admin-badge">
-    <span>Админ</span>
-    <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
-    <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
-    <button type="button" onclick="logoutAdmin()">Выйти</button>
-  </div>
-
-  <div class="page">
-    <main>
-      <header>
-        <h1>Telegra</h1>
-        <div class="subtitle">Каталог Telegram-каналов, чатов и ботов</div>
-      </header>
-
-      <div class="add-buttons">
-        <button class="btn btn-chat" onclick="openModal('chat')">Добавить чат</button>
-        <button class="btn btn-channel" onclick="openModal('channel')">Добавить канал</button>
-        <button class="btn btn-bot" onclick="openModal('bot')">Добавить бот</button>
-      </div>
-
-      <section class="top-section">
-        <h2>Топ размещение <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
-        <div class="top-grid" id="top-list">
-          <div class="loading">Загрузка...</div>
-        </div>
-      </section>
-
-      <section class="blacklist-section" id="blacklist-section">
-        <h2>Чёрный список</h2>
-        <div id="blacklist-list"></div>
-      </section>
-
-      <div class="about">
-        <p><strong>Telegra</strong> — удобный каталог Telegram-каналов, чатов и ботов. Здесь вы можете найти интересные сообщества или добавить свои.</p>
-        <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
-        <ul>
-          <li>Бесплатное добавление каналов, чатов и ботов</li>
-          <li>Размещение в Топ</li>
-          <li>Удобный поиск и фильтры</li>
-          <li>Мы добавим вашему каналу подписчиков</li>
-        </ul>
-        <p>Если вы нашли свой канал в нашем каталоге и видите, что он не загрузился (без аватарки и информации), вы можете его перезалить. Для этого обратитесь к администратору сайта, чтобы удалить старую запись.</p>
-        <p>По вопросам: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
-      </div>
-    </main>
-
-    <aside class="sidebar">
-      <div class="search-box">
-        <input type="text" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
-        <div class="filters">
-          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Все</button>
-          <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Чаты</button>
-          <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">Каналы</button>
-          <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Боты</button>
-        </div>
-        <div class="category-box">
-          <label for="category-filter">Категория</label>
-          <select id="category-filter" onchange="setCategoryFilter(this.value)">
-            <option value="">Все категории</option>
-            <option value="Авто, мото, техника">Авто, мото, техника</option>
-            <option value="Аниме">Аниме</option>
-            <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-            <option value="Для взрослых 18+">Для взрослых 18+</option>
-            <option value="Для мужчин">Для мужчин</option>
-            <option value="Для женщин">Для женщин</option>
-            <option value="Для родителей">Для родителей</option>
-            <option value="Блоги">Блоги</option>
-            <option value="Еда и напитки">Еда и напитки</option>
-            <option value="Здоровье и спорт">Здоровье и спорт</option>
-            <option value="Игры и приложения">Игры и приложения</option>
-            <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-            <option value="Криптовалюта">Криптовалюта</option>
-            <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-            <option value="Маркетплейсы">Маркетплейсы</option>
-            <option value="Медицина">Медицина</option>
-            <option value="Мода и красота">Мода и красота</option>
-            <option value="Музыка">Музыка</option>
-            <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-            <option value="Новости и СМИ">Новости и СМИ</option>
-            <option value="Продажи">Продажи</option>
-            <option value="Психология">Психология</option>
-            <option value="Путешествия">Путешествия</option>
-            <option value="Развлечения и юмор">Развлечения и юмор</option>
-            <option value="SMM">SMM</option>
-            <option value="Телеграм">Телеграм</option>
-            <option value="Технологии">Технологии</option>
-            <option value="Трейдинг">Трейдинг</option>
-            <option value="Нейросети и AI">Нейросети и AI</option>
-            <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-            <option value="Футбол, хоккей">Футбол, хоккей</option>
-            <option value="Фото, искусство">Фото, искусство</option>
-            <option value="Фриланс">Фриланс</option>
-            <option value="Чаты">Чаты</option>
-            <option value="Юриспруденция">Юриспруденция</option>
-            <option value="Разное">Разное</option>
-          </select>
-        </div>
-      </div>
-
-      <section class="items-section">
-        <h2>Все записи <span id="items-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
-        <div class="items-list" id="items-list">
-          <div class="loading">Загрузка...</div>
-        </div>
-      </section>
-    </aside>
-
-    <footer>
-      <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
-      <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
-      <div style="margin-top:12px;">© Telegra 2026</div>
-    </footer>
-  </div>
-
-  <!-- Модалка добавления -->
-  <div class="modal-overlay" id="add-modal">
-    <div class="modal">
-      <h3 id="modal-title">Добавить</h3>
-      <label>1. Название канала</label>
-      <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
-      <label>2. Ссылка</label>
-      <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
-      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
-      <label>3. Описание</label>
-      <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым — тогда подтянем из Telegram" style="min-height:90px;width:100%;display:block;"></textarea>
-      <label>4. Категория</label>
-      <select id="item-category">
-        <option value="">Выберите категорию</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
-      </select>
-
-      <div class="add-progress" id="add-progress">
-        <div class="progress-track"><div class="progress-fill" id="add-progress-fill"></div></div>
-        <div class="progress-text" id="add-progress-text">Загрузка данных из Telegram…</div>
-      </div>
-      <div class="modal-actions">
-        <button class="btn-cancel" id="add-cancel-btn" onclick="closeModal()">Отмена</button>
-        <button class="btn-add" id="add-submit-btn" onclick="addItem()">Добавить</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="top-modal">
-    <div class="modal">
-      <h3>Размещение в Топ</h3>
-      <div id="top-step-1">
-        <p style="margin-bottom:8px;color:var(--muted);font-size:0.95rem;">До 3 дней — <strong>60 ₽</strong>/день. Скидка с 7 дней. Месяц — <strong>1000 ₽</strong>.</p>
-        <p id="price-hint" style="margin-bottom:12px;font-size:0.82rem;color:var(--muted);"></p>
-        <label>Количество дней</label>
-        <select id="days-select" onchange="updatePrice()">
-          <option value="1">1 день — 60 ₽</option>
-          <option value="2">2 дня — 120 ₽</option>
-          <option value="3">3 дня — 180 ₽</option>
-          <option value="7" selected>7 дней — 300 ₽</option>
-          <option value="14">14 дней — 520 ₽</option>
-          <option value="30">30 дней — 1000 ₽</option>
-        </select>
-        <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">300 ₽</strong></p>
-        <div class="modal-actions">
-          <button class="btn-cancel" onclick="closeTopModal()">Отмена</button>
-          <button class="btn-add" onclick="confirmTopDays()">ОК</button>
-        </div>
-      </div>
-      <div id="top-step-2" style="display:none;">
-        <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
-          Для оплаты напишите боту сумму и username записи.
-        </p>
-        <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
-          Итого: <strong id="top-final-price">300 ₽</strong>
-        </p>
-        <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
-           style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
-          Открыть @TG_Administrator_Vip_bot
-        </a>
-        <div class="modal-actions" style="margin-top:14px;">
-          <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="bot-settings-modal">
-    <div class="modal">
-      <h3>Ссылка для оплаты</h3>
-      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Username бота или канала, куда писать об оплате Топа (без @).</p>
-      <label>Username бота</label>
-      <input type="text" id="payment-bot-input" placeholder="например MyPayBot">
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeBotSettings()">Отмена</button>
-        <button class="btn-add" onclick="savePaymentBot()">Сохранить</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="bulk-modal">
-    <div class="modal">
-      <h3>Массовое добавление</h3>
-      <label>Раздел</label>
-      <select id="bulk-type">
-        <option value="channel">Каналы</option>
-        <option value="chat">Чаты</option>
-        <option value="bot">Боты</option>
-      </select>
-      <label>Категория</label>
-      <select id="bulk-category">
-        <option value="Разное">Разное</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-      </select>
-      <label>Usernames через пробел (с @)</label>
-      <textarea id="bulk-list" placeholder="@channel1 @channel2 @mybot" style="min-height:120px;"></textarea>
-      <p style="font-size:0.78rem;color:var(--muted);margin-top:-6px;">Можно через пробел, запятую или с новой строки. Дубликаты пропускаются. Названия — из Telegram.</p>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
-        <button class="btn-add" onclick="runBulkImport()">Добавить</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="admin-top-modal">
-    <div class="modal">
-      <h3>Добавить в Топ (админ)</h3>
-      <label>Дней</label>
-      <input type="number" id="admin-top-days" value="7" min="1" max="365">
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
-        <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal-overlay" id="legal-modal">
-    <div class="modal">
-      <h3 id="legal-title"></h3>
-      <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
-      <div class="modal-actions" style="margin-top:16px;">
-        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="status-bar" id="status-bar"></div>
-
-  <script>
-    const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
-
-    let supabaseClient = null;
-    try {
-      if (window.supabase && window.supabase.createClient) {
-        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      } else {
-        console.warn('Supabase library not loaded yet');
-      }
-    } catch (e) {
-      console.error('Supabase init error:', e);
-    }
-
-    let isAdmin = false;
-    let currentType = null;
-    let pendingTopId = null;
-    let allItems = [];
-    let blacklist = [];
-    let currentFilter = 'all';
-    let currentCategory = '';
-    let loginPopupOpen = false;
-    let paymentBot = 'TG_Administrator_Vip_bot';
-    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
-    let bulkRunning = false;
-
-    /** Экранирование HTML (защита от XSS) */
-    function escapeHtml(s) {
-      return String(s ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-
-    /** Безопасная вставка в JS-строку внутри HTML-атрибута onclick="...('...')" */
-    function escapeJsAttr(s) {
-      return String(s ?? '')
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/\r/g, '')
-        .replace(/\n/g, '\\n')
-        .replace(/</g, '\\u003c')
-        .replace(/>/g, '\\u003e');
-    }
-
-    function normalizeBotUsername(v) {
-      return String(v || '')
-        .trim()
-        .replace(/^@/, '')
-        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
-        .split('/')[0]
-        .split('?')[0];
-    }
-
-    function applyPaymentBotUI() {
-      const bot = normalizeBotUsername(paymentBot) || 'TG_Administrator_Vip_bot';
-      paymentBot = bot;
-      const link = document.getElementById('payment-bot-link');
-      if (link) {
-        link.href = 'https://t.me/' + bot;
-        link.textContent = 'Открыть @' + bot;
-      }
-      const about = document.getElementById('about-contact');
-      if (about) {
-        about.href = 'https://t.me/' + bot;
-        about.textContent = '@' + bot;
-      }
-    }
-
-    async function loadPaymentBot() {
-      if (!supabaseClient) {
-        applyPaymentBotUI();
-        return;
-      }
-      try {
-        const { data, error } = await supabaseClient
-          .from('settings')
-          .select('value')
-          .eq('key', 'payment_bot')
-          .maybeSingle();
-        if (!error && data && data.value) {
-          paymentBot = normalizeBotUsername(data.value);
-        }
-      } catch (e) {
-        console.warn('loadPaymentBot:', e);
-      }
-      applyPaymentBotUI();
-    }
-
-    function openBotSettings() {
-      if (!isAdmin) return;
-      document.getElementById('payment-bot-input').value = paymentBot;
-      document.getElementById('bot-settings-modal').classList.add('active');
-    }
-    function closeBotSettings() {
-      document.getElementById('bot-settings-modal').classList.remove('active');
-    }
-
-    async function savePaymentBot() {
-      if (!isAdmin || !supabaseClient) return;
-      const bot = normalizeBotUsername(document.getElementById('payment-bot-input').value);
-      if (!bot) {
-        alert('Укажите username бота');
-        return;
-      }
-      try {
-        const { error } = await supabaseClient
-          .from('settings')
-          .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
-        if (error) {
-          alert('Ошибка сохранения. Выполни SQL для таблицы settings.\n' + (error.message || ''));
-          return;
-        }
-        paymentBot = bot;
-        applyPaymentBotUI();
-        closeBotSettings();
-        showStatus('Бот для оплаты: @' + bot);
-      } catch (e) {
-        console.error(e);
-        alert('Ошибка сети');
-      }
-    }
-
-    const legalTexts = {
-      agreement: {
-        title: 'Пользовательское соглашение',
-        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Копирование материалов — только с указанием источника. Обращения: @TG_Administrator_Vip_bot</p>`
-      },
-      privacy: {
-        title: 'Политика конфиденциальности',
-        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (username) для работы каталога. Данные не передаются третьим лицам. Вы можете запросить удаление данных у @TG_Administrator_Vip_bot</p>`
-      }
-    };
-
-    function showStatus(msg, ms) {
-      const el = document.getElementById('status-bar');
-      if (!el) return;
-      el.textContent = msg;
-      el.style.display = 'block';
-      clearTimeout(el._t);
-      el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
-    }
-
-    function toggleLoginPopup() {
-      loginPopupOpen = !loginPopupOpen;
-      const popup = document.getElementById('login-popup');
-      const toggle = document.getElementById('login-toggle');
-      const err = document.getElementById('login-error');
-      if (loginPopupOpen) {
-        popup.classList.add('active');
-        toggle.classList.add('hidden');
-        if (err) err.style.display = 'none';
-      } else {
-        popup.classList.remove('active');
-        toggle.classList.remove('hidden');
-      }
-    }
-
-    async function checkSession() {
-      if (!supabaseClient) return;
-      try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-          const { data } = await supabaseClient
-            .from('admins')
-            .select('user_id')
-            .eq('user_id', session.user.id)
-            .maybeSingle();
-          if (data) {
-            isAdmin = true;
-            document.getElementById('admin-badge').classList.add('active');
-            document.getElementById('login-toggle').classList.add('hidden');
-            document.getElementById('blacklist-section').style.display = 'block';
-          }
-        }
-      } catch (e) {
-        console.error('checkSession error:', e);
-      }
-    }
-
-    async function loginAdmin() {
-      const email = document.getElementById('admin-email').value.trim();
-      const password = document.getElementById('admin-pass').value;
-      const errEl = document.getElementById('login-error');
-      if (!email || !password) {
-        errEl.textContent = 'Введите email и пароль';
-        errEl.style.display = 'block';
-        return;
-      }
-      if (!supabaseClient) {
-        errEl.textContent = 'База данных недоступна. Обновите страницу.';
-        errEl.style.display = 'block';
-        return;
-      }
-      try {
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) {
-          errEl.textContent = error.message || 'Ошибка входа';
-          errEl.style.display = 'block';
-          return;
-        }
-        const { data: adminData } = await supabaseClient
-          .from('admins')
-          .select('user_id')
-          .eq('user_id', data.user.id)
-          .maybeSingle();
-        if (!adminData) {
-          await supabaseClient.auth.signOut();
-          errEl.textContent = 'Нет прав администратора';
-          errEl.style.display = 'block';
-          return;
-        }
-        isAdmin = true;
-        document.getElementById('admin-badge').classList.add('active');
-        document.getElementById('login-toggle').classList.add('hidden');
-        document.getElementById('login-popup').classList.remove('active');
-        document.getElementById('blacklist-section').style.display = 'block';
-        loginPopupOpen = false;
-        showStatus('Вы вошли как админ');
-        render();
-      } catch (e) {
-        console.error(e);
-        errEl.textContent = 'Ошибка сети';
-        errEl.style.display = 'block';
-      }
-    }
-
-    async function logoutAdmin() {
-      if (supabaseClient) {
-        try { await supabaseClient.auth.signOut(); } catch (e) {}
-      }
-      isAdmin = false;
-      document.getElementById('admin-badge').classList.remove('active');
-      document.getElementById('login-toggle').classList.remove('hidden');
-      document.getElementById('blacklist-section').style.display = 'none';
-      showStatus('Вы вышли');
-      render();
-    }
-
-    async function loadData() {
-      if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
-        return;
-      }
-      try {
-        try {
-          await supabaseClient
-            .from('items')
-            .update({ is_top: false, top_until: null })
-            .lt('top_until', new Date().toISOString())
-            .eq('is_top', true);
-        } catch (e) {}
-
-        const { data: items, error } = await supabaseClient
-          .from('items')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
-          return;
-        }
-
-        const nowIso = Date.now();
-        allItems = (items || []).map(it => {
-          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
-            return { ...it, is_top: false, top_until: null };
-          }
-          return it;
-        });
-
-        const { data: bl } = await supabaseClient.from('blacklist').select('value');
-        blacklist = (bl || []).map(r => r.value);
-
-        render();
-      } catch (e) {
-        console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-      }
-    }
-
-    function normalizeUsername(u) {
-      return String(u || '')
-        .trim()
-        .replace(/^@/, '')
-        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
-        .split('/')[0]
-        .split('?')[0]
-        .toLowerCase();
-    }
-
-    function normalizeInvite(link) {
-      return String(link || '').trim().replace(/\/+$/, '').toLowerCase();
-    }
-
-    function isDuplicate(username, invite) {
-      const u = username ? normalizeUsername(username) : '';
-      const inv = invite ? normalizeInvite(invite) : '';
-      return allItems.some(it => {
-        if (u && it.username && normalizeUsername(it.username) === u) return true;
-        if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return true;
-        return false;
-      });
-    }
-
-    async function existsInDb(username, invite) {
-      if (!supabaseClient) return false;
-      try {
-        if (username) {
-          const u = normalizeUsername(username);
-          const { data } = await supabaseClient
-            .from('items')
-            .select('id, username')
-            .ilike('username', u)
-            .limit(20);
-          if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
-        }
-        if (invite) {
-          const inv = normalizeInvite(invite);
-          // точное совпадение + варианты без/с https
-          const variants = [invite, inv];
-          if (inv.startsWith('https://')) {
-            variants.push(inv.replace(/^https:\/\//, 'http://'));
-            variants.push(inv.replace(/^https:\/\//, ''));
-          } else if (!/^https?:\/\//i.test(invite)) {
-            variants.push('https://' + inv.replace(/^https?:\/\//i, ''));
-          }
-          for (const v of [...new Set(variants)]) {
-            const { data } = await supabaseClient
-              .from('items')
-              .select('id, invite_link')
-              .eq('invite_link', v)
-              .limit(3);
-            if ((data || []).length) return true;
-          }
-          // ilike по хвосту invite (после t.me/)
-          const tail = inv.replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '');
-          if (tail.length >= 8) {
-            const { data: soft } = await supabaseClient
-              .from('items')
-              .select('id, invite_link')
-              .ilike('invite_link', '%' + tail)
-              .limit(30);
-            if ((soft || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
-          }
-        }
-      } catch (e) {
-        console.warn('existsInDb', e);
-      }
-      return false;
-    }
-
-    function decodeEntities(str) {
-      if (!str) return str;
-      return String(str)
-        .replace(/&amp;/g, '&')
-        .replace(/&quot;/g, '"')
-        .replace(/&#039;/g, "'")
-        .replace(/&#39;/g, "'")
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
-    }
-
-    function isDefaultTgLogo(url) {
-      if (!url) return true;
-      return /t_logo|favicon|img\/Telegram|telegram\.org\/img\//i.test(url);
-    }
-
-    async function fetchTgMeta(username, onProgress) {
-      const uname = normalizeUsername(username);
-      if (!uname) return { title: null, description: null, avatar: null };
-      const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
-
-      function parseMeta(html) {
-        if (!html || html.length < 50) return null;
-        const pick = (prop) => {
-          const re1 = new RegExp('property=["\']' + prop + '["\']\\s+content=["\']([^"\']+)["\']', 'i');
-          const re2 = new RegExp('content=["\']([^"\']+)["\']\\s+property=["\']' + prop + '["\']', 'i');
-          const re3 = new RegExp('<meta[^>]+property=["\']' + prop + '["\'][^>]+content=["\']([^"\']+)["\']', 'i');
-          const m = html.match(re1) || html.match(re2) || html.match(re3);
-          return m ? decodeEntities(m[1].trim()) : null;
-        };
-
-        let title = pick('og:title');
-        if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
-
-        let avatar = pick('og:image');
-        if (avatar && isDefaultTgLogo(avatar)) avatar = null;
-
-        let description = pick('og:description');
-        if (description) {
-          if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
-        }
-
-        // запас: twitter:image
-        if (!avatar) {
-          const tw = pick('twitter:image') || pick('twitter:image:src');
-          if (tw && !isDefaultTgLogo(tw)) avatar = tw;
-        }
-
-        if (!title && !avatar && !description) return null;
-        return {
-          title: title || ('@' + uname),
-          description: description,
-          avatar: avatar || null
-        };
-      }
-
-      setP(15, 'Подключение к Telegram…');
-      const proxies = [
-        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-        (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
-      ];
-      const target = 'https://t.me/s/' + uname;
-      const targetAlt = 'https://t.me/' + uname;
-      let meta = null;
-
-      const tryUrl = async (url, label) => {
-        for (let i = 0; i < proxies.length; i++) {
-          setP(18 + i * 12, label + ' (' + (i + 1) + '/' + proxies.length + ')…');
-          try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 12000);
-            const res = await fetch(proxies[i](url), { signal: ctrl.signal });
-            clearTimeout(timer);
-            if (!res.ok) continue;
-            const html = await res.text();
-            const parsed = parseMeta(html);
-            if (parsed) {
-              if (!meta) meta = parsed;
-              else {
-                if (!meta.avatar && parsed.avatar) meta.avatar = parsed.avatar;
-                if (!meta.description && parsed.description) meta.description = parsed.description;
-                if (meta.title === '@' + uname && parsed.title) meta.title = parsed.title;
-              }
-              if (meta.avatar && meta.description) return true;
-            }
-          } catch (e) {}
-        }
-        return false;
-      };
-
-      await tryUrl(target, 'Загрузка данных');
-      if (!meta || !meta.avatar) await tryUrl(targetAlt, 'Доп. загрузка');
-
-      setP(80, 'Подгрузка аватарки…');
-      if (!meta) meta = { title: '@' + uname, description: null, avatar: null };
-
-      // Всегда держим рабочий fallback-URL аватара
-      if (!meta.avatar) {
-        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
-      }
-
-      setP(95, 'Почти готово…');
-      return meta;
-    }
-
-    async function insertItemRow(row) {
-      if (row.username) {
-        if (isDuplicate(row.username, null) || await existsInDb(row.username, null)) {
-          return { message: 'duplicate', code: 'DUPLICATE' };
-        }
-      }
-      if (row.invite_link) {
-        if (isDuplicate(null, row.invite_link) || await existsInDb(null, row.invite_link)) {
-          return { message: 'duplicate', code: 'DUPLICATE' };
-        }
-      }
-
-      let { error } = await supabaseClient.from('items').insert(row);
-      if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
-        const copy = { ...row };
-        delete copy.avatar_url;
-        if (row.username && await existsInDb(row.username, null)) {
-          return { message: 'duplicate', code: 'DUPLICATE' };
-        }
-        ({ error } = await supabaseClient.from('items').insert(copy));
-      }
-      if (error && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
-        return { message: 'duplicate', code: 'DUPLICATE' };
-      }
-      return error;
-    }
-
-    function parseTelegramLink(raw) {
-      let s = String(raw || '').trim();
-      if (!s) return { ok: false };
-      if (/t\.me\/\+/i.test(s) || /t\.me\/joinchat\//i.test(s) || s.startsWith('+')) {
-        let link = s;
-        if (s.startsWith('+')) link = 'https://t.me/' + s;
-        if (!/^https?:\/\//i.test(link)) {
-          if (/^t\.me\//i.test(link)) link = 'https://' + link;
-        }
-        return { ok: true, isPrivate: true, invite: link, username: null };
-      }
-      let u = s.replace(/^@/, '');
-      u = u.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
-      u = u.split('/')[0].split('?')[0].trim();
-      if (!u || u.startsWith('+')) return { ok: false };
-      if (!/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(u) && !/^[a-zA-Z0-9_]{5,}$/.test(u)) {
-        // допускаем ботов вида name_bot
-        if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) return { ok: false };
-      }
-      return { ok: true, isPrivate: false, invite: null, username: u };
-    }
-
-    function setAddProgress(pct, text) {
-      const box = document.getElementById('add-progress');
-      const fill = document.getElementById('add-progress-fill');
-      const txt = document.getElementById('add-progress-text');
-      if (!box) return;
-      box.classList.add('active');
-      if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
-      if (txt && text) txt.textContent = text;
-    }
-    function hideAddProgress() {
-      const box = document.getElementById('add-progress');
-      const fill = document.getElementById('add-progress-fill');
-      if (box) box.classList.remove('active');
-      if (fill) fill.style.width = '0%';
-      const btn = document.getElementById('add-submit-btn');
-      const cancel = document.getElementById('add-cancel-btn');
-      if (btn) btn.disabled = false;
-      if (cancel) cancel.disabled = false;
-    }
-    function lockAddForm(lock) {
-      const btn = document.getElementById('add-submit-btn');
-      const cancel = document.getElementById('add-cancel-btn');
-      if (btn) btn.disabled = !!lock;
-      if (cancel) cancel.disabled = !!lock;
-    }
-
-    async function addItem() {
-      if (!supabaseClient) {
-        alert('База данных недоступна. Обновите страницу.');
-        return;
-      }
-      const name = (document.getElementById('item-name')?.value || '').trim();
-      const linkRaw = (document.getElementById('item-link')?.value || '').trim();
-      const userDesc = (document.getElementById('item-desc')?.value || '').trim();
-      let category = document.getElementById('item-category').value;
-      if (!category) category = 'Разное';
-
-      if (!name) {
-        alert('Укажите название');
-        return;
-      }
-      if (!linkRaw) {
-        alert('Укажите ссылку');
-        return;
-      }
-
-      const parsed = parseTelegramLink(linkRaw);
-      if (!parsed.ok) {
-        alert('Не удалось распознать ссылку. Пример: @channel, t.me/channel или https://t.me/+xxxx');
-        return;
-      }
-
-      lockAddForm(true);
-      setAddProgress(5, 'Проверка…');
-
-      try {
-        if (parsed.isPrivate) {
-          if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
-            hideAddProgress();
-            alert('Эта ссылка уже есть в каталоге');
-            return;
-          }
-          if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
-            hideAddProgress();
-            alert('Эта ссылка в чёрном списке');
-            return;
-          }
-          setAddProgress(50, 'Сохранение…');
-          const row = {
-            type: currentType,
-            username: null,
-            invite_link: parsed.invite,
-            is_private: true,
-            display_name: name,
-            description: userDesc || null,
-            category: category,
-            is_top: false,
-            top_until: null
-          };
-          const error = await insertItemRow(row);
-          if (error) {
-            hideAddProgress();
-            if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
-            else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
-            return;
-          }
-          setAddProgress(100, 'Готово!');
-          closeModal();
-          hideAddProgress();
-          showStatus('Добавлено!');
-          await loadData();
-          return;
-        }
-
-        const username = normalizeUsername(parsed.username);
-        if (isDuplicate(username, null) || await existsInDb(username, null)) {
-          hideAddProgress();
-          alert('Этот канал/чат/бот уже есть в каталоге');
-          return;
-        }
-        if (blacklist.some(b => normalizeUsername(b) === username)) {
-          hideAddProgress();
-          alert('Этот канал/чат в чёрном списке');
-          return;
-        }
-
-        setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
-        const meta = await fetchTgMeta(username, setAddProgress);
-
-        const row = {
-          type: currentType,
-          username: username,
-          invite_link: null,
-          is_private: false,
-          display_name: name || meta.title || ('@' + username),
-          description: userDesc || meta.description || null,
-          category: category,
-          is_top: false,
-          top_until: null,
-          avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username))
-        };
-
-        setAddProgress(92, 'Сохранение в каталог…');
-        const error = await insertItemRow(row);
-        if (error) {
-          hideAddProgress();
-          if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
-          else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
-          return;
-        }
-        setAddProgress(100, 'Готово!');
-        closeModal();
-        hideAddProgress();
-        showStatus('Добавлено!');
-        await loadData();
-      } catch (e) {
-        console.error(e);
-        hideAddProgress();
-        alert('Ошибка сети');
-      }
-    }
-
-    function openBulkModal() {
-      if (!isAdmin) return;
-      document.getElementById('bulk-list').value = '';
-      document.getElementById('bulk-modal').classList.add('active');
-    }
-    function closeBulkModal() {
-      document.getElementById('bulk-modal').classList.remove('active');
-    }
-
-    async function runBulkImport() {
-      if (!isAdmin || !supabaseClient) return;
-      if (bulkRunning) {
-        alert('Импорт уже идёт, подождите…');
-        return;
-      }
-      bulkRunning = true;
-
-      const type = document.getElementById('bulk-type').value;
-      const category = document.getElementById('bulk-category').value || 'Разное';
-      const raw = document.getElementById('bulk-list').value || '';
-      const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
-      const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
-
-      if (!usernames.length) {
-        bulkRunning = false;
-        alert('Вставьте usernames через пробел, например: @ch1 @ch2 @ch3');
-        return;
-      }
-
-      try { await loadData(); } catch (e) {}
-
-      const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
-      let ok = 0, skip = 0, fail = 0;
-
-      showStatus('Импорт… 0/' + usernames.length, 120000);
-      for (let i = 0; i < usernames.length; i++) {
-        const u = usernames[i];
-        if (seen.has(u) || isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
-          skip++;
-          showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' (пропуск)', 120000);
-          continue;
-        }
-        if (await existsInDb(u, null)) {
-          seen.add(u);
-          skip++;
-          continue;
-        }
-        try {
-          const meta = await fetchTgMeta(u);
-          const row = {
-            type,
-            username: u,
-            invite_link: null,
-            is_private: false,
-            display_name: meta.title || ('@' + u),
-            description: meta.description || null,
-            category,
-            is_top: false,
-            top_until: null,
-            avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(u))
-          };
-
-          const error = await insertItemRow(row);
-          if (error) {
-            if (error.code === 'DUPLICATE') {
-              skip++;
-              seen.add(u);
-            } else fail++;
-          } else {
-            ok++;
-            seen.add(u);
-            allItems.push({ username: u, invite_link: null, display_name: row.display_name });
-          }
-        } catch (e) {
-          fail++;
-        }
-        await new Promise(r => setTimeout(r, 700));
-        showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
-      }
-      bulkRunning = false;
-      closeBulkModal();
-      showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
-      await loadData();
-    }
-
-    async function removeTop(id) {
-      if (!supabaseClient || !isAdmin) return;
-      try {
-        const { error } = await supabaseClient
-          .from('items')
-          .update({ is_top: false, top_until: null })
-          .eq('id', id);
-        if (error) alert(error.message);
-        else { showStatus('Убрано из Топа'); await loadData(); }
-      } catch (e) { console.error(e); }
-    }
-
-    async function deleteItem(id) {
-      if (!supabaseClient || !isAdmin) return;
-      if (!confirm('Удалить запись?')) return;
-      try {
-        const { error } = await supabaseClient.from('items').delete().eq('id', id);
-        if (error) alert(error.message);
-        else { showStatus('Удалено'); await loadData(); }
-      } catch (e) { console.error(e); }
-    }
-
-    async function addToBlacklist(id, value) {
-      if (!supabaseClient || !isAdmin) return;
-      if (!confirm('Добавить в чёрный список и удалить?')) return;
-      try {
-        await supabaseClient.from('blacklist').insert({ value });
-        await supabaseClient.from('items').delete().eq('id', id);
-        showStatus('В чёрный список');
-        await loadData();
-      } catch (e) { console.error(e); alert('Ошибка'); }
-    }
-
-    async function removeFromBlacklist(value) {
-      if (!supabaseClient || !isAdmin) return;
-      try {
-        await supabaseClient.from('blacklist').delete().eq('value', value);
-        showStatus('Убрано из ЧС');
-        await loadData();
-      } catch (e) { console.error(e); }
-    }
-
-    /** Админ: обновить аватар/описание из Telegram */
-    async function refreshMeta(id) {
-      if (!supabaseClient || !isAdmin) return;
-      const item = allItems.find(x => String(x.id) === String(id));
-      if (!item || !item.username || item.is_private) {
-        alert('Нет публичного username для обновления');
-        return;
-      }
-      showStatus('Обновление метаданных…', 15000);
-      try {
-        const meta = await fetchTgMeta(item.username);
-        const patch = {
-          avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
-        };
-        if (meta.title && (!item.display_name || item.display_name === '@' + item.username)) {
-          patch.display_name = meta.title;
-        }
-        if (meta.description && !item.description) {
-          patch.description = meta.description;
-        }
-        const { error } = await supabaseClient.from('items').update(patch).eq('id', id);
-        if (error) alert(error.message);
-        else {
-          showStatus('Метаданные обновлены');
-          await loadData();
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Не удалось обновить');
-      }
-    }
-
-    function openAdminTopModal(id) {
-      pendingTopId = id;
-      document.getElementById('admin-top-modal').classList.add('active');
-    }
-    function closeAdminTopModal() {
-      document.getElementById('admin-top-modal').classList.remove('active');
-      pendingTopId = null;
-    }
-
-    async function confirmAdminTop() {
-      if (!supabaseClient || !isAdmin || !pendingTopId) return;
-      const days = parseInt(document.getElementById('admin-top-days').value) || 7;
-      const until = new Date();
-      until.setDate(until.getDate() + days);
-      try {
-        const { error } = await supabaseClient
-          .from('items')
-          .update({ is_top: true, top_until: until.toISOString() })
-          .eq('id', pendingTopId);
-        if (error) alert(error.message);
-        else {
-          closeAdminTopModal();
-          showStatus('Добавлено в Топ');
-          await loadData();
-        }
-      } catch (e) { console.error(e); }
-    }
-
-    function getAvatar(item, size) {
-      size = size || 54;
-      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
-      const raw = (item.display_name || item.username || item.invite_link || '?').toString();
-      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
-      const letter = escapeHtml((name[0] || '?').toUpperCase());
-      const isPriv = !!item.is_private;
-      const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
-      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
-
-      let uname = item.username ? String(item.username) : '';
-      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
-
-      const sources = [];
-      if (item.avatar_url && !isDefaultTgLogo(item.avatar_url)) {
-        sources.push(String(item.avatar_url));
-      }
-      if (uname && !isPriv && !uname.startsWith('+')) {
-        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
-        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname) + '?fallback=false');
-      }
-
-      const uniq = [];
-      const seenSrc = new Set();
-      for (const s of sources) {
-        const key = s.trim();
-        if (!key || seenSrc.has(key)) continue;
-        seenSrc.add(key);
-        uniq.push(key);
-      }
-
-      if (uniq.length) {
-        const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-        const escJs = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        let onerrChain = "this.style.display='none'";
-        for (let i = uniq.length - 1; i >= 1; i--) {
-          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + escJs(uniq[i]) + "'";
-        }
-        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
-          ${letterHtml}
-          <img src="${escAttr(uniq[0])}" alt="" loading="lazy"
-            onload="this.style.opacity=1" onerror="${onerrChain}"
-            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
-        </div>`;
-      }
-
-      if (isPriv) {
-        return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
-          ${letter}
-          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
-        </div>`;
-      }
-
-      return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
-    }
-
-    function getDaysLeft(topUntil) {
-      if (!topUntil) return 0;
-      const diff = new Date(topUntil) - new Date();
-      return Math.max(0, Math.ceil(diff / 86400000));
-    }
-
-    function setFilter(f) {
-      currentFilter = f;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
-      });
-      applyFilters();
-    }
-
-    function setCategoryFilter(cat) {
-      currentCategory = cat || '';
-      applyFilters();
-    }
-
-    function rotateList(arr) {
-      if (!arr || arr.length < 2) return arr || [];
-      const offset = listRotateOffset % arr.length;
-      return arr.slice(offset).concat(arr.slice(0, offset));
-    }
-
-    function typeLabel(t) {
-      return t === 'chat' ? 'Чат' : t === 'channel' ? 'Канал' : 'Бот';
-    }
-
-    function applyFilters() {
-      listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
-
-      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
-      const filtered = allItems.filter(item => {
-        if (currentFilter !== 'all' && item.type !== currentFilter) return false;
-        if (currentCategory) {
-          const cat = (item.category || 'Разное').trim();
-          if (currentCategory === 'Для взрослых 18+') {
-            if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
-          } else if (cat !== currentCategory) {
-            return false;
-          }
-        }
-        if (q) {
-          const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
-          if (!text.includes(q)) return false;
-        }
-        return true;
-      });
-
-      const now = new Date();
-      const topItems = allItems.filter(item => {
-        if (!item.is_top) return false;
-        if (item.top_until && new Date(item.top_until) < now) return false;
-        return true;
-      });
-
-      const rotated = rotateList(filtered);
-
-      document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
-      document.getElementById('items-count').textContent = rotated.length ? `(${rotated.length})` : '';
-
-      const topEl = document.getElementById('top-list');
-      if (!topItems.length) {
-        topEl.innerHTML = '<div class="loading">Пока пусто</div>';
-      } else {
-        topEl.innerHTML = topItems.map(item => {
-          const days = getDaysLeft(item.top_until);
-          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
-          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
-          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
-          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
-          return `
-            <div class="card top-card">
-              ${getAvatar(item)}
-              <div class="card-content">
-                <div class="type">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
-                <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
-                ${desc ? `<div class="desc">${desc}</div>` : ''}
-                <div class="meta"><span>Топ: ${days} дн.</span></div>
-                ${isAdmin ? `<div class="actions">
-                    <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
-                    ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">Аватар</button>` : ''}
-                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
-                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
-                  </div>` : ''}
-              </div>
-            </div>`;
-        }).join('');
-      }
-
-      const listEl = document.getElementById('items-list');
-      if (!rotated.length) {
-        listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
-      } else {
-        listEl.innerHTML = rotated.map(item => {
-          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
-          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
-          const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
-          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
-          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
-          return `
-            <div class="item-row">
-              ${getAvatar(item, 32)}
-              <div class="info">
-                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
-                <div class="meta">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
-                ${desc ? `<div class="item-desc">${desc}</div>` : ''}
-                <div class="actions">
-                  <button class="btn-top" onclick="openTopModal()">Топ</button>
-                  ${isAdmin ? `
-                    <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">В Топ</button>
-                    ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">↻</button>` : ''}
-                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
-                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
-                </div>
-              </div>
-            </div>`;
-        }).join('');
-      }
-
-      const blEl = document.getElementById('blacklist-list');
-      if (isAdmin) {
-        if (!blacklist.length) {
-          blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
-        } else {
-          blEl.innerHTML = blacklist.map(value => `
-            <div class="blacklist-item">
-              <span>${escapeHtml(value)}</span>
-              <button onclick="removeFromBlacklist('${escapeJsAttr(value)}')">Убрать</button>
-            </div>`).join('');
-        }
-      }
-    }
-
-    function render() {
-      applyFilters();
-    }
-
-    function openModal(type) {
-      currentType = type;
-      const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
-      document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
-      const nameEl = document.getElementById('item-name');
-      const linkEl = document.getElementById('item-link');
-      const descEl = document.getElementById('item-desc');
-      if (nameEl) nameEl.value = '';
-      if (linkEl) linkEl.value = '';
-      if (descEl) descEl.value = '';
-      document.getElementById('item-category').value = '';
-      hideAddProgress();
-      document.getElementById('add-modal').classList.add('active');
-    }
-
-    function closeModal() {
-      hideAddProgress();
-      document.getElementById('add-modal').classList.remove('active');
-    }
-
-    function openTopModal() {
-      document.getElementById('top-step-1').style.display = 'block';
-      document.getElementById('top-step-2').style.display = 'none';
-      document.getElementById('top-modal').classList.add('active');
-      updatePrice();
-    }
-    function closeTopModal() {
-      document.getElementById('top-modal').classList.remove('active');
-      document.getElementById('top-step-1').style.display = 'block';
-      document.getElementById('top-step-2').style.display = 'none';
-    }
-
-    function calcTopPrice(days) {
-      const table = { 1: 60, 2: 120, 3: 180, 7: 300, 14: 520, 30: 1000 };
-      if (table[days] != null) return table[days];
-      if (days <= 3) return days * 60;
-      return Math.round(180 + 820 * (days - 3) / 27);
-    }
-
-    function updatePrice() {
-      const days = parseInt(document.getElementById('days-select').value) || 1;
-      const total = calcTopPrice(days);
-      const perDay = Math.round(total / days);
-      const full = days * 60;
-      const save = full - total;
-      const sum = total + ' ₽';
-      document.getElementById('total-price').textContent = sum;
-      const finalEl = document.getElementById('top-final-price');
-      if (finalEl) finalEl.textContent = sum;
-      const hint = document.getElementById('price-hint');
-      if (hint) {
-        if (days <= 3) {
-          hint.textContent = 'Без скидки: 60 ₽/день';
-        } else {
-          hint.textContent = '≈ ' + perDay + ' ₽/день (экономия ' + save + ' ₽)';
-        }
-      }
-    }
-    function confirmTopDays() {
-      updatePrice();
-      applyPaymentBotUI();
-      document.getElementById('top-step-1').style.display = 'none';
-      document.getElementById('top-step-2').style.display = 'block';
-    }
-
-    function openLegal(type) {
-      document.getElementById('legal-title').textContent = legalTexts[type].title;
-      document.getElementById('legal-content').innerHTML = legalTexts[type].content;
-      document.getElementById('legal-modal').classList.add('active');
-    }
-    function closeLegal() {
-      document.getElementById('legal-modal').classList.remove('active');
-    }
-
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-      el.addEventListener('click', e => {
-        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
-      });
-    });
-
-    (async () => {
-      if (!supabaseClient && window.supabase) {
-        try {
-          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        } catch (e) {}
-      }
-      if (!supabaseClient) {
-        await new Promise(r => setTimeout(r, 1500));
-        if (window.supabase && window.supabase.createClient) {
-          try {
-            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-          } catch (e) {}
-        }
-      }
-
-      await checkSession();
-      await loadPaymentBot();
-      await loadData();
-      setInterval(loadData, 5 * 60 * 1000);
-      setInterval(() => {
-        const now = Date.now();
-        let changed = false;
-        allItems = allItems.map(it => {
-          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
-            changed = true;
-            return { ...it, is_top: false, top_until: null };
-          }
-          return it;
-        });
-        applyFilters();
-        if (changed && isAdmin) {
-          loadData();
-        }
-      }, 60 * 1000);
-    })();
-  </script>
+ <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
+
+ <div class="login-popup" id="login-popup">
+ <strong>Вход</strong>
+ <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
+ <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password">
+ <button onclick="loginAdmin()">Войти</button>
+ <button class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
+ <div class="error-msg" id="login-error"></div>
+ </div>
+
+ <div class="admin-badge" id="admin-badge">
+ <span>Админ</span>
+ <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
+ <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
+ <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
+ <button type="button" onclick="logoutAdmin()">Выйти</button>
+ </div>
+
+ <div class="page">
+ <main>
+ <header>
+ <h1>Telegra</h1>
+ <div class="subtitle">Каталог Telegram-каналов, чатов и ботов</div>
+ </header>
+
+ <div class="add-buttons">
+ <button class="btn btn-chat" onclick="openModal('chat')">Добавить чат</button>
+ <button class="btn btn-channel" onclick="openModal('channel')">Добавить канал</button>
+ <button class="btn btn-bot" onclick="openModal('bot')">Добавить бот</button>
+ </div>
+
+ <section class="top-section">
+ <h2>Топ размещение <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
+ <div class="top-grid" id="top-list">
+ <div class="loading">Загрузка...</div>
+ </div>
+ </section>
+
+ <section class="blacklist-section" id="blacklist-section">
+ <h2>Чёрный список</h2>
+ <div id="blacklist-list"></div>
+ </section>
+
+ <div class="about">
+ <p><strong>Telegra</strong> — удобный каталог Telegram-каналов, чатов и ботов. Здесь вы можете найти интересные сообщества или добавить свои.</p>
+ <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
+ <ul>
+ <li>Бесплатное добавление каналов, чатов и ботов</li>
+ <li>Размещение в Топ</li>
+ <li>Удобный поиск и фильтры</li>
+ <li>Мы добавим вашему каналу подписчиков</li>
+ </ul>
+ <p>Если вы нашли свой канал в нашем каталоге и видите, что он не загрузился (без аватарки и информации), вы можете его перезалить. Для этого обратитесь к администратору сайта, чтобы удалить старую запись.</p>
+ <p>По вопросам: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
+ </div>
+ </main>
+
+ <aside class="sidebar">
+ <div class="search-box">
+ <input type="text" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
+ <div class="filters">
+ <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Все</button>
+ <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Чаты</button>
+ <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">Каналы</button>
+ <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Боты</button>
+ </div>
+ <div class="category-box">
+ <label for="category-filter">Категория</label>
+ <select id="category-filter" onchange="setCategoryFilter(this.value)">
+ <option value="">Все категории</option>
+ <option value="Авто, мото, техника">Авто, мото, техника</option>
+ <option value="Аниме">Аниме</option>
+ <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+ <option value="Для взрослых 18+">Для взрослых 18+</option>
+ <option value="Для мужчин">Для мужчин</option>
+ <option value="Для женщин">Для женщин</option>
+ <option value="Для родителей">Для родителей</option>
+ <option value="Блоги">Блоги</option>
+ <option value="Еда и напитки">Еда и напитки</option>
+ <option value="Здоровье и спорт">Здоровье и спорт</option>
+ <option value="Игры и приложения">Игры и приложения</option>
+ <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+ <option value="Криптовалюта">Криптовалюта</option>
+ <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+ <option value="Маркетплейсы">Маркетплейсы</option>
+ <option value="Медицина">Медицина</option>
+ <option value="Мода и красота">Мода и красота</option>
+ <option value="Музыка">Музыка</option>
+ <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+ <option value="Новости и СМИ">Новости и СМИ</option>
+ <option value="Продажи">Продажи</option>
+ <option value="Психология">Психология</option>
+ <option value="Путешествия">Путешествия</option>
+ <option value="Развлечения и юмор">Развлечения и юмор</option>
+ <option value="SMM">SMM</option>
+ <option value="Телеграм">Телеграм</option>
+ <option value="Технологии">Технологии</option>
+ <option value="Трейдинг">Трейдинг</option>
+ <option value="Нейросети и AI">Нейросети и AI</option>
+ <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+ <option value="Футбол, хоккей">Футбол, хоккей</option>
+ <option value="Фото, искусство">Фото, искусство</option>
+ <option value="Фриланс">Фриланс</option>
+ <option value="Чаты">Чаты</option>
+ <option value="Юриспруденция">Юриспруденция</option>
+ <option value="Разное">Разное</option>
+ </select>
+ </div>
+ </div>
+
+ <section class="items-section">
+ <h2>Все записи <span id="items-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
+ <div class="items-list" id="items-list">
+ <div class="loading">Загрузка...</div>
+ </div>
+ </section>
+ </aside>
+
+ <footer>
+ <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
+ <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
+ <div style="margin-top:12px;">© Telegra 2026</div>
+ </footer>
+ </div>
+
+ <!-- Добавление -->
+ <div class="modal-overlay" id="add-modal">
+ <div class="modal">
+ <h3 id="modal-title">Добавить</h3>
+ <label>1. Название канала</label>
+ <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
+ <label>2. Ссылка</label>
+ <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
+ <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
+ <label>3. Описание</label>
+ <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым — тогда подтянем из Telegram"></textarea>
+ <label>4. Категория</label>
+ <select id="item-category">
+ <option value="">Выберите категорию</option>
+ <option value="Авто, мото, техника">Авто, мото, техника</option>
+ <option value="Аниме">Аниме</option>
+ <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+ <option value="Для взрослых 18+">Для взрослых 18+</option>
+ <option value="Для мужчин">Для мужчин</option>
+ <option value="Для женщин">Для женщин</option>
+ <option value="Для родителей">Для родителей</option>
+ <option value="Блоги">Блоги</option>
+ <option value="Еда и напитки">Еда и напитки</option>
+ <option value="Здоровье и спорт">Здоровье и спорт</option>
+ <option value="Игры и приложения">Игры и приложения</option>
+ <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+ <option value="Криптовалюта">Криптовалюта</option>
+ <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+ <option value="Маркетплейсы">Маркетплейсы</option>
+ <option value="Медицина">Медицина</option>
+ <option value="Мода и красота">Мода и красота</option>
+ <option value="Музыка">Музыка</option>
+ <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+ <option value="Новости и СМИ">Новости и СМИ</option>
+ <option value="Продажи">Продажи</option>
+ <option value="Психология">Психология</option>
+ <option value="Путешествия">Путешествия</option>
+ <option value="Развлечения и юмор">Развлечения и юмор</option>
+ <option value="SMM">SMM</option>
+ <option value="Телеграм">Телеграм</option>
+ <option value="Технологии">Технологии</option>
+ <option value="Трейдинг">Трейдинг</option>
+ <option value="Нейросети и AI">Нейросети и AI</option>
+ <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+ <option value="Футбол, хоккей">Футбол, хоккей</option>
+ <option value="Фото, искусство">Фото, искусство</option>
+ <option value="Фриланс">Фриланс</option>
+ <option value="Чаты">Чаты</option>
+ <option value="Юриспруденция">Юриспруденция</option>
+ <option value="Разное">Разное</option>
+ </select>
+ <div class="add-progress" id="add-progress">
+ <div class="progress-track"><div class="progress-fill" id="add-progress-fill"></div></div>
+ <div class="progress-text" id="add-progress-text">Загрузка данных из Telegram…</div>
+ </div>
+ <div class="modal-actions">
+ <button class="btn-cancel" id="add-cancel-btn" onclick="closeModal()">Отмена</button>
+ <button class="btn-add" id="add-submit-btn" onclick="addItem()">Добавить</button>
+ </div>
+ </div>
+ </div>
+
+ <!-- Оплата Топ (для всех: кнопка «В Топ») -->
+ <div class="modal-overlay" id="top-modal">
+ <div class="modal">
+ <h3>Размещение в Топ</h3>
+ <div id="top-step-1">
+ <p style="margin-bottom:8px;color:var(--muted);font-size:0.95rem;">До 3 дней — <strong>60 ₽</strong>/день. Скидка с 7 дней. Месяц — <strong>1000 ₽</strong>.</p>
+ <p id="price-hint" style="margin-bottom:12px;font-size:0.82rem;color:var(--muted);"></p>
+ <label>Количество дней</label>
+ <select id="days-select" onchange="updatePrice()">
+ <option value="1">1 день — 60 ₽</option>
+ <option value="2">2 дня — 120 ₽</option>
+ <option value="3">3 дня — 180 ₽</option>
+ <option value="7" selected>7 дней — 300 ₽</option>
+ <option value="14">14 дней — 520 ₽</option>
+ <option value="30">30 дней — 1000 ₽</option>
+ </select>
+ <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">300 ₽</strong></p>
+ <div class="modal-actions">
+ <button class="btn-cancel" onclick="closeTopModal()">Отмена</button>
+ <button class="btn-add" onclick="confirmTopDays()">ОК</button>
+ </div>
+ </div>
+ <div id="top-step-2" style="display:none;">
+ <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
+ Для оплаты напишите боту сумму и username записи.
+ </p>
+ <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
+ Итого: <strong id="top-final-price">300 ₽</strong>
+ </p>
+ <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
+ style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
+ Открыть @TG_Administrator_Vip_bot
+ </a>
+ <div class="modal-actions" style="margin-top:14px;">
+ <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
+ </div>
+ </div>
+ </div>
+ </div>
+
+ <div class="modal-overlay" id="bot-settings-modal">
+ <div class="modal">
+ <h3>Ссылка для оплаты</h3>
+ <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Username бота (без @).</p>
+ <label>Username бота</label>
+ <input type="text" id="payment-bot-input" placeholder="например MyPayBot">
+ <div class="modal-actions">
+ <button class="btn-cancel" onclick="closeBotSettings()">Отмена</button>
+ <button class="btn-add" onclick="savePaymentBot()">Сохранить</button>
+ </div>
+ </div>
+ </div>
+
+ <div class="modal-overlay" id="bulk-modal">
+ <div class="modal">
+ <h3>Массовое добавление</h3>
+ <label>Раздел</label>
+ <select id="bulk-type">
+ <option value="channel">Каналы</option>
+ <option value="chat">Чаты</option>
+ <option value="bot">Боты</option>
+ </select>
+ <label>Категория</label>
+ <select id="bulk-category">
+ <option value="Разное">Разное</option>
+ <option value="Авто, мото, техника">Авто, мото, техника</option>
+ <option value="Аниме">Аниме</option>
+ <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+ <option value="Для взрослых 18+">Для взрослых 18+</option>
+ <option value="Для мужчин">Для мужчин</option>
+ <option value="Для женщин">Для женщин</option>
+ <option value="Для родителей">Для родителей</option>
+ <option value="Блоги">Блоги</option>
+ <option value="Еда и напитки">Еда и напитки</option>
+ <option value="Здоровье и спорт">Здоровье и спорт</option>
+ <option value="Игры и приложения">Игры и приложения</option>
+ <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+ <option value="Криптовалюта">Криптовалюта</option>
+ <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+ <option value="Маркетплейсы">Маркетплейсы</option>
+ <option value="Медицина">Медицина</option>
+ <option value="Мода и красота">Мода и красота</option>
+ <option value="Музыка">Музыка</option>
+ <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+ <option value="Новости и СМИ">Новости и СМИ</option>
+ <option value="Продажи">Продажи</option>
+ <option value="Психология">Психология</option>
+ <option value="Путешествия">Путешествия</option>
+ <option value="Развлечения и юмор">Развлечения и юмор</option>
+ <option value="SMM">SMM</option>
+ <option value="Телеграм">Телеграм</option>
+ <option value="Технологии">Технологии</option>
+ <option value="Трейдинг">Трейдинг</option>
+ <option value="Нейросети и AI">Нейросети и AI</option>
+ <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+ <option value="Футбол, хоккей">Футбол, хоккей</option>
+ <option value="Фото, искусство">Фото, искусство</option>
+ <option value="Фриланс">Фриланс</option>
+ <option value="Чаты">Чаты</option>
+ <option value="Юриспруденция">Юриспруденция</option>
+ </select>
+ <label>Usernames через пробел (с @)</label>
+ <textarea id="bulk-list" placeholder="@channel1 @channel2 @mybot" style="min-height:120px;"></textarea>
+ <p style="font-size:0.78rem;color:var(--muted);margin-top:-6px;">Дубликаты пропускаются.</p>
+ <div class="modal-actions">
+ <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
+ <button class="btn-add" onclick="runBulkImport()">Добавить</button>
+ </div>
+ </div>
+ </div>
+
+ <!-- Массовое обновление метаданных -->
+ <div class="modal-overlay" id="refresh-meta-modal">
+ <div class="modal">
+ <h3>Обновить метаданные</h3>
+ <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+ Подтянет название, описание и аватар из Telegram для публичных записей.
+ Приватные пропускаются. Может занять несколько минут.
+ </p>
+ <label>Категория</label>
+ <select id="refresh-meta-category">
+ <option value="">Все категории</option>
+ <option value="Авто, мото, техника">Авто, мото, техника</option>
+ <option value="Аниме">Аниме</option>
+ <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+ <option value="Для взрослых 18+">Для взрослых 18+</option>
+ <option value="Для мужчин">Для мужчин</option>
+ <option value="Для женщин">Для женщин</option>
+ <option value="Для родителей">Для родителей</option>
+ <option value="Блоги">Блоги</option>
+ <option value="Еда и напитки">Еда и напитки</option>
+ <option value="Здоровье и спорт">Здоровье и спорт</option>
+ <option value="Игры и приложения">Игры и приложения</option>
+ <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+ <option value="Криптовалюта">Криптовалюта</option>
+ <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+ <option value="Маркетплейсы">Маркетплейсы</option>
+ <option value="Медицина">Медицина</option>
+ <option value="Мода и красота">Мода и красота</option>
+ <option value="Музыка">Музыка</option>
+ <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+ <option value="Новости и СМИ">Новости и СМИ</option>
+ <option value="Продажи">Продажи</option>
+ <option value="Психология">Психология</option>
+ <option value="Путешествия">Путешествия</option>
+ <option value="Развлечения и юмор">Развлечения и юмор</option>
+ <option value="SMM">SMM</option>
+ <option value="Телеграм">Телеграм</option>
+ <option value="Технологии">Технологии</option>
+ <option value="Трейдинг">Трейдинг</option>
+ <option value="Нейросети и AI">Нейросети и AI</option>
+ <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+ <option value="Футбол, хоккей">Футбол, хоккей</option>
+ <option value="Фото, искусство">Фото, искусство</option>
+ <option value="Фриланс">Фриланс</option>
+ <option value="Чаты">Чаты</option>
+ <option value="Юриспруденция">Юриспруденция</option>
+ <option value="Разное">Разное</option>
+ </select>
+ <label>Тип (необязательно)</label>
+ <select id="refresh-meta-type">
+ <option value="">Все типы</option>
+ <option value="channel">Каналы</option>
+ <option value="chat">Чаты</option>
+ <option value="bot">Боты</option>
+ </select>
+ <label class="checkbox-row" style="margin-bottom:12px;">
+ <input type="checkbox" id="refresh-meta-only-empty" checked>
+ <span style="font-size:0.88rem;color:var(--muted);">Только без аватара / слабые данные</span>
+ </label>
+ <div class="modal-actions">
+ <button class="btn-cancel" onclick="closeRefreshMetaModal()">Отмена</button>
+ <button class="btn-add" onclick="runRefreshMetaByCategory()">Обновить</button>
+ </div>
+ </div>
+ </div>
+
+ <div class="modal-overlay" id="admin-top-modal">
+ <div class="modal">
+ <h3>Добавить в Топ (админ)</h3>
+ <label>Дней</label>
+ <input type="number" id="admin-top-days" value="7" min="1" max="365">
+ <div class="modal-actions">
+ <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
+ <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
+ </div>
+ </div>
+ </div>
+
+ <div class="modal-overlay" id="legal-modal">
+ <div class="modal">
+ <h3 id="legal-title"></h3>
+ <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
+ <div class="modal-actions" style="margin-top:16px;">
+ <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
+ </div>
+ </div>
+ </div>
+
+ <div class="status-bar" id="status-bar"></div>
+
+ <script>
+ const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
+ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
+
+ let supabaseClient = null;
+ try {
+ if (window.supabase && window.supabase.createClient) {
+ supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ }
+ } catch (e) {
+ console.error('Supabase init error:', e);
+ }
+
+ let isAdmin = false;
+ let currentType = null;
+ let pendingTopId = null;
+ let allItems = [];
+ let blacklist = [];
+ let currentFilter = 'all';
+ let currentCategory = '';
+ let loginPopupOpen = false;
+ let paymentBot = 'TG_Administrator_Vip_bot';
+ let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+ let bulkRunning = false;
+ let refreshMetaRunning = false;
+
+ function escapeHtml(s) {
+ return String(s ?? '')
+ .replace(/&/g, '&amp;')
+ .replace(/</g, '&lt;')
+ .replace(/>/g, '&gt;')
+ .replace(/"/g, '&quot;')
+ .replace(/'/g, '&#39;');
+ }
+
+ function escapeJsAttr(s) {
+ return String(s ?? '')
+ .replace(/\\/g, '\\\\')
+ .replace(/'/g, "\\'")
+ .replace(/\r/g, '')
+ .replace(/\n/g, '\\n')
+ .replace(/</g, '\\u003c')
+ .replace(/>/g, '\\u003e');
+ }
+
+ function normalizeBotUsername(v) {
+ return String(v || '')
+ .trim()
+ .replace(/^@/, '')
+ .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+ .split('/')[0]
+ .split('?')[0];
+ }
+
+ function applyPaymentBotUI() {
+ const bot = normalizeBotUsername(paymentBot) || 'TG_Administrator_Vip_bot';
+ paymentBot = bot;
+ const link = document.getElementById('payment-bot-link');
+ if (link) {
+ link.href = 'https://t.me/' + bot;
+ link.textContent = 'Открыть @' + bot;
+ }
+ const about = document.getElementById('about-contact');
+ if (about) {
+ about.href = 'https://t.me/' + bot;
+ about.textContent = '@' + bot;
+ }
+ }
+
+ async function loadPaymentBot() {
+ if (!supabaseClient) {
+ applyPaymentBotUI();
+ return;
+ }
+ try {
+ const { data, error } = await supabaseClient
+ .from('settings')
+ .select('value')
+ .eq('key', 'payment_bot')
+ .maybeSingle();
+ if (!error && data && data.value) {
+ paymentBot = normalizeBotUsername(data.value);
+ }
+ } catch (e) {
+ console.warn('loadPaymentBot:', e);
+ }
+ applyPaymentBotUI();
+ }
+
+ function openBotSettings() {
+ if (!isAdmin) return;
+ document.getElementById('payment-bot-input').value = paymentBot;
+ document.getElementById('bot-settings-modal').classList.add('active');
+ }
+ function closeBotSettings() {
+ document.getElementById('bot-settings-modal').classList.remove('active');
+ }
+
+ async function savePaymentBot() {
+ if (!isAdmin || !supabaseClient) return;
+ const bot = normalizeBotUsername(document.getElementById('payment-bot-input').value);
+ if (!bot) {
+ alert('Укажите username бота');
+ return;
+ }
+ try {
+ const { error } = await supabaseClient
+ .from('settings')
+ .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
+ if (error) {
+ alert('Ошибка сохранения.\n' + (error.message || ''));
+ return;
+ }
+ paymentBot = bot;
+ applyPaymentBotUI();
+ closeBotSettings();
+ showStatus('Бот для оплаты: @' + bot);
+ } catch (e) {
+ console.error(e);
+ alert('Ошибка сети');
+ }
+ }
+
+ const legalTexts = {
+ agreement: {
+ title: 'Пользовательское соглашение',
+ content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> – каталог каналов, чатов и ботов Telegram.</p><p>Используя сайт, вы соглашаетесь с условиями.</p><h3>2–8. Основные положения</h3><p>Администрация вправе удалять контент и изменять правила. Обращения: @TG_Administrator_Vip_bot</p>`
+ },
+ privacy: {
+ title: 'Политика конфиденциальности',
+ content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные для работы каталога. Запрос на удаление: @TG_Administrator_Vip_bot</p>`
+ }
+ };
+
+ function showStatus(msg, ms) {
+ const el = document.getElementById('status-bar');
+ if (!el) return;
+ el.textContent = msg;
+ el.style.display = 'block';
+ clearTimeout(el._t);
+ el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
+ }
+
+ function toggleLoginPopup() {
+ loginPopupOpen = !loginPopupOpen;
+ const popup = document.getElementById('login-popup');
+ const toggle = document.getElementById('login-toggle');
+ const err = document.getElementById('login-error');
+ if (loginPopupOpen) {
+ popup.classList.add('active');
+ toggle.classList.add('hidden');
+ if (err) err.style.display = 'none';
+ } else {
+ popup.classList.remove('active');
+ toggle.classList.remove('hidden');
+ }
+ }
+
+ async function checkSession() {
+ if (!supabaseClient) return;
+ try {
+ const { data: { session } } = await supabaseClient.auth.getSession();
+ if (session) {
+ const { data } = await supabaseClient
+ .from('admins')
+ .select('user_id')
+ .eq('user_id', session.user.id)
+ .maybeSingle();
+ if (data) {
+ isAdmin = true;
+ document.getElementById('admin-badge').classList.add('active');
+ document.getElementById('login-toggle').classList.add('hidden');
+ document.getElementById('blacklist-section').style.display = 'block';
+ }
+ }
+ } catch (e) {
+ console.error('checkSession error:', e);
+ }
+ }
+
+ async function loginAdmin() {
+ const email = document.getElementById('admin-email').value.trim();
+ const password = document.getElementById('admin-pass').value;
+ const errEl = document.getElementById('login-error');
+ if (!email || !password) {
+ errEl.textContent = 'Введите email и пароль';
+ errEl.style.display = 'block';
+ return;
+ }
+ if (!supabaseClient) {
+ errEl.textContent = 'База данных недоступна. Обновите страницу.';
+ errEl.style.display = 'block';
+ return;
+ }
+ try {
+ const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+ if (error) {
+ errEl.textContent = error.message || 'Ошибка входа';
+ errEl.style.display = 'block';
+ return;
+ }
+ const { data: adminData } = await supabaseClient
+ .from('admins')
+ .select('user_id')
+ .eq('user_id', data.user.id)
+ .maybeSingle();
+ if (!adminData) {
+ await supabaseClient.auth.signOut();
+ errEl.textContent = 'Нет прав администратора';
+ errEl.style.display = 'block';
+ return;
+ }
+ isAdmin = true;
+ document.getElementById('admin-badge').classList.add('active');
+ document.getElementById('login-toggle').classList.add('hidden');
+ document.getElementById('login-popup').classList.remove('active');
+ document.getElementById('blacklist-section').style.display = 'block';
+ loginPopupOpen = false;
+ showStatus('Вы вошли как админ');
+ render();
+ } catch (e) {
+ console.error(e);
+ errEl.textContent = 'Ошибка сети';
+ errEl.style.display = 'block';
+ }
+ }
+
+ async function logoutAdmin() {
+ if (supabaseClient) {
+ try { await supabaseClient.auth.signOut(); } catch (e) {}
+ }
+ isAdmin = false;
+ document.getElementById('admin-badge').classList.remove('active');
+ document.getElementById('login-toggle').classList.remove('hidden');
+ document.getElementById('blacklist-section').style.display = 'none';
+ showStatus('Вы вышли');
+ render();
+ }
+
+ async function loadData() {
+ if (!supabaseClient) {
+ document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+ document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+ return;
+ }
+ try {
+ try {
+ await supabaseClient
+ .from('items')
+ .update({ is_top: false, top_until: null })
+ .lt('top_until', new Date().toISOString())
+ .eq('is_top', true);
+ } catch (e) {}
+
+ const { data: items, error } = await supabaseClient
+ .from('items')
+ .select('*')
+ .order('created_at', { ascending: false });
+
+ if (error) {
+ console.error('loadData items error:', error);
+ document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
+ document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
+ return;
+ }
+
+ const nowIso = Date.now();
+ allItems = (items || []).map(it => {
+ if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
+ return { ...it, is_top: false, top_until: null };
+ }
+ return it;
+ });
+
+ const { data: bl } = await supabaseClient.from('blacklist').select('value');
+ blacklist = (bl || []).map(r => r.value);
+
+ render();
+ } catch (e) {
+ console.error('loadData error:', e);
+ document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+ document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+ }
+ }
+
+ function normalizeUsername(u) {
+ return String(u || '')
+ .trim()
+ .replace(/^@/, '')
+ .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+ .split('/')[0]
+ .split('?')[0]
+ .toLowerCase();
+ }
+
+ function normalizeInvite(link) {
+ return String(link || '').trim().replace(/\/+$/, '').toLowerCase();
+ }
+
+ function isDuplicate(username, invite) {
+ const u = username ? normalizeUsername(username) : '';
+ const inv = invite ? normalizeInvite(invite) : '';
+ return allItems.some(it => {
+ if (u && it.username && normalizeUsername(it.username) === u) return true;
+ if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return true;
+ return false;
+ });
+ }
+
+ async function existsInDb(username, invite) {
+ if (!supabaseClient) return false;
+ try {
+ if (username) {
+ const u = normalizeUsername(username);
+ const { data } = await supabaseClient
+ .from('items')
+ .select('id, username')
+ .ilike('username', u)
+ .limit(20);
+ if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
+ }
+ if (invite) {
+ const inv = normalizeInvite(invite);
+ const variants = [invite, inv];
+ if (inv.startsWith('https://')) {
+ variants.push(inv.replace(/^https:\/\//, 'http://'));
+ variants.push(inv.replace(/^https:\/\//, ''));
+ } else if (!/^https?:\/\//i.test(invite)) {
+ variants.push('https://' + inv.replace(/^https?:\/\//i, ''));
+ }
+ for (const v of [...new Set(variants)]) {
+ const { data } = await supabaseClient
+ .from('items')
+ .select('id, invite_link')
+ .eq('invite_link', v)
+ .limit(3);
+ if ((data || []).length) return true;
+ }
+ const tail = inv.replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '');
+ if (tail.length >= 8) {
+ const { data: soft } = await supabaseClient
+ .from('items')
+ .select('id, invite_link')
+ .ilike('invite_link', '%' + tail)
+ .limit(30);
+ if ((soft || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+ }
+ }
+ } catch (e) {
+ console.warn('existsInDb', e);
+ }
+ return false;
+ }
+
+ function decodeEntities(str) {
+ if (!str) return str;
+ return String(str)
+ .replace(/&amp;/g, '&')
+ .replace(/&quot;/g, '"')
+ .replace(/&#039;/g, "'")
+ .replace(/&#39;/g, "'")
+ .replace(/&lt;/g, '<')
+ .replace(/&gt;/g, '>');
+ }
+
+ function isDefaultTgLogo(url) {
+ if (!url) return true;
+ return /t_logo|favicon|img\/Telegram|telegram\.org\/img\//i.test(url);
+ }
+
+ async function fetchTgMeta(username, onProgress) {
+ const uname = normalizeUsername(username);
+ if (!uname) return { title: null, description: null, avatar: null };
+ const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
+
+ function parseMeta(html) {
+ if (!html || html.length < 50) return null;
+ const pick = (prop) => {
+ const re1 = new RegExp('property=["\']' + prop + '["\']\\s+content=["\']([^"\']+)["\']', 'i');
+ const re2 = new RegExp('content=["\']([^"\']+)["\']\\s+property=["\']' + prop + '["\']', 'i');
+ const re3 = new RegExp('<meta[^>]+property=["\']' + prop + '["\'][^>]+content=["\']([^"\']+)["\']', 'i');
+ const m = html.match(re1) || html.match(re2) || html.match(re3);
+ return m ? decodeEntities(m[1].trim()) : null;
+ };
+
+ let title = pick('og:title');
+ if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+
+ let avatar = pick('og:image');
+ if (avatar && isDefaultTgLogo(avatar)) avatar = null;
+
+ let description = pick('og:description');
+ if (description) {
+ if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
+ }
+
+ if (!avatar) {
+ const tw = pick('twitter:image') || pick('twitter:image:src');
+ if (tw && !isDefaultTgLogo(tw)) avatar = tw;
+ }
+
+ if (!title && !avatar && !description) return null;
+ return {
+ title: title || ('@' + uname),
+ description: description,
+ avatar: avatar || null
+ };
+ }
+
+ setP(15, 'Подключение к Telegram…');
+ const proxies = [
+ (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+ (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+ (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+ ];
+ const target = 'https://t.me/s/' + uname;
+ const targetAlt = 'https://t.me/' + uname;
+ let meta = null;
+
+ const tryUrl = async (url, label) => {
+ for (let i = 0; i < proxies.length; i++) {
+ setP(18 + i * 12, label + ' (' + (i + 1) + '/' + proxies.length + ')…');
+ try {
+ const ctrl = new AbortController();
+ const timer = setTimeout(() => ctrl.abort(), 12000);
+ const res = await fetch(proxies[i](url), { signal: ctrl.signal });
+ clearTimeout(timer);
+ if (!res.ok) continue;
+ const html = await res.text();
+ const parsed = parseMeta(html);
+ if (parsed) {
+ if (!meta) meta = parsed;
+ else {
+ if (!meta.avatar && parsed.avatar) meta.avatar = parsed.avatar;
+ if (!meta.description && parsed.description) meta.description = parsed.description;
+ if (meta.title === '@' + uname && parsed.title) meta.title = parsed.title;
+ }
+ if (meta.avatar && meta.description) return true;
+ }
+ } catch (e) {}
+ }
+ return false;
+ };
+
+ await tryUrl(target, 'Загрузка данных');
+ if (!meta || !meta.avatar) await tryUrl(targetAlt, 'Доп. загрузка');
+
+ setP(80, 'Подгрузка аватарки…');
+ if (!meta) meta = { title: '@' + uname, description: null, avatar: null };
+ if (!meta.avatar) {
+ meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+ }
+ setP(95, 'Почти готово…');
+ return meta;
+ }
+
+ async function insertItemRow(row) {
+ if (row.username) {
+ if (isDuplicate(row.username, null) || await existsInDb(row.username, null)) {
+ return { message: 'duplicate', code: 'DUPLICATE' };
+ }
+ }
+ if (row.invite_link) {
+ if (isDuplicate(null, row.invite_link) || await existsInDb(null, row.invite_link)) {
+ return { message: 'duplicate', code: 'DUPLICATE' };
+ }
+ }
+
+ let { error } = await supabaseClient.from('items').insert(row);
+ if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
+ const copy = { ...row };
+ delete copy.avatar_url;
+ if (row.username && await existsInDb(row.username, null)) {
+ return { message: 'duplicate', code: 'DUPLICATE' };
+ }
+ ({ error } = await supabaseClient.from('items').insert(copy));
+ }
+ if (error && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
+ return { message: 'duplicate', code: 'DUPLICATE' };
+ }
+ return error;
+ }
+
+ function parseTelegramLink(raw) {
+ let s = String(raw || '').trim();
+ if (!s) return { ok: false };
+ if (/t\.me\/\+/i.test(s) || /t\.me\/joinchat\//i.test(s) || s.startsWith('+')) {
+ let link = s;
+ if (s.startsWith('+')) link = 'https://t.me/' + s;
+ if (!/^https?:\/\//i.test(link)) {
+ if (/^t\.me\//i.test(link)) link = 'https://' + link;
+ }
+ return { ok: true, isPrivate: true, invite: link, username: null };
+ }
+ let u = s.replace(/^@/, '');
+ u = u.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
+ u = u.split('/')[0].split('?')[0].trim();
+ if (!u || u.startsWith('+')) return { ok: false };
+ if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) return { ok: false };
+ return { ok: true, isPrivate: false, invite: null, username: u };
+ }
+
+ function setAddProgress(pct, text) {
+ const box = document.getElementById('add-progress');
+ const fill = document.getElementById('add-progress-fill');
+ const txt = document.getElementById('add-progress-text');
+ if (!box) return;
+ box.classList.add('active');
+ if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+ if (txt && text) txt.textContent = text;
+ }
+ function hideAddProgress() {
+ const box = document.getElementById('add-progress');
+ const fill = document.getElementById('add-progress-fill');
+ if (box) box.classList.remove('active');
+ if (fill) fill.style.width = '0%';
+ lockAddForm(false);
+ }
+ function lockAddForm(lock) {
+ const btn = document.getElementById('add-submit-btn');
+ const cancel = document.getElementById('add-cancel-btn');
+ if (btn) btn.disabled = !!lock;
+ if (cancel) cancel.disabled = !!lock;
+ }
+
+ async function addItem() {
+ if (!supabaseClient) {
+ alert('База данных недоступна. Обновите страницу.');
+ return;
+ }
+ const name = (document.getElementById('item-name')?.value || '').trim();
+ const linkRaw = (document.getElementById('item-link')?.value || '').trim();
+ const userDesc = (document.getElementById('item-desc')?.value || '').trim();
+ let category = document.getElementById('item-category').value;
+ if (!category) category = 'Разное';
+
+ if (!name) { alert('Укажите название'); return; }
+ if (!linkRaw) { alert('Укажите ссылку'); return; }
+
+ const parsed = parseTelegramLink(linkRaw);
+ if (!parsed.ok) {
+ alert('Не удалось распознать ссылку. Пример: @channel, t.me/channel или https://t.me/+xxxx');
+ return;
+ }
+
+ lockAddForm(true);
+ setAddProgress(5, 'Проверка…');
+
+ try {
+ if (parsed.isPrivate) {
+ if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
+ hideAddProgress();
+ alert('Эта ссылка уже есть в каталоге');
+ return;
+ }
+ if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed .invite))) {
+ hideAddProgress();
+ alert('Эта ссылка в чёрном списке');
+ return;
+ }
+ setAddProgress(50, 'Сохранение…');
+ const row = {
+ type: currentType,
+ username: null,
+ invite_link: parsed.invite,
+ is_private: true,
+ display_name: name,
+ description: userDesc || null,
+ category: category,
+ is_top: false,
+ top_until: null
+ };
+ const error = await insertItemRow(row);
+ if (error) {
+ hideAddProgress();
+ if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
+ else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+ return;
+ }
+ setAddProgress(100, 'Готово!');
+ closeModal();
+ hideAddProgress();
+ showStatus('Добавлено!');
+ await loadData();
+ return;
+ }
+
+ const username = normalizeUsername(parsed.username);
+ if (isDuplicate(username, null) || await existsInDb(username, null)) {
+ hideAddProgress();
+ alert('Этот канал/чат/бот уже есть в каталоге');
+ return;
+ }
+ if (blacklist.some(b => normalizeUsername(b) === username)) {
+ hideAddProgress();
+ alert('Этот канал/чат в чёрном списке');
+ return;
+ }
+
+ setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
+ const meta = await fetchTgMeta(username, setAddProgress);
+
+ const row = {
+ type: currentType,
+ username: username,
+ invite_link: null,
+ is_private: false,
+ display_name: name || meta.title || ('@' + username),
+ description: userDesc || meta.description || null,
+ category: category,
+ is_top: false,
+ top_until: null,
+ avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username))
+ };
+
+ setAddProgress(92, 'Сохранение в каталог…');
+ const error = await insertItemRow(row);
+ if (error) {
+ hideAddProgress();
+ if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
+ else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+ return;
+ }
+ setAddProgress(100, 'Готово!');
+ closeModal();
+ hideAddProgress();
+ showStatus('Добавлено!');
+ await loadData();
+ } catch (e) {
+ console.error(e);
+ hideAddProgress();
+ alert('Ошибка сети');
+ }
+ }
+
+ function openBulkModal() {
+ if (!isAdmin) return;
+ document.getElementById('bulk-list').value = '';
+ document.getElementById('bulk-modal').classList.add('active');
+ }
+ function closeBulkModal() {
+ document.getElementById('bulk-modal').classList.remove('active');
+ }
+
+ async function runBulkImport() {
+ if (!isAdmin || !supabaseClient) return;
+ if (bulkRunning) {
+ alert('Импорт уже идёт, подождите…');
+ return;
+ }
+ bulkRunning = true;
+
+ const type = document.getElementById('bulk-type').value;
+ const category = document.getElementById('bulk-category').value || 'Разное';
+ const raw = document.getElementById('bulk-list').value || '';
+ const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+ const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
+
+ if (!usernames.length) {
+ bulkRunning = false;
+ alert('Вставьте usernames через пробел');
+ return;
+ }
+
+ try { await loadData(); } catch (e) {}
+
+ const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
+ let ok = 0, skip = 0, fail = 0;
+
+ showStatus('Импорт… 0/' + usernames.length, 120000);
+ for (let i = 0; i < usernames.length; i++) {
+ const u = usernames[i];
+ if (seen.has(u) || isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
+ skip++;
+ showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' (пропуск)', 120000);
+ continue;
+ }
+ if (await existsInDb(u, null)) {
+ seen.add(u);
+ skip++;
+ continue;
+ }
+ try {
+ const meta = await fetchTgMeta(u);
+ const row = {
+ type,
+ username: u,
+ invite_link: null,
+ is_private: false,
+ display_name: meta.title || ('@' + u),
+ description: meta.description || null,
+ category,
+ is_top: false,
+ top_until: null,
+ avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(u))
+ };
+ const error = await insertItemRow(row);
+ if (error) {
+ if (error.code === 'DUPLICATE') { skip++; seen.add(u); }
+ else fail++;
+ } else {
+ ok++;
+ seen.add(u);
+ allItems.push({ username: u, invite_link: null, display_name: row.display_name });
+ }
+ } catch (e) {
+ fail++;
+ }
+ await new Promise(r => setTimeout(r, 700));
+ showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
+ }
+ bulkRunning = false;
+ closeBulkModal();
+ showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+ await loadData();
+ }
+
+ async function removeTop(id) {
+ if (!supabaseClient || !isAdmin) return;
+ try {
+ const { error } = await supabaseClient
+ .from('items')
+ .update({ is_top: false, top_until: null })
+ .eq('id', id);
+ if (error) alert(error.message);
+ else { showStatus('Убрано из Топа'); await loadData(); }
+ } catch (e) { console.error(e); }
+ }
+
+ async function deleteItem(id) {
+ if (!supabaseClient || !isAdmin) return;
+ if (!confirm('Удалить запись?')) return;
+ try {
+ const { error } = await supabaseClient.from('items').delete().eq('id', id);
+ if (error) alert(error.message);
+ else { showStatus('Удалено'); await loadData(); }
+ } catch (e) { console.error(e); }
+ }
+
+ async function addToBlacklist(id, value) {
+ if (!supabaseClient || !isAdmin) return;
+ if (!confirm('Добавить в чёрный список и удалить?')) return;
+ try {
+ await supabaseClient.from('blacklist').insert({ value });
+ await supabaseClient.from('items').delete().eq('id', id);
+ showStatus('В чёрный список');
+ await loadData();
+ } catch (e) { console.error(e); alert('Ошибка'); }
+ }
+
+ async function removeFromBlacklist(value) {
+ if (!supabaseClient || !isAdmin) return;
+ try {
+ await supabaseClient.from('blacklist').delete().eq('value', value);
+ showStatus('Убрано из ЧС');
+ await loadData();
+ } catch (e) { console.error(e); }
+ }
+
+ function isWeakMeta(item) {
+ if (!item.avatar_url) return true;
+ if (isDefaultTgLogo(item.avatar_url)) return true;
+ if (/unavatar\.io/i.test(item.avatar_url)) return true;
+ if (!item.description) return true;
+ if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
+ return false;
+ }
+
+ async function refreshMeta(id) {
+ if (!supabaseClient || !isAdmin) return;
+ const item = allItems.find(x => String(x.id) === String(id));
+ if (!item || !item.username || item.is_private) {
+ alert('Нет публичного username для обновления');
+ return;
+ }
+ showStatus('Обновление метаданных…', 15000);
+ try {
+ const meta = await fetchTgMeta(item.username);
+ const patch = {
+ avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
+ };
+ if (meta.title) patch.display_name = meta.title;
+ if (meta.description) patch.description = meta.description;
+ const { error } = await supabaseClient.from('items').update(patch).eq('id', id);
+ if (error) alert(error.message);
+ else {
+ showStatus('Метаданные обновлены');
+ await loadData();
+ }
+ } catch (e) {
+ console.error(e);
+ alert('Не удалось обновить');
+ }
+ }
+
+ function openRefreshMetaModal() {
+ if (!isAdmin) return;
+ document.getElementById('refresh-meta-modal').classList.add('active');
+ }
+ function closeRefreshMetaModal() {
+ if (refreshMetaRunning) {
+ if (!confirm('Обновление ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+ }
+ document.getElementById('refresh-meta-modal').classList.remove('active');
+ }
+
+ async function runRefreshMetaByCategory() {
+ if (!isAdmin || !supabaseClient) return;
+ if (refreshMetaRunning) {
+ alert('Обновление уже идёт, подождите…');
+ return;
+ }
+
+ const cat = (document.getElementById('refresh-meta-category')?.value || '').trim();
+ const type = (document.getElementById('refresh-meta-type')?.value || '').trim();
+ const onlyEmpty = !!document.getElementById('refresh-meta-only-empty')?.checked;
+
+ const list = allItems.filter(it => {
+ if (it.is_private || !it.username) return false;
+ if (type && it.type !== type) return false;
+ if (cat) {
+ const itemCat = (it.category || 'Разное').trim();
+ if (cat === 'Для взрослых 18+') {
+ if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
+ } else if (itemCat !== cat) {
+ return false;
+ }
+ }
+ if (onlyEmpty && !isWeakMeta(it)) return false;
+ return true;
+ });
+
+ if (!list.length) {
+ alert('Нет подходящих публичных записей для обновления');
+ return;
+ }
+
+ if (!confirm('Обновить метаданные для ' + list.length + ' записей?\nЭто может занять несколько минут.')) {
+ return;
+ }
+
+ refreshMetaRunning = true;
+ closeRefreshMetaModal();
+
+ let ok = 0, fail = 0, skip = 0;
+
+ for (let i = 0; i < list.length; i++) {
+ const item = list[i];
+ showStatus('Мета ' + (i + 1) + '/' + list.length + ': @' + item.username, 120000);
+ try {
+ const meta = await fetchTgMeta(item.username);
+ if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
+ skip++;
+ await new Promise(r => setTimeout(r, 400));
+ continue;
+ }
+ const patch = {};
+ if (meta.avatar) patch.avatar_url = meta.avatar;
+ else if (!item.avatar_url) {
+ patch.avatar_url = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
+ }
+ if (meta.title) patch.display_name = meta.title;
+ if (meta.description) patch.description = meta.description;
+
+ if (!Object.keys(patch).length) {
+ skip++;
+ } else {
+ const { error } = await supabaseClient.from('items').update(patch).eq('id', item.id);
+ if (error) fail++;
+ else {
+ ok++;
+ const idx = allItems.findIndex(x => String(x.id) === String(item.id));
+ if (idx >= 0) allItems[idx] = { ...allItems[idx], ...patch };
+ }
+ }
+ } catch (e) {
+ console.warn('refresh meta', item.username, e);
+ fail++;
+ }
+ await new Promise(r => setTimeout(r, 800));
+ }
+
+ refreshMetaRunning = false;
+ showStatus('Мета готово: +' + ok + (skip ? ', пропуск ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+ await loadData();
+ }
+
+ function openAdminTopModal(id) {
+ pendingTopId = id;
+ document.getElementById('admin-top-modal').classList.add('active');
+ }
+ function closeAdminTopModal() {
+ document.getElementById('admin-top-modal').classList.remove('active');
+ pendingTopId = null;
+ }
+
+ async function confirmAdminTop() {
+ if (!supabaseClient || !isAdmin || !pendingTopId) return;
+ const days = parseInt(document.getElementById('admin-top-days').value) || 7;
+ const until = new Date();
+ until.setDate(until.getDate() + days);
+ try {
+ const { error } = await supabaseClient
+ .from('items')
+ .update({ is_top: true, top_until: until.toISOString() })
+ .eq('id', pendingTopId);
+ if (error) alert(error.message);
+ else {
+ closeAdminTopModal();
+ showStatus('Добавлено в Топ');
+ await loadData();
+ }
+ } catch (e) { console.error(e); }
+ }
+
+ function getAvatar(item, size) {
+ size = size || 54;
+ const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
+ const raw = (item.display_name || item.username || item.invite_link || '?').toString();
+ const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
+ const letter = escapeHtml((name[0] || '?').toUpperCase());
+ const isPriv = !!item.is_private;
+ const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
+ const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
+
+ let uname = item.username ? String(item.username) : '';
+ uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
+
+ const sources = [];
+ if (item.avatar_url && !isDefaultTgLogo(item.avatar_url)) {
+ sources.push(String(item.avatar_url));
+ }
+ if (uname && !isPriv && !uname.startsWith('+')) {
+ sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
+ sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname) + '?fallback=false');
+ }
+
+ const uniq = [];
+ const seenSrc = new Set();
+ for (const s of sources) {
+ const key = s.trim();
+ if (!key || seenSrc.has(key)) continue;
+ seenSrc.add(key);
+ uniq.push(key);
+ }
+
+ if (uniq.length) {
+ const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+ const escJs = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+ let onerrChain = "this.style.display='none'";
+ for (let i = uniq.length - 1; i >= 1; i--) {
+ onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + escJs(uniq[i]) + "'";
+ }
+ return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
+ ${letterHtml}
+ <img src="${escAttr(uniq[0])}" alt="" loading="lazy"
+ onload="this.style.opacity=1" onerror="${onerrChain}"
+ style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+ </div>`;
+ }
+
+ if (isPriv) {
+ return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
+ ${letter}
+ <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+ </div>`;
+ }
+
+ return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
+ }
+
+ function getDaysLeft(topUntil) {
+ if (!topUntil) return 0;
+ const diff = new Date(topUntil) - new Date();
+ return Math.max(0, Math.ceil(diff / 86400000));
+ }
+
+ function setFilter(f) {
+ currentFilter = f;
+ document.querySelectorAll('.filter-btn').forEach(btn => {
+ btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
+ });
+ applyFilters();
+ }
+
+ function setCategoryFilter(cat) {
+ currentCategory = cat || '';
+ applyFilters();
+ }
+
+ function rotateList(arr) {
+ if (!arr || arr.length < 2) return arr || [];
+ const offset = listRotateOffset % arr.length;
+ return arr.slice(offset).concat(arr.slice(0, offset));
+ }
+
+ function typeLabel(t) {
+ return t === 'chat' ? 'Чат' : t === 'channel' ? 'Канал' : 'Бот';
+ }
+
+ function applyFilters() {
+ listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+
+ const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+ const filtered = allItems.filter(item => {
+ if (currentFilter !== 'all' && item.type !== currentFilter) return false;
+ if (currentCategory) {
+ const cat = (item.category || 'Разное').trim();
+ if (currentCategory === 'Для взрослых 18+') {
+ if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
+ } else if (cat !== currentCategory) {
+ return false;
+ }
+ }
+ if (q) {
+ const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+ if (!text.includes(q)) return false;
+ }
+ return true;
+ });
+
+ const now = new Date();
+ const topItems = allItems.filter(item => {
+ if (!item.is_top) return false;
+ if (item.top_until && new Date(item.top_until) < now) return false;
+ return true;
+ });
+
+ const rotated = rotateList(filtered);
+
+ document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
+ document.getElementById('items-count').textContent = rotated.length ? `(${rotated.length})` : '';
+
+ const topEl = document.getElementById('top-list');
+ if (!topItems.length) {
+ topEl.innerHTML = '<div class="loading">Пока пусто</div>';
+ } else {
+ topEl.innerHTML = topItems.map(item => {
+ const days = getDaysLeft(item.top_until);
+ const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+ const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+ const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+ const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+ return `
+ <div class="card top-card">
+ ${getAvatar(item)}
+ <div class="card-content">
+ <div class="type">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+ <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+ ${desc ? `<div class="desc">${desc}</div>` : ''}
+ <div class="meta"><span>Топ: ${days} дн.</span></div>
+ ${isAdmin ? `<div class="actions">
+ <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+ ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">Аватар</button>` : ''}
+ <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
+ <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
+ </div>` : ''}
+ </div>
+ </div>`;
+ }).join('');
+ }
+
+ const listEl = document.getElementById('items-list');
+ if (!rotated.length) {
+ listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
+ } else {
+ listEl.innerHTML = rotated.map(item => {
+ const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+ const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+ const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
+ const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+ const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+ return `
+ <div class="item-row">
+ ${getAvatar(item, 32)}
+ <div class="info">
+ <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+ <div class="meta">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+ ${desc ? `<div class="item-desc">${desc}</div>` : ''}
+ <div class="actions">
+ <button class="btn-top" onclick="openTopModal()">В Топ</button>
+ ${isAdmin ? `
+ <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
+ ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">↻</button>` : ''}
+ <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
+ <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
+ </div>
+ </div>
+ </div>`;
+ }).join('');
+ }
+
+ const blEl = document.getElementById('blacklist-list');
+ if (isAdmin) {
+ if (!blacklist.length) {
+ blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
+ } else {
+ blEl.innerHTML = blacklist.map(value => `
+ <div class="blacklist-item">
+ <span>${escapeHtml(value)}</span>
+ <button onclick="removeFromBlacklist('${escapeJsAttr(value)}')">Убрать</button>
+ </div>`).join('');
+ }
+ }
+ }
+
+ function render() {
+ applyFilters();
+ }
+
+ function openModal(type) {
+ currentType = type;
+ const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
+ document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+ const nameEl = document.getElementById('item-name');
+ const linkEl = document.getElementById('item-link');
+ const descEl = document.getElementById('item-desc');
+ if (nameEl) nameEl.value = '';
+ if (linkEl) linkEl.value = '';
+ if (descEl) descEl.value = '';
+ document.getElementById('item-category').value = '';
+ hideAddProgress();
+ document.getElementById('add-modal').classList.add('active');
+ }
+
+ function closeModal() {
+ hideAddProgress();
+ document.getElementById('add-modal').classList.remove('active');
+ }
+
+ /** Окно оплаты — не перемещает в топ само, только показывает цены и бота */
+ function openTopModal() {
+ document.getElementById('top-step-1').style.display = 'block';
+ document.getElementById('top-step-2').style.display = 'none';
+ document.getElementById('top-modal').classList.add('active');
+ updatePrice();
+ }
+ function closeTopModal() {
+ document.getElementById('top-modal').classList.remove('active');
+ document.getElementById('top-step-1').style.display = 'block';
+ document.getElementById('top-step-2').style.display = 'none';
+ }
+
+ function calcTopPrice(days) {
+ const table = { 1: 60, 2: 120, 3: 180, 7: 300, 14: 520, 30: 1000 };
+ if (table[days] != null) return table[days];
+ if (days <= 3) return days * 60;
+ return Math.round(180 + 820 * (days - 3) / 27);
+ }
+
+ function updatePrice() {
+ const days = parseInt(document.getElementById('days-select').value) || 1;
+ const total = calcTopPrice(days);
+ const perDay = Math.round(total / days);
+ const full = days * 60;
+ const save = full - total;
+ const sum = total + ' ₽';
+ document.getElementById('total-price').textContent = sum;
+ const finalEl = document.getElementById('top-final-price');
+ if (finalEl) finalEl.textContent = sum;
+ const hint = document.getElementById('price-hint');
+ if (hint) {
+ if (days <= 3) hint.textContent = 'Без скидки: 60 ₽/день';
+ else hint.textContent = '≈ ' + perDay + ' ₽/день (экономия ' + save + ' ₽)';
+ }
+ }
+ function confirmTopDays() {
+ updatePrice();
+ applyPaymentBotUI();
+ document.getElementById('top-step-1').style.display = 'none';
+ document.getElementById('top-step-2').style.display = 'block';
+ }
+
+ function openLegal(type) {
+ document.getElementById('legal-title').textContent = legalTexts[type].title;
+ document.getElementById('legal-content').innerHTML = legalTexts[type].content;
+ document.getElementById('legal-modal').classList.add('active');
+ }
+ function closeLegal() {
+ document.getElementById('legal-modal').classList.remove('active');
+ }
+
+ document.querySelectorAll('.modal-overlay').forEach(el => {
+ el.addEventListener('click', e => {
+ if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
+ });
+ });
+
+ (async () => {
+ if (!supabaseClient && window.supabase) {
+ try {
+ supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ } catch (e) {}
+ }
+ if (!supabaseClient) {
+ await new Promise(r => setTimeout(r, 1500));
+ if (window.supabase && window.supabase.createClient) {
+ try {
+ supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+ } catch (e) {}
+ }
+ }
+
+ await checkSession();
+ await loadPaymentBot();
+ await loadData();
+ setInterval(loadData, 5 * 60 * 1000);
+ setInterval(() => {
+ const now = Date.now();
+ let changed = false;
+ allItems = allItems.map(it => {
+ if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
+ changed = true;
+ return { ...it, is_top: false, top_until: null };
+ }
+ return it;
+ });
+ applyFilters();
+ if (changed && isAdmin) loadData();
+ }, 60 * 1000);
+ })();
+ </script>
 </body>
 </html>
