@@ -9,34 +9,26 @@
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
     :root {
-      --bg: #f8fafc;
+      --bg: #f7f5f0;
       --card: #ffffff;
-      --text: #0f172a;
-      --muted: #64748b;
-      --border: #e2e8f0;
-      --accent: #0d9488;
-      --accent-light: #ccfbf1;
-      --soft: #f1f5f9;
-      --coral: #f43f5e;
-      --indigo: #4f46e5;
-      --teal: #14b8a6;
-      --blue: #2563eb;
-      --ink: #0f172a;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e8e4dc;
+      --accent: #2c5f4e;
+      --accent-light: #e8f0ed;
+      --soft: #f3f0ea;
+      --ink: #1a1a1a;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: #f8fafc;
-      background-image:
-        radial-gradient(circle at 12% 8%, rgba(20,184,166,0.09), transparent 28%),
-        radial-gradient(circle at 88% 12%, rgba(244,63,94,0.07), transparent 26%),
-        radial-gradient(circle at 70% 90%, rgba(79,70,229,0.06), transparent 30%);
+      background: #f7f5f0;
       color: var(--text);
       min-height: 100vh;
-      padding: 24px;
-      line-height: 1.5;
+      padding: 28px 24px;
+      line-height: 1.55;
     }
 
     .page {
@@ -47,107 +39,242 @@
       gap: 32px;
     }
 
-    @media (max-width: 1000px) {
-      .page {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-      body {
-        padding: 12px;
-        background-attachment: scroll;
-      }
-      header { margin-bottom: 18px; }
-      header h1 {
-        font-size: 2.15rem;
-        letter-spacing: -0.5px;
-      }
-      header .subtitle { font-size: 0.95rem; }
-      .add-buttons { margin-bottom: 20px; gap: 10px; }
-      .btn {
-      padding: 14px 26px;
-      font-size: 0.92rem;
-      font-weight: 700;
+    html { overflow-x: hidden; }
+    body { overflow-x: hidden; max-width: 100vw; }
+    .page, main, aside, .card, .item-row, .search-box, .about, .top-grid {
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    /* Login */
+    .login-btn-toggle {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+    .login-btn-toggle:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .login-btn-toggle.hidden { display: none; }
+
+    .login-popup {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: var(--card);
+      padding: 12px;
+      border-radius: 12px;
+      width: 200px;
+      z-index: 101;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+      font-size: 0.88rem;
+      display: none;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .login-popup.active {
+      display: block;
+      opacity: 1;
+      transform: scale(1);
+    }
+    .login-popup strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+    .login-popup input {
+      width: 100%;
+      padding: 8px 10px;
+      margin: 4px 0 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.88rem;
+    }
+    .login-popup button {
+      width: 100%;
+      padding: 9px;
+      background: var(--accent);
+      color: white;
       border: none;
-      border-radius: 14px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .login-popup .close-login {
+      background: var(--soft);
+      color: var(--muted);
+      margin-top: 5px;
+    }
+    .error-msg {
+      color: #a33;
+      font-size: 0.8rem;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .admin-badge {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: calc(100vw - 24px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .admin-badge.active { display: flex; }
+    .admin-badge button {
+      background: none;
+      border: none;
+      color: #a33;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-top: 10px;
+    }
+    header h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 3.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+    }
+    header .subtitle {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .about {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-top: 44px;
+      margin-bottom: 20px;
+      font-size: 0.98rem;
+      line-height: 1.7;
+      color: #333;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    }
+    .about p { margin-bottom: 14px; }
+    .about p:last-child { margin-bottom: 0; }
+    .about strong { color: var(--text); }
+    .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
+    .about li { margin-bottom: 7px; }
+
+    .add-buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+    .btn {
+      padding: 13px 24px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
       cursor: pointer;
       transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s;
-      color: white;
-      box-shadow: 0 6px 16px rgba(15,23,42,0.12);
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .btn-chat { background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); }
-    .btn-channel { background: linear-gradient(135deg, #f43f5e 0%, #f97316 100%); }
-    .btn-bot { background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%); }
+    .btn-chat { background: #d6e6f3; }
+    .btn-channel { background: #e4dff0; }
+    .btn-bot { background: #d9ebe4; }
     .btn:hover {
-      transform: translateY(-3px);
-      filter: brightness(1.05);
-      box-shadow: 0 10px 24px rgba(15,23,42,0.16);
+      transform: translateY(-2px);
+      filter: brightness(0.97);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
     }
     .btn:active {
       transform: translateY(0);
-      box-shadow: 0 4px 10px rgba(15,23,42,0.12);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
 
     .top-section h2 {
-      font-size: 1.35rem;
-      font-weight: 800;
-      margin-bottom: 16px;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 18px;
       color: var(--ink);
-      letter-spacing: -0.03em;
     }
     .top-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 14px;
+      gap: 16px;
     }
 
     .card {
       background: #fff;
-      border-radius: 18px;
+      border-radius: 16px;
       padding: 16px;
       display: flex;
-      gap: 12px;
+      gap: 14px;
       border: 1px solid var(--border);
-      box-shadow: 0 4px 14px rgba(15,23,42,0.05);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 28px rgba(15,23,42,0.1);
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.07);
     }
     .card.top-card {
-      border: none;
-      color: #fff;
-      background: linear-gradient(135deg, #0d9488 0%, #2dd4bf 100%);
-      box-shadow: 0 8px 22px rgba(13,148,136,0.28);
-    }
-    .card.top-card:nth-child(3n+2) {
-      background: linear-gradient(135deg, #f43f5e 0%, #fb7185 100%);
-      box-shadow: 0 8px 22px rgba(244,63,94,0.28);
-    }
-    .card.top-card:nth-child(3n) {
-      background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-      box-shadow: 0 8px 22px rgba(79,70,229,0.28);
+      border-color: #e0d0a8;
+      background: #fffcf5;
+      box-shadow: 0 4px 14px rgba(184,149,74,0.1);
     }
     .card.top-card:hover {
-      transform: translateY(-5px) scale(1.01);
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(184,149,74,0.14);
     }
-    .card.top-card .type,
-    .card.top-card .desc,
-    .card.top-card .meta { color: rgba(255,255,255,0.9) !important; }
-    .card.top-card .username a { color: #fff !important; }
 
     .card-avatar {
       width: 52px;
       height: 52px;
-      border-radius: 16px;
+      border-radius: 50%;
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-      border: 2px solid rgba(255,255,255,0.35);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 2px solid #fff;
       font-size: 1.2rem;
-      font-weight: 700;
+      font-weight: 600;
       color: white;
       overflow: hidden;
     }
@@ -204,7 +331,7 @@
       cursor: pointer;
       font-weight: 500;
     }
-    .btn-top { background: #fff7ed !important; border-color: #fdba74 !important; color: #c2410c !important; border-radius: 999px !important; }
+    .btn-top { background: #f5efe0 !important; border-color: #d4c4a0 !important; color: #7a5c20 !important; }
     .btn-make-top { background: #e8f0ed !important; border-color: var(--accent) !important; color: var(--accent) !important; }
     .btn-blacklist { color: #a33 !important; }
     .btn-delete { color: #a33 !important; font-weight: 700 !important; }
@@ -218,15 +345,15 @@
     .search-box {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 18px 16px;
+      border-radius: 16px;
+      padding: 16px;
       margin-bottom: 18px;
-      box-shadow: 0 8px 24px rgba(15,23,42,0.06);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
     }
     .search-box input {
       width: 100%;
       padding: 11px 14px;
-      border-radius: 12px;
+      border-radius: 10px;
       border: 1px solid var(--border);
       background: var(--soft);
       font-size: 0.95rem;
@@ -238,23 +365,21 @@
       flex-wrap: wrap;
     }
     .filter-btn {
-      padding: 7px 14px;
+      padding: 7px 12px;
       font-size: 0.8rem;
-      border-radius: 999px;
+      border-radius: 8px;
       border: 1px solid var(--border);
       background: var(--soft);
       cursor: pointer;
-      font-weight: 600;
+      font-weight: 500;
       color: var(--muted);
     }
     .filter-btn.active {
-      background: linear-gradient(135deg, #0d9488, #14b8a6);
+      background: var(--accent);
       color: white;
-      border-color: transparent;
+      border-color: var(--accent);
     }
-    .category-box {
-      margin-top: 12px;
-    }
+    .category-box { margin-top: 12px; }
     .category-box label {
       display: block;
       font-size: 0.78rem;
@@ -273,20 +398,17 @@
       cursor: pointer;
     }
 
-
     .recent-section {
       margin-top: 28px;
       margin-bottom: 8px;
     }
     .recent-section h2 {
-      font-family: 'Inter', sans-serif;
-      font-size: 1.25rem;
-      font-weight: 800;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.3rem;
+      font-weight: 700;
       margin-bottom: 12px;
       color: var(--ink);
-      letter-spacing: -0.02em;
     }
-    .recent-section h2::after { display: none; }
     .recent-list {
       display: flex;
       flex-direction: column;
@@ -295,50 +417,47 @@
       overflow-y: auto;
     }
     .recent-list .item-row {
-      border-color: #fda4af;
-      background: linear-gradient(135deg, #fff1f2 0%, #ffffff 100%);
+      border-color: #c5d9d0;
+      background: #f7faf8;
     }
     .recent-badge {
       display: inline-block;
-      background: linear-gradient(135deg, #f43f5e, #fb7185);
-      color: #fff;
-      font-size: 0.62rem;
-      font-weight: 700;
-      padding: 2px 7px;
-      border-radius: 999px;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 6px;
       margin-left: 6px;
     }
 
     .items-section h2 {
-      font-family: 'Inter', sans-serif;
+      font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.2rem;
-      font-weight: 800;
+      font-weight: 700;
       margin-bottom: 14px;
       color: var(--ink);
-      letter-spacing: -0.02em;
     }
     .items-list {
       display: flex;
       flex-direction: column;
-      gap: 5px;
+      gap: 6px;
       max-height: 70vh;
       overflow-y: auto;
     }
     .item-row {
       background: #fff;
       border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 10px 12px;
+      border-radius: 12px;
+      padding: 9px 11px;
       display: flex;
       gap: 10px;
       align-items: center;
-      box-shadow: 0 2px 8px rgba(15,23,42,0.04);
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      transition: box-shadow 0.15s ease;
     }
     .item-row:hover {
-      border-color: #99f6e4;
-      box-shadow: 0 6px 18px rgba(13,148,136,0.12);
-      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.07);
     }
     .item-row .info { flex: 1; min-width: 0; }
     .item-row .uname {
@@ -353,7 +472,6 @@
     .item-row .meta {
       font-size: 0.68rem;
       color: var(--muted);
-      margin-top: 0;
       line-height: 1.2;
     }
     .item-row .item-desc {
@@ -400,10 +518,7 @@
       border-radius: 14px;
       padding: 18px;
     }
-    .blacklist-section h2 {
-      font-size: 1.1rem;
-      margin-bottom: 12px;
-    }
+    .blacklist-section h2 { font-size: 1.1rem; margin-bottom: 12px; }
     .blacklist-item {
       display: flex;
       justify-content: space-between;
@@ -429,6 +544,8 @@
       padding: 30px 0 10px;
       font-size: 0.85rem;
       color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
     }
     footer a {
       color: var(--muted);
@@ -436,13 +553,8 @@
       cursor: pointer;
       margin: 0 8px;
     }
-    footer a:hover { color: var(--coral); }
-    footer {
-      border-top: 1px solid var(--border);
-      margin-top: 20px;
-    }
+    footer a:hover { color: var(--accent); }
 
-    /* Модалки */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -452,32 +564,26 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     .modal-overlay.active { display: flex; }
     .modal {
       background: #fff;
-      border-radius: 20px;
+      border-radius: 18px;
       padding: 26px;
       width: 100%;
       max-width: 420px;
       max-height: 90vh;
       overflow-y: auto;
       border: 1px solid var(--border);
-      box-shadow: 0 20px 50px rgba(15,23,42,0.18);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.12);
     }
     .modal h3 {
-      font-family: 'Inter', sans-serif;
-      font-weight: 800;
-      color: var(--ink);
-      letter-spacing: -0.02em;
-    }
-    .modal-overlay {
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-    }
-    .modal h3 {
+      font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.25rem;
       margin-bottom: 16px;
+      color: var(--ink);
     }
     .modal label {
       display: block;
@@ -500,8 +606,6 @@
       min-height: 90px;
       resize: vertical;
       display: block !important;
-      visibility: visible !important;
-      opacity: 1 !important;
       background: #fff;
     }
     .checkbox-row {
@@ -528,12 +632,12 @@
     .btn-add {
       flex: 1;
       padding: 11px;
-      border-radius: 12px;
+      border-radius: 10px;
       border: none;
-      background: linear-gradient(135deg, #0d9488, #14b8a6);
+      background: var(--accent);
       color: white;
       cursor: pointer;
-      font-weight: 700;
+      font-weight: 600;
     }
 
     .loading {
@@ -541,7 +645,6 @@
       padding: 40px;
       color: var(--muted);
     }
-
     .status-bar {
       position: fixed;
       bottom: 12px;
@@ -555,10 +658,7 @@
       opacity: 0.85;
       display: none;
     }
-    .add-progress {
-      display: none;
-      margin: 14px 0 8px;
-    }
+    .add-progress { display: none; margin: 14px 0 8px; }
     .add-progress.active { display: block; }
     .progress-track {
       height: 10px;
@@ -579,6 +679,38 @@
       font-size: 0.8rem;
       color: var(--muted);
       text-align: center;
+    }
+
+    @media (max-width: 1000px) {
+      .page { grid-template-columns: 1fr; gap: 16px; }
+      body { padding: 12px; }
+      header { margin-bottom: 18px; }
+      header h1 { font-size: 2.15rem; }
+      header .subtitle { font-size: 0.95rem; }
+      .add-buttons { margin-bottom: 20px; gap: 10px; }
+      .btn { padding: 12px 16px; font-size: 0.88rem; }
+      .btn:hover { transform: none; filter: none; }
+      .top-section h2 { font-size: 1.2rem; margin-bottom: 12px; }
+      .top-grid { grid-template-columns: 1fr; gap: 10px; }
+      .card { padding: 12px; gap: 10px; border-radius: 12px; }
+      .card:hover, .card.top-card:hover { transform: none; }
+      .card-avatar { width: 44px !important; height: 44px !important; font-size: 1rem; }
+      .card .username { font-size: 1rem; }
+      .card .desc { font-size: 0.82rem; }
+      .sidebar { position: static; width: 100%; }
+      .search-box { padding: 12px; border-radius: 12px; margin-bottom: 14px; }
+      .items-list { max-height: none; gap: 6px; }
+      .about { padding: 16px; margin-top: 24px; font-size: 0.92rem; }
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      header h1 { font-size: 1.8rem; }
+      header .subtitle { font-size: 0.85rem; }
+      .add-buttons { flex-direction: column; align-items: stretch; }
+      .btn { width: 100%; }
+      .item-row { padding: 8px; }
+      .modal { padding: 16px; border-radius: 14px; max-width: 100%; }
     }
   </style>
 </head>
@@ -968,7 +1100,24 @@
     let currentCategory = '';
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
-    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000)); // ротация каждые 5 мин
+    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+        function escapeJsAttr(s) {
+      return String(s ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '')
+        .replace(/\n/g, '\\n');
+    }
+ // ротация каждые 5 мин
 
     function normalizeBotUsername(v) {
       return String(v || '')
@@ -1906,20 +2055,22 @@
           recentEl.innerHTML = recentItems.map(item => {
             const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
             const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
-            const desc = item.description && item.description !== 'Без описания' ? item.description : '';
+            const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
             const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
             return `
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a><span class="recent-badge">новое</span></div>
-                <div class="meta">${typeLab} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
+                <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
                 ${desc ? `<div class="item-desc">${desc}</div>` : ''}
               </div>
             </div>`;
           }).join('');
         }
       }
+
+      // Рендер топа      }
 
       // Рендер топа
       const topEl = document.getElementById('top-list');
@@ -1930,25 +2081,28 @@
           const days = getDaysLeft(item.top_until);
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+          const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
           return `
             <div class="card top-card">
               ${getAvatar(item)}
               <div class="card-content">
-                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
-                <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
-                <div class="meta">
-                  <span>Топ: ${days} дн.</span>
-                </div>
+                <div class="type">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                ${desc ? `<div class="desc">${desc}</div>` : ''}
+                <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
-                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">В чёрный список</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
+                    <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
                   </div>` : ''}
               </div>
             </div>`;
         }).join('');
       }
+
+      // Рендер списка      }
 
       // Рендер списка (с ротацией)
       const listEl = document.getElementById('items-list');
@@ -1959,24 +2113,29 @@
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+          const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
           return `
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
+                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${desc ? `<div class="item-desc">${desc}</div>` : ''}
                 <div class="actions">
-                  <button class="btn-top" onclick="openTopModal()">Топ</button>
+                  <button class="btn-top" onclick="openTopModal()">В Топ</button>
                   ${isAdmin ? `
-                    <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">В Топ</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">ЧС</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">×</button>` : ''}
+                    <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
                 </div>
               </div>
             </div>`;
         }).join('');
       }
+
+      // Чёрный список      }
 
       // Чёрный список
       const blEl = document.getElementById('blacklist-list');
@@ -1985,10 +2144,10 @@
           blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
         } else {
           blEl.innerHTML = blacklist.map(value => `
-            <div class="blacklist-item">
-              <span>${value}</span>
-              <button onclick="removeFromBlacklist('${value.replace(/'/g,"\\'")}')">Убрать</button>
-            </div>`).join('');
+          <div class="blacklist-item">
+            <span>${escapeHtml(value)}</span>
+            <button onclick="removeFromBlacklist('${escapeJsAttr(value)}')">Убрать</button>
+          </div>`).join('');
         }
       }
     }
