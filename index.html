@@ -148,6 +148,57 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .admin-badge.active { display: flex; }
+
+    .admin-stats {
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .admin-badge button.stats-btn {
+      color: var(--accent) !important;
+    }
+    #analytics-modal .analytics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    #analytics-modal .stat-card {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    #analytics-modal .stat-card .num {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    #analytics-modal .stat-card .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    #analytics-modal .top-queries {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #analytics-modal .top-queries li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    #analytics-modal .top-queries li:last-child { border-bottom: none; }
+
     .admin-badge button {
       background: none;
       border: none;
@@ -732,6 +783,8 @@
   <!-- Бейдж админа -->
   <div class="admin-badge" id="admin-badge">
     <span>Админ</span>
+    <span class="admin-stats" id="admin-stats" title="Просмотры и поиски">…</span>
+    <button type="button" class="stats-btn" onclick="openAnalyticsModal()" title="Статистика">Стат</button>
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
     <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
@@ -786,7 +839,7 @@
 
     <aside class="sidebar">
       <div class="search-box">
-        <input type="text" id="search-input" placeholder="Поиск..." oninput="applyFilters()">
+        <input type="text" id="search-input" placeholder="Поиск..." oninput="onSearchInput()">
         <div class="filters">
           <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Все</button>
           <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Чаты</button>
@@ -1125,6 +1178,27 @@
     </div>
   </div>
 
+
+  <div class="modal-overlay" id="analytics-modal">
+    <div class="modal" style="max-width:480px;">
+      <h3>Статистика</h3>
+      <div class="analytics-grid">
+        <div class="stat-card"><div class="num" id="stat-views-today">—</div><div class="lbl">Просмотры сегодня</div></div>
+        <div class="stat-card"><div class="num" id="stat-views-7d">—</div><div class="lbl">Просмотры за 7 дней</div></div>
+        <div class="stat-card"><div class="num" id="stat-views-30d">—</div><div class="lbl">Просмотры за 30 дней</div></div>
+        <div class="stat-card"><div class="num" id="stat-search-7d">—</div><div class="lbl">Поисков за 7 дней</div></div>
+      </div>
+      <label style="margin-bottom:8px;">Топ поисковых запросов (7 дней)</label>
+      <ul class="top-queries" id="stat-top-queries">
+        <li style="color:var(--muted);">Нет данных</li>
+      </ul>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-cancel" onclick="closeAnalyticsModal()" style="flex:1;">Закрыть</button>
+        <button class="btn-add" onclick="loadAnalytics()" style="flex:1;">Обновить</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Юридические тексты -->
   <div class="modal-overlay" id="legal-modal">
     <div class="modal">
@@ -1300,6 +1374,135 @@
       }
     }
 
+
+    function getVisitorId() {
+      try {
+        let id = localStorage.getItem('telegra_vid');
+        if (!id) {
+          id = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+          localStorage.setItem('telegra_vid', id);
+        }
+        return id;
+      } catch (e) {
+        return 'anon';
+      }
+    }
+
+    async function trackEvent(type, query) {
+      if (!supabaseClient) return;
+      try {
+        const row = {
+          type: type,
+          visitor_id: getVisitorId(),
+          query: query ? String(query).slice(0, 120) : null
+        };
+        await supabaseClient.from('analytics_events').insert(row);
+      } catch (e) {
+        console.warn('analytics', e);
+      }
+    }
+
+    function trackPageView() {
+      try {
+        const key = 'telegra_pv_' + new Date().toISOString().slice(0, 10);
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, '1');
+      } catch (e) {}
+      trackEvent('page_view', null);
+    }
+
+    function onSearchInput() {
+      applyFilters();
+      const q = (document.getElementById('search-input')?.value || '').trim();
+      if (searchTrackTimer) clearTimeout(searchTrackTimer);
+      if (q.length < 2) return;
+      searchTrackTimer = setTimeout(() => {
+        if (q === lastTrackedSearch) return;
+        lastTrackedSearch = q;
+        trackEvent('search', q);
+      }, 800);
+    }
+
+    function openAnalyticsModal() {
+      if (!isAdmin) return;
+      document.getElementById('analytics-modal').classList.add('active');
+      loadAnalytics();
+    }
+    function closeAnalyticsModal() {
+      document.getElementById('analytics-modal').classList.remove('active');
+    }
+
+    async function loadAnalytics() {
+      if (!isAdmin || !supabaseClient) return;
+      const el = document.getElementById('admin-stats');
+      const set = (id, v) => {
+        const n = document.getElementById(id);
+        if (n) n.textContent = v;
+      };
+      try {
+        const now = new Date();
+        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        const start7 = new Date(now.getTime() - 7 * 86400000).toISOString();
+        const start30 = new Date(now.getTime() - 30 * 86400000).toISOString();
+
+        const countType = async (type, since) => {
+          let q = supabaseClient
+            .from('analytics_events')
+            .select('*', { count: 'exact', head: true })
+            .eq('type', type);
+          if (since) q = q.gte('created_at', since);
+          const { count, error } = await q;
+          if (error) throw error;
+          return count || 0;
+        };
+
+        const [vToday, v7, v30, s7] = await Promise.all([
+          countType('page_view', startToday),
+          countType('page_view', start7),
+          countType('page_view', start30),
+          countType('search', start7)
+        ]);
+
+        set('stat-views-today', vToday);
+        set('stat-views-7d', v7);
+        set('stat-views-30d', v30);
+        set('stat-search-7d', s7);
+        if (el) el.textContent = 'Сегодня: ' + vToday + ' · 7д: ' + v7 + ' · Поиск: ' + s7;
+
+        const { data: searches, error: se } = await supabaseClient
+          .from('analytics_events')
+          .select('query')
+          .eq('type', 'search')
+          .gte('created_at', start7)
+          .not('query', 'is', null)
+          .limit(500);
+        if (se) throw se;
+
+        const freq = {};
+        (searches || []).forEach(r => {
+          const k = String(r.query || '').trim().toLowerCase();
+          if (!k || k.length < 2) return;
+          freq[k] = (freq[k] || 0) + 1;
+        });
+        const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 15);
+        const list = document.getElementById('stat-top-queries');
+        if (list) {
+          if (!top.length) {
+            list.innerHTML = '<li style="color:var(--muted);">Нет данных</li>';
+          } else {
+            list.innerHTML = top.map(([q, c]) =>
+              '<li><span>' + escapeHtml(q) + '</span><strong>' + c + '</strong></li>'
+            ).join('');
+          }
+        }
+      } catch (e) {
+        console.warn('loadAnalytics', e);
+        if (el) el.textContent = 'Стат: нет таблицы?';
+        showStatus('Статистика: проверьте таблицу analytics_events в Supabase');
+      }
+    }
+
+
     async function checkSession() {
       if (!supabaseClient) return;
       try {
@@ -1315,6 +1518,7 @@
             document.getElementById('admin-badge').classList.add('active');
             document.getElementById('login-toggle').classList.add('hidden');
             document.getElementById('blacklist-section').style.display = 'block';
+            loadAnalytics();
           }
         }
       } catch (e) {
@@ -1362,6 +1566,7 @@
         loginPopupOpen = false;
         showStatus('Вы вошли как админ');
         render();
+        loadAnalytics();
       } catch (e) {
         console.error(e);
         errEl.textContent = 'Ошибка сети';
@@ -1839,6 +2044,10 @@
 
     let bulkRunning = false;
     let refreshMetaRunning = false;
+
+    let searchTrackTimer = null;
+    let lastTrackedSearch = '';
+
 
     async function runBulkImport() {
       if (!isAdmin || !supabaseClient) return;
@@ -2457,7 +2666,9 @@
       await checkSession();
       await loadPaymentBot();
       await loadData();
+      trackPageView();
       setInterval(loadData, 5 * 60 * 1000);
+      setInterval(() => { if (isAdmin) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
