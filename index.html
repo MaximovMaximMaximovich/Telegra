@@ -47,7 +47,6 @@
       .page { grid-template-columns: 1fr; }
     }
 
-    /* ===== Login: очень маленькая кнопка ===== */
     .login-btn-toggle {
       position: fixed;
       top: 10px;
@@ -70,7 +69,6 @@
     }
     .login-btn-toggle.hidden { display: none; }
 
-    /* Всплывающее окно Login — компактное */
     .login-popup {
       position: fixed;
       top: 10px;
@@ -544,7 +542,6 @@
     }
     footer a:hover { color: var(--accent); }
 
-    /* Модалки */
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -554,6 +551,8 @@
       align-items: center;
       justify-content: center;
       padding: 20px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
     }
     .modal-overlay.active { display: flex; }
     .modal {
@@ -570,10 +569,6 @@
         0 40px 80px rgba(44,95,78,0.12),
         inset 0 1px 0 rgba(255,255,255,1);
       transform: translateZ(0);
-    }
-    .modal-overlay {
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
     }
     .modal h3 {
       font-size: 1.25rem;
@@ -684,10 +679,8 @@
 </head>
 <body>
 
-  <!-- Очень маленькая кнопка Login -->
   <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
 
-  <!-- Всплывающее окно Login -->
   <div class="login-popup" id="login-popup">
     <strong>Вход</strong>
     <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
@@ -697,7 +690,6 @@
     <div class="error-msg" id="login-error"></div>
   </div>
 
-  <!-- Бейдж админа -->
   <div class="admin-badge" id="admin-badge">
     <span>Админ</span>
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
@@ -861,6 +853,7 @@
         <option value="Фриланс">Фриланс</option>
         <option value="Чаты">Чаты</option>
         <option value="Юриспруденция">Юриспруденция</option>
+        <option value="Разное">Разное</option>
       </select>
 
       <div class="add-progress" id="add-progress">
@@ -874,12 +867,9 @@
     </div>
   </div>
 
-  <!-- Модалка оплаты Топ -->
   <div class="modal-overlay" id="top-modal">
     <div class="modal">
       <h3>Размещение в Топ</h3>
-
-      <!-- Шаг 1: выбор дней -->
       <div id="top-step-1">
         <p style="margin-bottom:8px;color:var(--muted);font-size:0.95rem;">До 3 дней — <strong>60 ₽</strong>/день. Скидка с 7 дней. Месяц — <strong>1000 ₽</strong>.</p>
         <p id="price-hint" style="margin-bottom:12px;font-size:0.82rem;color:var(--muted);"></p>
@@ -898,8 +888,6 @@
           <button class="btn-add" onclick="confirmTopDays()">ОК</button>
         </div>
       </div>
-
-      <!-- Шаг 2: ссылка на бота -->
       <div id="top-step-2" style="display:none;">
         <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
           Для оплаты напишите боту сумму и username записи.
@@ -918,7 +906,6 @@
     </div>
   </div>
 
-  <!-- Модалка: сменить бота для оплаты (только админ) -->
   <div class="modal-overlay" id="bot-settings-modal">
     <div class="modal">
       <h3>Ссылка для оплаты</h3>
@@ -932,21 +919,6 @@
     </div>
   </div>
 
-  <!-- Модалка: название приватного чата -->
-  <div class="modal-overlay" id="private-name-modal">
-    <div class="modal">
-      <h3>Введите название чата/канала</h3>
-      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Для приватной ссылки название нужно указать вручную.</p>
-      <label>Название</label>
-      <input type="text" id="private-name-input" placeholder="Например: Закрытый чат IT">
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closePrivateNameModal()">Отмена</button>
-        <button class="btn-add" onclick="confirmPrivateName()">Добавить</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Модалка: массовое добавление (админ) -->
   <div class="modal-overlay" id="bulk-modal">
     <div class="modal">
       <h3>Массовое добавление</h3>
@@ -1005,7 +977,6 @@
     </div>
   </div>
 
-  <!-- Модалка админа: добавить в Топ -->
   <div class="modal-overlay" id="admin-top-modal">
     <div class="modal">
       <h3>Добавить в Топ (админ)</h3>
@@ -1018,7 +989,6 @@
     </div>
   </div>
 
-  <!-- Юридические тексты -->
   <div class="modal-overlay" id="legal-modal">
     <div class="modal">
       <h3 id="legal-title"></h3>
@@ -1032,13 +1002,9 @@
   <div class="status-bar" id="status-bar"></div>
 
   <script>
-    // ======================
-    // SUPABASE
-    // ======================
     const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
 
-    // Безопасная инициализация — если библиотека не загрузилась, сайт всё равно работает
     let supabaseClient = null;
     try {
       if (window.supabase && window.supabase.createClient) {
@@ -1053,14 +1019,35 @@
     let isAdmin = false;
     let currentType = null;
     let pendingTopId = null;
-    let pendingPrivate = null; // данные для второго шага (название приватного)
     let allItems = [];
     let blacklist = [];
     let currentFilter = 'all';
     let currentCategory = '';
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
-    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000)); // ротация каждые 5 мин
+    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+    let bulkRunning = false;
+
+    /** Экранирование HTML (защита от XSS) */
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    /** Безопасная вставка в JS-строку внутри HTML-атрибута onclick="...('...')" */
+    function escapeJsAttr(s) {
+      return String(s ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r/g, '')
+        .replace(/\n/g, '\\n')
+        .replace(/</g, '\\u003c')
+        .replace(/>/g, '\\u003e');
+    }
 
     function normalizeBotUsername(v) {
       return String(v || '')
@@ -1127,7 +1114,7 @@
           .from('settings')
           .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
         if (error) {
-          alert('Ошибка сохранения. Выполни SQL для таблицы settings (см. инструкцию).\n' + (error.message || ''));
+          alert('Ошибка сохранения. Выполни SQL для таблицы settings.\n' + (error.message || ''));
           return;
         }
         paymentBot = bot;
@@ -1160,7 +1147,6 @@
       el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
     }
 
-    // ===== Login popup =====
     function toggleLoginPopup() {
       loginPopupOpen = !loginPopupOpen;
       const popup = document.getElementById('login-popup');
@@ -1264,7 +1250,6 @@
         return;
       }
       try {
-        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
         try {
           await supabaseClient
             .from('items')
@@ -1280,12 +1265,11 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
           document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
           return;
         }
 
-        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
         const nowIso = Date.now();
         allItems = (items || []).map(it => {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
@@ -1329,7 +1313,6 @@
       });
     }
 
-    // Проверка дубля прямо в базе (надёжнее при массовом импорте)
     async function existsInDb(username, invite) {
       if (!supabaseClient) return false;
       try {
@@ -1339,24 +1322,37 @@
             .from('items')
             .select('id, username')
             .ilike('username', u)
-            .limit(5);
+            .limit(20);
           if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
         }
         if (invite) {
           const inv = normalizeInvite(invite);
-          const { data } = await supabaseClient
-            .from('items')
-            .select('id, invite_link')
-            .eq('invite_link', invite)
-            .limit(3);
-          if ((data || []).length) return true;
-          // на всякий случай сравнение в нормализованном виде
-          const { data: allInv } = await supabaseClient
-            .from('items')
-            .select('id, invite_link')
-            .not('invite_link', 'is', null)
-            .limit(500);
-          if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+          // точное совпадение + варианты без/с https
+          const variants = [invite, inv];
+          if (inv.startsWith('https://')) {
+            variants.push(inv.replace(/^https:\/\//, 'http://'));
+            variants.push(inv.replace(/^https:\/\//, ''));
+          } else if (!/^https?:\/\//i.test(invite)) {
+            variants.push('https://' + inv.replace(/^https?:\/\//i, ''));
+          }
+          for (const v of [...new Set(variants)]) {
+            const { data } = await supabaseClient
+              .from('items')
+              .select('id, invite_link')
+              .eq('invite_link', v)
+              .limit(3);
+            if ((data || []).length) return true;
+          }
+          // ilike по хвосту invite (после t.me/)
+          const tail = inv.replace(/^https?:\/\//i, '').replace(/^t\.me\//i, '');
+          if (tail.length >= 8) {
+            const { data: soft } = await supabaseClient
+              .from('items')
+              .select('id, invite_link')
+              .ilike('invite_link', '%' + tail)
+              .limit(30);
+            if ((soft || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+          }
         }
       } catch (e) {
         console.warn('existsInDb', e);
@@ -1364,7 +1360,22 @@
       return false;
     }
 
-    // Название / описание / аватар из Telegram (og:*) — несколько прокси + unavatar
+    function decodeEntities(str) {
+      if (!str) return str;
+      return String(str)
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&#039;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+    }
+
+    function isDefaultTgLogo(url) {
+      if (!url) return true;
+      return /t_logo|favicon|img\/Telegram|telegram\.org\/img\//i.test(url);
+    }
+
     async function fetchTgMeta(username, onProgress) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
@@ -1372,28 +1383,31 @@
 
       function parseMeta(html) {
         if (!html || html.length < 50) return null;
-        const titleM = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i)
-          || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i)
-          || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-        const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
-          || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
-        const imgM = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
-          || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
-        let title = titleM ? titleM[1].trim() : null;
-        if (title) {
-          title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
-          title = title.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
-        }
-        let avatar = imgM ? imgM[1].trim() : null;
-        if (avatar) {
-          avatar = avatar.replace(/&amp;/g, '&');
-          if (/telegram\.org|t_logo|favicon|img\/Telegram/i.test(avatar)) avatar = null;
-        }
-        let description = descM ? descM[1].trim() : null;
+        const pick = (prop) => {
+          const re1 = new RegExp('property=["\']' + prop + '["\']\\s+content=["\']([^"\']+)["\']', 'i');
+          const re2 = new RegExp('content=["\']([^"\']+)["\']\\s+property=["\']' + prop + '["\']', 'i');
+          const re3 = new RegExp('<meta[^>]+property=["\']' + prop + '["\'][^>]+content=["\']([^"\']+)["\']', 'i');
+          const m = html.match(re1) || html.match(re2) || html.match(re3);
+          return m ? decodeEntities(m[1].trim()) : null;
+        };
+
+        let title = pick('og:title');
+        if (title) title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+
+        let avatar = pick('og:image');
+        if (avatar && isDefaultTgLogo(avatar)) avatar = null;
+
+        let description = pick('og:description');
         if (description) {
-          description = description.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'");
           if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
         }
+
+        // запас: twitter:image
+        if (!avatar) {
+          const tw = pick('twitter:image') || pick('twitter:image:src');
+          if (tw && !isDefaultTgLogo(tw)) avatar = tw;
+        }
+
         if (!title && !avatar && !description) return null;
         return {
           title: title || ('@' + uname),
@@ -1408,30 +1422,42 @@
         (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
         (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
       ];
-      const target = 'https://t.me/' + uname;
+      const target = 'https://t.me/s/' + uname;
+      const targetAlt = 'https://t.me/' + uname;
       let meta = null;
 
-      for (let i = 0; i < proxies.length; i++) {
-        setP(20 + i * 18, 'Загрузка данных (' + (i + 1) + '/' + proxies.length + ')…');
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 12000);
-          const res = await fetch(proxies[i](target), { signal: ctrl.signal });
-          clearTimeout(timer);
-          if (!res.ok) continue;
-          const html = await res.text();
-          const parsed = parseMeta(html);
-          if (parsed) {
-            meta = parsed;
-            if (parsed.avatar && parsed.description) break;
-            // если чего-то не хватает — пробуем ещё прокси, но сохраняем лучшее
-          }
-        } catch (e) {}
-      }
+      const tryUrl = async (url, label) => {
+        for (let i = 0; i < proxies.length; i++) {
+          setP(18 + i * 12, label + ' (' + (i + 1) + '/' + proxies.length + ')…');
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 12000);
+            const res = await fetch(proxies[i](url), { signal: ctrl.signal });
+            clearTimeout(timer);
+            if (!res.ok) continue;
+            const html = await res.text();
+            const parsed = parseMeta(html);
+            if (parsed) {
+              if (!meta) meta = parsed;
+              else {
+                if (!meta.avatar && parsed.avatar) meta.avatar = parsed.avatar;
+                if (!meta.description && parsed.description) meta.description = parsed.description;
+                if (meta.title === '@' + uname && parsed.title) meta.title = parsed.title;
+              }
+              if (meta.avatar && meta.description) return true;
+            }
+          } catch (e) {}
+        }
+        return false;
+      };
+
+      await tryUrl(target, 'Загрузка данных');
+      if (!meta || !meta.avatar) await tryUrl(targetAlt, 'Доп. загрузка');
 
       setP(80, 'Подгрузка аватарки…');
       if (!meta) meta = { title: '@' + uname, description: null, avatar: null };
-      // всегда сохраняем рабочий URL аватарки (unavatar), если TG не отдал фото
+
+      // Всегда держим рабочий fallback-URL аватара
       if (!meta.avatar) {
         meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
       }
@@ -1441,7 +1467,6 @@
     }
 
     async function insertItemRow(row) {
-      // финальная защита от дубля username
       if (row.username) {
         if (isDuplicate(row.username, null) || await existsInDb(row.username, null)) {
           return { message: 'duplicate', code: 'DUPLICATE' };
@@ -1457,13 +1482,11 @@
       if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
         const copy = { ...row };
         delete copy.avatar_url;
-        // не вставляем второй раз, если первая вставка могла пройти частично — проверяем дубль
         if (row.username && await existsInDb(row.username, null)) {
           return { message: 'duplicate', code: 'DUPLICATE' };
         }
         ({ error } = await supabaseClient.from('items').insert(copy));
       }
-      // уникальный конфликт postgres
       if (error && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
         return { message: 'duplicate', code: 'DUPLICATE' };
       }
@@ -1473,7 +1496,6 @@
     function parseTelegramLink(raw) {
       let s = String(raw || '').trim();
       if (!s) return { ok: false };
-      // private invite
       if (/t\.me\/\+/i.test(s) || /t\.me\/joinchat\//i.test(s) || s.startsWith('+')) {
         let link = s;
         if (s.startsWith('+')) link = 'https://t.me/' + s;
@@ -1482,16 +1504,13 @@
         }
         return { ok: true, isPrivate: true, invite: link, username: null };
       }
-      // username forms: @name, t.me/name, https://t.me/name, plain name
       let u = s.replace(/^@/, '');
       u = u.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
       u = u.split('/')[0].split('?')[0].trim();
       if (!u || u.startsWith('+')) return { ok: false };
-      if (!/^[a-zA-Z0-9_]{3,}$/.test(u) && !/^[a-zA-Z0-9_]+$/.test(u)) {
-        // still accept if looks like username
-        if (!/^[a-zA-Z][a-zA-Z0-9_]{2,31}$/.test(u)) {
-          // might be invalid
-        }
+      if (!/^[a-zA-Z][a-zA-Z0-9_]{3,31}$/.test(u) && !/^[a-zA-Z0-9_]{5,}$/.test(u)) {
+        // допускаем ботов вида name_bot
+        if (!/^[a-zA-Z0-9_]{3,32}$/.test(u)) return { ok: false };
       }
       return { ok: true, isPrivate: false, invite: null, username: u };
     }
@@ -1590,7 +1609,6 @@
           return;
         }
 
-        // public
         const username = normalizeUsername(parsed.username);
         if (isDuplicate(username, null) || await existsInDb(username, null)) {
           hideAddProgress();
@@ -1639,45 +1657,6 @@
       }
     }
 
-            function closePrivateNameModal() {
-      document.getElementById('private-name-modal').classList.remove('active');
-      pendingPrivate = null;
-    }
-
-    async function confirmPrivateName() {
-      if (!pendingPrivate || !supabaseClient) return;
-      const name = document.getElementById('private-name-input').value.trim();
-      if (!name) {
-        alert('Введите название чата/канала');
-        return;
-      }
-      const row = {
-        type: pendingPrivate.type,
-        username: null,
-        invite_link: pendingPrivate.invite,
-        is_private: true,
-        display_name: name,
-        description: pendingPrivate.desc || null,
-        category: pendingPrivate.category,
-        is_top: false,
-        top_until: null
-      };
-      if (pendingPrivate.avatarUrl) row.avatar_url = pendingPrivate.avatarUrl;
-      try {
-        const error = await insertItemRow(row);
-        if (error) {
-          alert('Ошибка: ' + (error.message || 'не удалось добавить'));
-          return;
-        }
-        closePrivateNameModal();
-        showStatus('Добавлено!');
-        await loadData();
-      } catch (e) {
-        console.error(e);
-        alert('Ошибка сети');
-      }
-    }
-
     function openBulkModal() {
       if (!isAdmin) return;
       document.getElementById('bulk-list').value = '';
@@ -1686,8 +1665,6 @@
     function closeBulkModal() {
       document.getElementById('bulk-modal').classList.remove('active');
     }
-
-    let bulkRunning = false;
 
     async function runBulkImport() {
       if (!isAdmin || !supabaseClient) return;
@@ -1700,7 +1677,6 @@
       const type = document.getElementById('bulk-type').value;
       const category = document.getElementById('bulk-category').value || 'Разное';
       const raw = document.getElementById('bulk-list').value || '';
-      // пробел, запятая, точка с запятой, перенос строки
       const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
       const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
 
@@ -1710,7 +1686,6 @@
         return;
       }
 
-      // актуальные данные из базы перед импортом
       try { await loadData(); } catch (e) {}
 
       const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
@@ -1724,7 +1699,6 @@
           showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' (пропуск)', 120000);
           continue;
         }
-        // проверка в БД
         if (await existsInDb(u, null)) {
           seen.add(u);
           skip++;
@@ -1741,9 +1715,9 @@
             description: meta.description || null,
             category,
             is_top: false,
-            top_until: null
+            top_until: null,
+            avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(u))
           };
-          if (meta.avatar) row.avatar_url = meta.avatar;
 
           const error = await insertItemRow(row);
           if (error) {
@@ -1759,7 +1733,6 @@
         } catch (e) {
           fail++;
         }
-        // небольшая пауза, чтобы не дублировать из‑за гонок и не забить прокси
         await new Promise(r => setTimeout(r, 700));
         showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
       }
@@ -1811,6 +1784,38 @@
       } catch (e) { console.error(e); }
     }
 
+    /** Админ: обновить аватар/описание из Telegram */
+    async function refreshMeta(id) {
+      if (!supabaseClient || !isAdmin) return;
+      const item = allItems.find(x => String(x.id) === String(id));
+      if (!item || !item.username || item.is_private) {
+        alert('Нет публичного username для обновления');
+        return;
+      }
+      showStatus('Обновление метаданных…', 15000);
+      try {
+        const meta = await fetchTgMeta(item.username);
+        const patch = {
+          avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
+        };
+        if (meta.title && (!item.display_name || item.display_name === '@' + item.username)) {
+          patch.display_name = meta.title;
+        }
+        if (meta.description && !item.description) {
+          patch.description = meta.description;
+        }
+        const { error } = await supabaseClient.from('items').update(patch).eq('id', id);
+        if (error) alert(error.message);
+        else {
+          showStatus('Метаданные обновлены');
+          await loadData();
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Не удалось обновить');
+      }
+    }
+
     function openAdminTopModal(id) {
       pendingTopId = id;
       document.getElementById('admin-top-modal').classList.add('active');
@@ -1843,8 +1848,8 @@
       size = size || 54;
       const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
-      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
-      const letter = (name[0] || '?').toUpperCase();
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
+      const letter = escapeHtml((name[0] || '?').toUpperCase());
       const isPriv = !!item.is_private;
       const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
       const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
@@ -1852,25 +1857,34 @@
       let uname = item.username ? String(item.username) : '';
       uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
-      // 1) avatar_url  2) unavatar  3) ещё один unavatar-фолбэк
       const sources = [];
-      if (item.avatar_url) sources.push(String(item.avatar_url).replace(/"/g, ''));
+      if (item.avatar_url && !isDefaultTgLogo(item.avatar_url)) {
+        sources.push(String(item.avatar_url));
+      }
       if (uname && !isPriv && !uname.startsWith('+')) {
         sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
-        sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
+        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname) + '?fallback=false');
       }
 
-      if (sources.length) {
-        const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        // цепочка onerror: следующий источник, в конце скрыть
+      const uniq = [];
+      const seenSrc = new Set();
+      for (const s of sources) {
+        const key = s.trim();
+        if (!key || seenSrc.has(key)) continue;
+        seenSrc.add(key);
+        uniq.push(key);
+      }
+
+      if (uniq.length) {
+        const escAttr = (s) => String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+        const escJs = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         let onerrChain = "this.style.display='none'";
-        for (let i = sources.length - 1; i >= 1; i--) {
-          const src = esc(sources[i]);
-          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
+        for (let i = uniq.length - 1; i >= 1; i--) {
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + escJs(uniq[i]) + "'";
         }
         return `<div class="card-avatar" style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
           ${letterHtml}
-          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
+          <img src="${escAttr(uniq[0])}" alt="" loading="lazy"
             onload="this.style.opacity=1" onerror="${onerrChain}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
@@ -1911,8 +1925,11 @@
       return arr.slice(offset).concat(arr.slice(0, offset));
     }
 
+    function typeLabel(t) {
+      return t === 'chat' ? 'Чат' : t === 'channel' ? 'Канал' : 'Бот';
+    }
+
     function applyFilters() {
-      // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
       listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
 
       const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
@@ -1920,7 +1937,6 @@
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
         if (currentCategory) {
           const cat = (item.category || 'Разное').trim();
-          // "Для взрослых" и "Для взрослых 18+" — одна категория
           if (currentCategory === 'Для взрослых 18+') {
             if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
           } else if (cat !== currentCategory) {
@@ -1934,7 +1950,6 @@
         return true;
       });
 
-      // Топ (только актуальные) — порядок фиксированный
       const now = new Date();
       const topItems = allItems.filter(item => {
         if (!item.is_top) return false;
@@ -1942,13 +1957,11 @@
         return true;
       });
 
-      // Обычный список — крутится как колесо (топ в нём тоже может быть, но ротация всего filtered)
       const rotated = rotateList(filtered);
 
       document.getElementById('top-count').textContent = topItems.length ? `(${topItems.length})` : '';
       document.getElementById('items-count').textContent = rotated.length ? `(${rotated.length})` : '';
 
-      // Рендер топа
       const topEl = document.getElementById('top-list');
       if (!topItems.length) {
         topEl.innerHTML = '<div class="loading">Пока пусто</div>';
@@ -1957,27 +1970,27 @@
           const days = getDaysLeft(item.top_until);
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
           return `
             <div class="card top-card">
               ${getAvatar(item)}
               <div class="card-content">
-                <div class="type">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
-                <div class="username"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="desc">${item.description}</div>` : ''}
-                <div class="meta">
-                  <span>Топ: ${days} дн.</span>
-                </div>
+                <div class="type">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                ${desc ? `<div class="desc">${desc}</div>` : ''}
+                <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
-                    <button class="btn-remove-top" onclick="removeTop('${item.id}')">Убрать из Топа</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">В чёрный список</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">Удалить</button>
+                    <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+                    ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">Аватар</button>` : ''}
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
                   </div>` : ''}
               </div>
             </div>`;
         }).join('');
       }
 
-      // Рендер списка (с ротацией)
       const listEl = document.getElementById('items-list');
       if (!rotated.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
@@ -1986,26 +1999,28 @@
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
           return `
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${link}" target="_blank" rel="noopener">${name}</a></div>
-                <div class="meta">${item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот'} · ${item.category || ''}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
-                ${item.description && item.description !== 'Без описания' ? `<div class="item-desc">${item.description}</div>` : ''}
+                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                <div class="meta">${escapeHtml(typeLabel(item.type))} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${desc ? `<div class="item-desc">${desc}</div>` : ''}
                 <div class="actions">
                   <button class="btn-top" onclick="openTopModal()">Топ</button>
                   ${isAdmin ? `
-                    <button class="btn-make-top" onclick="openAdminTopModal('${item.id}')">В Топ</button>
-                    <button class="btn-blacklist" onclick="addToBlacklist('${item.id}', '${(item.is_private ? item.invite_link : item.username || '').replace(/'/g,"\\'")}')">ЧС</button>
-                    <button class="btn-delete" onclick="deleteItem('${item.id}')">×</button>` : ''}
+                    <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">В Топ</button>
+                    ${item.username && !item.is_private ? `<button onclick="refreshMeta('${escapeJsAttr(item.id)}')">↻</button>` : ''}
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
                 </div>
               </div>
             </div>`;
         }).join('');
       }
 
-      // Чёрный список
       const blEl = document.getElementById('blacklist-list');
       if (isAdmin) {
         if (!blacklist.length) {
@@ -2013,8 +2028,8 @@
         } else {
           blEl.innerHTML = blacklist.map(value => `
             <div class="blacklist-item">
-              <span>${value}</span>
-              <button onclick="removeFromBlacklist('${value.replace(/'/g,"\\'")}')">Убрать</button>
+              <span>${escapeHtml(value)}</span>
+              <button onclick="removeFromBlacklist('${escapeJsAttr(value)}')">Убрать</button>
             </div>`).join('');
         }
       }
@@ -2055,12 +2070,11 @@
       document.getElementById('top-step-1').style.display = 'block';
       document.getElementById('top-step-2').style.display = 'none';
     }
-    // До 3 дней — без скидки (60 ₽/день). Скидка с 7+ дней. 30 дней = 1000 ₽
+
     function calcTopPrice(days) {
       const table = { 1: 60, 2: 120, 3: 180, 7: 300, 14: 520, 30: 1000 };
       if (table[days] != null) return table[days];
       if (days <= 3) return days * 60;
-      // линейно между 3 дн (180) и 30 дн (1000)
       return Math.round(180 + 820 * (days - 3) / 27);
     }
 
@@ -2099,22 +2113,18 @@
       document.getElementById('legal-modal').classList.remove('active');
     }
 
-    // Закрытие модалок по клику на фон
     document.querySelectorAll('.modal-overlay').forEach(el => {
       el.addEventListener('click', e => {
         if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
       });
     });
 
-    // Старт — с повторной попыткой инициализации Supabase
     (async () => {
-      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
       if (!supabaseClient && window.supabase) {
         try {
           supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         } catch (e) {}
       }
-      // Ещё одна попытка через 1.5 сек (на медленных сетях)
       if (!supabaseClient) {
         await new Promise(r => setTimeout(r, 1500));
         if (window.supabase && window.supabase.createClient) {
@@ -2128,7 +2138,6 @@
       await loadPaymentBot();
       await loadData();
       setInterval(loadData, 5 * 60 * 1000);
-      // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
         let changed = false;
@@ -2141,7 +2150,6 @@
         });
         applyFilters();
         if (changed && isAdmin) {
-          // админ дополнительно сбрасывает в БД
           loadData();
         }
       }, 60 * 1000);
