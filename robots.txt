@@ -1,5 +1,5 @@
 User-agent: *
 Allow: /
 
-Host: https://telegra.site
-Sitemap: https://telegra.site/sitemap.xml
+Host: https://телегра.site
+Sitemap: https://телегра.site/sitemap.xml
