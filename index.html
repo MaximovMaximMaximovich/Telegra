@@ -827,6 +827,7 @@
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
     <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
     <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
+    <button type="button" onclick="openDeleteCategoryModal()" title="Удалить все записи категории">Удал. кат.</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
   </div>
@@ -1140,6 +1141,67 @@
 
 
   <!-- Массовое обновление метаданных -->
+
+
+  <div class="modal-overlay" id="delete-category-modal">
+    <div class="modal">
+      <h3>Удалить категорию</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Удалит <strong>все</strong> каналы, чаты и боты в выбранной категории. Действие необратимо.
+      </p>
+      <label>Категория</label>
+      <select id="delete-category-select">
+        <option value="">— выберите —</option>
+        <option value="Авто, мото, техника">Авто, мото, техника</option>
+        <option value="Аниме">Аниме</option>
+        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+        <option value="Для взрослых 18+">Для взрослых 18+</option>
+        <option value="Для мужчин">Для мужчин</option>
+        <option value="Для женщин">Для женщин</option>
+        <option value="Для родителей">Для родителей</option>
+        <option value="Блоги">Блоги</option>
+        <option value="Еда и напитки">Еда и напитки</option>
+        <option value="Здоровье и спорт">Здоровье и спорт</option>
+        <option value="Игры и приложения">Игры и приложения</option>
+        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
+        <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
+        <option value="Разное">Разное</option>
+      </select>
+      <label>Только тип (необязательно)</label>
+      <select id="delete-category-type">
+        <option value="">Все типы</option>
+        <option value="channel">Только каналы</option>
+        <option value="chat">Только чаты</option>
+        <option value="bot">Только боты</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeDeleteCategoryModal()">Отмена</button>
+        <button class="btn-add" style="background:#a33;" onclick="runDeleteCategory()">Удалить все</button>
+      </div>
+    </div>
+  </div>
 
   <div class="modal-overlay" id="check-links-modal">
     <div class="modal">
@@ -2495,6 +2557,84 @@
         return { deleted: false, status: 'error' };
       }
     }
+
+
+    function openDeleteCategoryModal() {
+      if (!isAdmin) return;
+      document.getElementById('delete-category-modal').classList.add('active');
+    }
+    function closeDeleteCategoryModal() {
+      document.getElementById('delete-category-modal').classList.remove('active');
+    }
+
+    async function runDeleteCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      const cat = (document.getElementById('delete-category-select')?.value || '').trim();
+      const type = (document.getElementById('delete-category-type')?.value || '').trim();
+      if (!cat) {
+        alert('Выберите категорию');
+        return;
+      }
+
+      const matches = allItems.filter(it => {
+        const itemCat = (it.category || 'Разное').trim();
+        let catOk = false;
+        if (cat === 'Для взрослых 18+') {
+          catOk = itemCat === 'Для взрослых 18+' || itemCat === 'Для взрослых';
+        } else {
+          catOk = itemCat === cat;
+        }
+        if (!catOk) return false;
+        if (type && it.type !== type) return false;
+        return true;
+      });
+
+      if (!matches.length) {
+        alert('В этой категории нет записей' + (type ? ' выбранного типа' : ''));
+        return;
+      }
+
+      const typeLabel = type === 'channel' ? 'каналов' : type === 'chat' ? 'чатов' : type === 'bot' ? 'ботов' : 'записей';
+      if (!confirm('Удалить ' + matches.length + ' ' + typeLabel + ' из категории «' + cat + '»?\n\nЭто нельзя отменить.')) {
+        return;
+      }
+      // второе подтверждение при большом числе
+      if (matches.length >= 20) {
+        if (!confirm('Точно удалить ' + matches.length + ' записей?')) return;
+      }
+
+      showStatus('Удаление… 0/' + matches.length, 120000);
+      let ok = 0, fail = 0;
+      // удаляем пачками по id через filter — supabase .in()
+      const ids = matches.map(m => m.id).filter(Boolean);
+      const chunkSize = 50;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        try {
+          const { error } = await supabaseClient.from('items').delete().in('id', chunk);
+          if (error) {
+            console.error(error);
+            // fallback по одному
+            for (const id of chunk) {
+              const { error: e2 } = await supabaseClient.from('items').delete().eq('id', id);
+              if (e2) fail++;
+              else ok++;
+            }
+          } else {
+            ok += chunk.length;
+          }
+        } catch (e) {
+          console.error(e);
+          fail += chunk.length;
+        }
+        showStatus('Удаление… ' + Math.min(i + chunkSize, ids.length) + '/' + ids.length, 120000);
+      }
+
+      closeDeleteCategoryModal();
+      showStatus('Удалено: ' + ok + (fail ? ', ошибок: ' + fail : ''));
+      await loadData();
+    }
+
 
     function openCheckLinksModal() {
       if (!isAdmin) return;
