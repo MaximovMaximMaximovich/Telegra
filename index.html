@@ -826,6 +826,7 @@
     <button type="button" class="stats-btn" onclick="openAnalyticsModal()" title="Статистика">Стат</button>
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
     <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
+    <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
   </div>
@@ -1139,6 +1140,68 @@
 
 
   <!-- Массовое обновление метаданных -->
+
+  <div class="modal-overlay" id="check-links-modal">
+    <div class="modal">
+      <h3>Проверка ссылок</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Проверит, открывается ли страница в Telegram. Нерабочие записи будут удалены.
+        Может занять несколько минут. Не закрывайте вкладку.
+      </p>
+      <label>Категория</label>
+      <select id="check-links-category">
+        <option value="">Все категории</option>
+        <option value="Авто, мото, техника">Авто, мото, техника</option>
+        <option value="Аниме">Аниме</option>
+        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
+        <option value="Для взрослых 18+">Для взрослых 18+</option>
+        <option value="Для мужчин">Для мужчин</option>
+        <option value="Для женщин">Для женщин</option>
+        <option value="Для родителей">Для родителей</option>
+        <option value="Блоги">Блоги</option>
+        <option value="Еда и напитки">Еда и напитки</option>
+        <option value="Здоровье и спорт">Здоровье и спорт</option>
+        <option value="Игры и приложения">Игры и приложения</option>
+        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
+        <option value="Криптовалюта">Криптовалюта</option>
+        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
+        <option value="Маркетплейсы">Маркетплейсы</option>
+        <option value="Медицина">Медицина</option>
+        <option value="Мода и красота">Мода и красота</option>
+        <option value="Музыка">Музыка</option>
+        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
+        <option value="Новости и СМИ">Новости и СМИ</option>
+        <option value="Продажи">Продажи</option>
+        <option value="Психология">Психология</option>
+        <option value="Путешествия">Путешествия</option>
+        <option value="Развлечения и юмор">Развлечения и юмор</option>
+        <option value="SMM">SMM</option>
+        <option value="Телеграм">Телеграм</option>
+        <option value="Технологии">Технологии</option>
+        <option value="Трейдинг">Трейдинг</option>
+        <option value="Нейросети и AI">Нейросети и AI</option>
+        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
+        <option value="Футбол, хоккей">Футбол, хоккей</option>
+        <option value="Фото, искусство">Фото, искусство</option>
+        <option value="Фриланс">Фриланс</option>
+        <option value="Чаты">Чаты</option>
+        <option value="Юриспруденция">Юриспруденция</option>
+        <option value="Разное">Разное</option>
+      </select>
+      <label>Тип (необязательно)</label>
+      <select id="check-links-type">
+        <option value="">Все типы</option>
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeCheckLinksModal()">Отмена</button>
+        <button class="btn-add" onclick="runCheckLinksByCategory()">Проверить и удалить мёртвые</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="refresh-meta-modal">
     <div class="modal">
       <h3>Обновить метаданные</h3>
@@ -2083,6 +2146,7 @@
 
     let bulkRunning = false;
     let refreshMetaRunning = false;
+    let checkLinksRunning = false;
 
     let searchTrackTimer = null;
     let lastTrackedSearch = '';
@@ -2252,6 +2316,169 @@
         alert('Не удалось обновить');
       }
     }
+
+
+    function buildTelegramCheckUrl(item) {
+      if (item.is_private && item.invite_link) {
+        let inv = String(item.invite_link).trim();
+        if (/^https?:\/\//i.test(inv)) return inv.split('?')[0];
+        if (inv.startsWith('+')) return 'https://t.me/' + inv;
+        if (/^joinchat\//i.test(inv)) return 'https://t.me/' + inv;
+        return 'https://t.me/' + inv.replace(/^\/+/, '');
+      }
+      if (item.username) {
+        const u = String(item.username).replace(/^@/, '').trim();
+        if (u) return 'https://t.me/' + u;
+      }
+      return null;
+    }
+
+    function isDeadTelegramHtml(html) {
+      if (!html || html.length < 80) return true;
+      const h = html;
+      if (/tgme_page_error|icon-error/i.test(h)) return true;
+      if (/Sorry,? this (channel|group|bot|user|page)/i.test(h)) return true;
+      if (/doesn.?t seem to exist/i.test(h)) return true;
+      if (/page is unavailable/i.test(h)) return true;
+      if (/Invite link is invalid or has expired/i.test(h)) return true;
+      if (/This invite link is invalid/i.test(h)) return true;
+      if (/нет такой|не существует|ссылка недействительна|ссылка устарела/i.test(h)) return true;
+      // живая страница обычно имеет заголовок канала
+      const hasTitle = /tgme_page_title/i.test(h) || /property=["']og:title["']/i.test(h);
+      if (!hasTitle) return true;
+      return false;
+    }
+
+    async function checkTelegramLinkAlive(item) {
+      const url = buildTelegramCheckUrl(item);
+      if (!url) return { ok: false, reason: 'no_url' };
+
+      const proxies = [
+        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+        (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+      ];
+
+      let gotHtml = false;
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 12000);
+          const res = await fetch(proxies[i](url), { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+          const html = await res.text();
+          if (!html || html.length < 50) continue;
+          gotHtml = true;
+          if (isDeadTelegramHtml(html)) return { ok: false, reason: 'dead' };
+          return { ok: true };
+        } catch (e) {}
+      }
+      // если прокси не ответили — не удаляем (неизвестно)
+      return { ok: null, reason: gotHtml ? 'dead' : 'network' };
+    }
+
+    async function checkAndDeleteItem(id, opts) {
+      if (!supabaseClient || !isAdmin) return;
+      const silent = opts && opts.silent;
+      const item = allItems.find(x => String(x.id) === String(id));
+      if (!item) {
+        if (!silent) alert('Запись не найдена');
+        return { deleted: false, status: 'missing' };
+      }
+      if (!silent) showStatus('Проверка ссылки…', 20000);
+      const result = await checkTelegramLinkAlive(item);
+      if (result.ok === true) {
+        if (!silent) showStatus('Ссылка рабочая');
+        return { deleted: false, status: 'alive' };
+      }
+      if (result.ok === null && result.reason === 'network') {
+        if (!silent) showStatus('Не удалось проверить (сеть). Запись не удалена.');
+        return { deleted: false, status: 'network' };
+      }
+      // мёртвая
+      try {
+        const { error } = await supabaseClient.from('items').delete().eq('id', id);
+        if (error) {
+          if (!silent) alert(error.message);
+          return { deleted: false, status: 'error' };
+        }
+        allItems = allItems.filter(x => String(x.id) !== String(id));
+        if (!silent) {
+          showStatus('Ссылка не работает — запись удалена');
+          applyFilters();
+        }
+        return { deleted: true, status: 'dead' };
+      } catch (e) {
+        console.error(e);
+        if (!silent) alert('Ошибка удаления');
+        return { deleted: false, status: 'error' };
+      }
+    }
+
+    function openCheckLinksModal() {
+      if (!isAdmin) return;
+      document.getElementById('check-links-modal').classList.add('active');
+    }
+    function closeCheckLinksModal() {
+      if (checkLinksRunning) {
+        if (!confirm('Проверка ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+      }
+      document.getElementById('check-links-modal').classList.remove('active');
+    }
+
+    async function runCheckLinksByCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      if (checkLinksRunning) {
+        alert('Проверка уже идёт, подождите…');
+        return;
+      }
+      const cat = (document.getElementById('check-links-category')?.value || '').trim();
+      const type = (document.getElementById('check-links-type')?.value || '').trim();
+
+      const list = allItems.filter(it => {
+        if (type && it.type !== type) return false;
+        if (cat) {
+          const itemCat = (it.category || 'Разное').trim();
+          if (cat === 'Для взрослых 18+') {
+            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
+          } else if (itemCat !== cat) {
+            return false;
+          }
+        }
+        if (!buildTelegramCheckUrl(it)) return false;
+        return true;
+      });
+
+      if (!list.length) {
+        alert('Нет записей для проверки');
+        return;
+      }
+      if (!confirm('Проверить ' + list.length + ' ссылок?\nНерабочие будут удалены. Это может занять несколько минут.')) {
+        return;
+      }
+
+      checkLinksRunning = true;
+      closeCheckLinksModal();
+      let alive = 0, dead = 0, skip = 0, err = 0;
+
+      for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        const label = item.username ? '@' + item.username : (item.display_name || item.id);
+        showStatus('Проверка ' + (i + 1) + '/' + list.length + ': ' + label, 120000);
+        const r = await checkAndDeleteItem(item.id, { silent: true });
+        if (r.status === 'alive') alive++;
+        else if (r.status === 'dead' && r.deleted) dead++;
+        else if (r.status === 'network') skip++;
+        else err++;
+        await new Promise(r => setTimeout(r, 700));
+      }
+
+      checkLinksRunning = false;
+      showStatus('Готово: рабочих ' + alive + ', удалено ' + dead + (skip ? ', не проверено ' + skip : '') + (err ? ', ошибок ' + err : ''));
+      await loadData();
+    }
+
 
     function openRefreshMetaModal() {
       if (!isAdmin) return;
@@ -2543,6 +2770,7 @@
                 ${isAdmin ? `<div class="actions">
                     <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить аватар и описание">Мета</button>` : ''}
+                    <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку, удалить если мёртвая">Ссылка?</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
                   </div>` : ''}
@@ -2575,6 +2803,7 @@
                   ${isAdmin ? `
                     <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить метаданные">↻ Мета</button>` : ''}
+                    <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку">Ссылка?</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
                 </div>
