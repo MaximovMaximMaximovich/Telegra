@@ -13,6 +13,7 @@
   <!-- Yandex verification -->
   <meta name="yandex-verification" content="4393c63170f41afc" />
 
+
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
@@ -35,7 +36,7 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -53,13 +54,25 @@
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
+    html {
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+    }
+
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #f7f5f0;
       color: var(--text);
       min-height: 100vh;
       padding: 28px 24px;
       line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      -webkit-tap-highlight-color: transparent;
     }
 
     .page {
@@ -405,6 +418,7 @@
       margin-bottom: 8px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
+      line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
@@ -543,6 +557,8 @@
       gap: 6px;
       max-height: 70vh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .item-row {
       background: #fff;
@@ -580,6 +596,7 @@
       line-height: 1.25;
       display: -webkit-box;
       -webkit-line-clamp: 1;
+      line-clamp: 1;
       -webkit-box-orient: vertical;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -675,6 +692,8 @@
       max-width: 420px;
       max-height: 90vh;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
       border: 1px solid var(--border);
       box-shadow: 0 16px 40px rgba(0,0,0,0.12);
     }
@@ -838,10 +857,10 @@
   <!-- Всплывающее окно Login -->
   <div class="login-popup" id="login-popup">
     <strong>Вход</strong>
-    <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
-    <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password">
-    <button onclick="loginAdmin()">Войти</button>
-    <button class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
+    <input type="email" id="admin-email" placeholder="Email" autocomplete="username" onkeydown="if(event.key==='Enter')loginAdmin()">
+    <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password" onkeydown="if(event.key==='Enter')loginAdmin()">
+    <button type="button" onclick="loginAdmin()">Войти</button>
+    <button type="button" class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
     <div class="error-msg" id="login-error"></div>
   </div>
 
@@ -919,7 +938,7 @@
             <option value="">Все категории</option>
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
+            <option value="Знакомства">Знакомства</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
             <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
@@ -1432,7 +1451,7 @@
     let isAdmin = false;
     let currentType = null;
     let pendingTopId = null;
-    let pendingPrivate = null; // данные для второго шага (название приватного)
+    let pendingPrivate = null; // legacy (модалка private-name больше не используется в основном потоке)
     let allItems = [];
     let blacklist = [];
     let currentFilter = 'all';
@@ -1440,6 +1459,14 @@
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
     let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+    // Объявлены здесь, чтобы избежать Temporal Dead Zone (используются в onSearchInput выше по коду объявления функций)
+    let searchTrackTimer = null;
+    let lastTrackedSearch = '';
+    let filterDebounceTimer = null;
+    let bulkRunning = false;
+    let refreshMetaRunning = false;
+    let checkLinksRunning = false;
+    let loadDataInFlight = false;
 
     function escapeHtml(s) {
       return String(s ?? '')
@@ -1609,7 +1636,6 @@
       trackEvent('page_view', null);
     }
 
-    let filterDebounceTimer = null;
     function onSearchInput() {
       // Debounce heavy re-render to avoid lag on large catalogs / mobile
       if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
@@ -1792,10 +1818,15 @@
 
     async function loadData() {
       if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        const topEl = document.getElementById('top-list');
+        const itemsEl = document.getElementById('items-list');
+        if (topEl) topEl.innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+        if (itemsEl) itemsEl.innerHTML = '<div class="loading">База данных недоступна.</div>';
         return;
       }
+      // Защита от параллельных вызовов (интервалы + ручные действия)
+      if (loadDataInFlight) return;
+      loadDataInFlight = true;
       try {
         // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
         try {
@@ -1831,8 +1862,10 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
+          const topEl = document.getElementById('top-list');
+          const itemsEl = document.getElementById('items-list');
+          if (topEl) topEl.innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
+          if (itemsEl) itemsEl.innerHTML = '<div class="loading">Ошибка загрузки</div>';
           return;
         }
 
@@ -1851,8 +1884,12 @@
         render();
       } catch (e) {
         console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        const topEl = document.getElementById('top-list');
+        const itemsEl = document.getElementById('items-list');
+        if (topEl) topEl.innerHTML = '<div class="loading">Ошибка сети</div>';
+        if (itemsEl) itemsEl.innerHTML = '<div class="loading">Ошибка сети</div>';
+      } finally {
+        loadDataInFlight = false;
       }
     }
 
@@ -1886,6 +1923,7 @@
       try {
         if (username) {
           const u = normalizeUsername(username);
+          // ilike без wildcards даёт case-insensitive точное сравнение
           const { data } = await supabaseClient
             .from('items')
             .select('id, username')
@@ -1895,19 +1933,15 @@
         }
         if (invite) {
           const inv = normalizeInvite(invite);
+          // Сначала точное совпадение
           const { data } = await supabaseClient
             .from('items')
             .select('id, invite_link')
             .eq('invite_link', invite)
             .limit(3);
           if ((data || []).length) return true;
-          // на всякий случай сравнение в нормализованном виде
-          const { data: allInv } = await supabaseClient
-            .from('items')
-            .select('id, invite_link')
-            .not('invite_link', 'is', null)
-            .limit(500);
-          if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+          // Вариант без trailing slash / разный протокол — через клиентский кэш (allItems уже загружен)
+          if (allItems.some(it => it.invite_link && normalizeInvite(it.invite_link) === inv)) return true;
         }
       } catch (e) {
         console.warn('existsInDb', e);
@@ -2161,12 +2195,10 @@
       try {
         if (parsed.isPrivate) {
           if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
-            hideAddProgress();
             alert('Эта ссылка уже есть в каталоге');
             return;
           }
           if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
-            hideAddProgress();
             alert('Эта ссылка в чёрном списке');
             return;
           }
@@ -2185,14 +2217,12 @@
           };
           const error = await insertItemRow(row);
           if (error) {
-            hideAddProgress();
             if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
             else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
             return;
           }
           setAddProgress(100, 'Готово!');
           closeModal();
-          hideAddProgress();
           showStatus('Добавлено!');
           await loadData();
           return;
@@ -2201,12 +2231,10 @@
         // public
         const username = normalizeUsername(parsed.username);
         if (isDuplicate(username, null) || await existsInDb(username, null)) {
-          hideAddProgress();
           alert('Этот канал/чат/бот уже есть в каталоге');
           return;
         }
         if (blacklist.some(b => normalizeUsername(b) === username)) {
-          hideAddProgress();
           alert('Этот канал/чат в чёрном списке');
           return;
         }
@@ -2219,32 +2247,31 @@
           username: username,
           invite_link: null,
           is_private: false,
-          display_name: name || meta.title || ('@' + username),
-          description: userDesc || meta.description || null,
+          display_name: name || (meta && meta.title) || ('@' + username),
+          description: userDesc || (meta && meta.description) || null,
           category: category,
           is_top: false,
           top_until: null,
-          avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
+          avatar_url: (meta && meta.avatar) || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
           source: isAdmin ? 'admin' : 'user'
         };
 
         setAddProgress(92, 'Сохранение в каталог…');
         const error = await insertItemRow(row);
         if (error) {
-          hideAddProgress();
           if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
           else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
           return;
         }
         setAddProgress(100, 'Готово!');
         closeModal();
-        hideAddProgress();
         showStatus('Добавлено!');
         await loadData();
       } catch (e) {
         console.error(e);
-        hideAddProgress();
         alert('Ошибка сети');
+      } finally {
+        hideAddProgress();
       }
     }
 
@@ -2296,14 +2323,6 @@
     function closeBulkModal() {
       document.getElementById('bulk-modal').classList.remove('active');
     }
-
-    let bulkRunning = false;
-    let refreshMetaRunning = false;
-    let checkLinksRunning = false;
-
-    let searchTrackTimer = null;
-    let lastTrackedSearch = '';
-
 
     async function runBulkImport() {
       if (!isAdmin || !supabaseClient) return;
@@ -2951,16 +2970,20 @@
       }
 
       if (sources.length) {
-        const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        // цепочка onerror: следующий источник, в конце скрыть
+        const escAttr = (s) => String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/"/g, '&quot;')
+          .replace(/</g, '&lt;');
+        const escJs = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        // цепочка onerror: следующий источник, в конце скрыть img
         let onerrChain = "this.style.display='none'";
         for (let i = sources.length - 1; i >= 1; i--) {
-          const src = esc(sources[i]);
+          const src = escJs(sources[i]);
           onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
         }
         return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
           ${letterHtml}
-          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
+          <img src="${escAttr(sources[0])}" alt="" loading="lazy" referrerpolicy="no-referrer" decoding="async"
             onload="this.style.opacity=1" onerror="${onerrChain}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
@@ -3254,6 +3277,13 @@
       });
     });
 
+    // Закрытие модалок и login-popup по Escape
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape' && e.keyCode !== 27) return;
+      document.querySelectorAll('.modal-overlay.active').forEach(el => el.classList.remove('active'));
+      if (loginPopupOpen) toggleLoginPopup();
+    });
+
     // Старт — с повторной попыткой инициализации Supabase
     (async () => {
       // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
@@ -3272,10 +3302,15 @@
         }
       }
 
-      await checkSession();
-      await loadPaymentBot();
-      await loadData();
-      trackPageView();
+      try {
+        await checkSession();
+        await loadPaymentBot();
+        await loadData();
+        trackPageView();
+      } catch (e) {
+        console.error('Startup error:', e);
+      }
+
       setInterval(loadData, 5 * 60 * 1000);
       setInterval(() => { if (isAdmin) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
