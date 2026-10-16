@@ -916,7 +916,7 @@
             <option value="">Все категории</option>
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
-            <option value="Знакомства">Знакомства</option>
+        <option value="Знакомства">Знакомства</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
             <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
@@ -2995,11 +2995,10 @@
 
     function isRecentUserAdd(item) {
       if (!item || !item.created_at) return false;
-      // массовый импорт не показываем; одиночное добавление (user/admin) — да
-      if (item.source === 'bulk') return false;
+      if (item.source && item.source !== 'user') return false;
+      if (!item.source) return false; // старые записи без source не показываем в «недавних»
       const age = Date.now() - new Date(item.created_at).getTime();
-      if (isNaN(age) || age < 0) return false;
-      return age <= 3 * 24 * 60 * 60 * 1000;
+      return age >= 0 && age <= 3 * 24 * 60 * 60 * 1000;
     }
 
     function rotateList(arr) {
