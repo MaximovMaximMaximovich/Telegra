@@ -363,12 +363,8 @@
       cursor: pointer;
       transition: transform 0.15s ease;
     }
-    .card.top-card .card-avatar:hover {
-      transform: scale(1.08);
-    }
-    .card.top-card .card-avatar:active {
-      transform: scale(0.96);
-    }
+    .card.top-card .card-avatar:hover { transform: scale(1.08); }
+    .card.top-card .card-avatar:active { transform: scale(0.96); }
     #confetti-canvas {
       position: fixed;
       inset: 0;
@@ -377,9 +373,8 @@
       pointer-events: none;
       z-index: 9999;
     }
-    .card-avatar img {
-      background: transparent;
-    }
+
+
 
 
     .card-content { flex: 1; min-width: 0; }
@@ -515,7 +510,8 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      /* без лимита — показываем все недавние */
+      max-height: 320px;
+      overflow-y: auto;
     }
     .recent-list .item-row {
       border-color: #c5d9d0;
@@ -1780,18 +1776,21 @@
 
     async function loadData() {
       if (!supabaseClient) {
-        // не затираем списки, если данные уже были
-        if (!allItems.length) {
-          const msg = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-          const tl = document.getElementById('top-list');
-          const il = document.getElementById('items-list');
-          if (tl) tl.innerHTML = msg;
-          if (il) il.innerHTML = msg;
-        }
+        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
         return;
       }
       try {
-        // Сброс просроченных топов только на клиенте (update в БД часто падает у гостей из‑за RLS)
+        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
+        try {
+          await supabaseClient
+            .from('items')
+            .update({ is_top: false, top_until: null })
+            .lt('top_until', new Date().toISOString())
+            .eq('is_top', true);
+        } catch (e) {}
+
+        // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
         const pageSize = 1000;
         let from = 0;
         let items = [];
@@ -1810,23 +1809,18 @@
           items = items.concat(batch);
           if (batch.length < pageSize) break;
           from += pageSize;
+          // защита от бесконечного цикла
           if (from > 100000) break;
         }
 
         if (error) {
           console.error('loadData items error:', error);
-          // если уже есть данные — не прячем их
-          if (!allItems.length) {
-            const tl = document.getElementById('top-list');
-            const il = document.getElementById('items-list');
-            if (tl) tl.innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || 'сеть') + '</div>';
-            if (il) il.innerHTML = '<div class="loading">Ошибка загрузки. Обновите страницу.</div>';
-          } else {
-            showStatus('Не удалось обновить список');
-          }
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
+          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
           return;
         }
 
+        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
         const nowIso = Date.now();
         allItems = (items || []).map(it => {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
@@ -1835,29 +1829,14 @@
           return it;
         });
 
-        try {
-          const { data: bl, error: blErr } = await supabaseClient.from('blacklist').select('value');
-          if (!blErr) blacklist = (bl || []).map(r => r.value);
-        } catch (blE) {
-          console.warn('blacklist load', blE);
-        }
+        const { data: bl } = await supabaseClient.from('blacklist').select('value');
+        blacklist = (bl || []).map(r => r.value);
 
-        try {
-          render();
-        } catch (re) {
-          console.error('render error:', re);
-          showStatus('Ошибка отрисовки');
-        }
+        render();
       } catch (e) {
         console.error('loadData error:', e);
-        if (!allItems.length) {
-          const tl = document.getElementById('top-list');
-          const il = document.getElementById('items-list');
-          if (tl) tl.innerHTML = '<div class="loading">Ошибка сети. Обновите страницу.</div>';
-          if (il) il.innerHTML = '<div class="loading">Ошибка сети. Обновите страницу.</div>';
-        } else {
-          showStatus('Ошибка сети при обновлении');
-        }
+        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
       }
     }
 
@@ -2864,6 +2843,7 @@
     }
 
 
+
     function launchConfetti(ev) {
       try {
         let canvas = document.getElementById('confetti-canvas');
@@ -2882,22 +2862,22 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         const x0 = (ev && ev.clientX != null) ? ev.clientX : window.innerWidth / 2;
         const y0 = (ev && ev.clientY != null) ? ev.clientY : window.innerHeight / 3;
-        const colors = ['#2AABEE', '#2c5f4e', '#f43f5e', '#f59e0b', '#8b5cf6', '#10b981', '#ffffff'];
+        const colors = ['#2AABEE', '#2c5f4e', '#f43f5e', '#f59e0b', '#8b5cf6', '#10b981', '#ffffff', '#e0d0a8'];
         const parts = [];
-        for (let n = 0; n < 80; n++) {
+        for (let n = 0; n < 90; n++) {
           const angle = Math.random() * Math.PI * 2;
-          const speed = 3 + Math.random() * 8;
+          const speed = 3 + Math.random() * 9;
           parts.push({
             x: x0, y: y0,
             vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed - 3,
-            g: 0.14,
-            w: 4 + Math.random() * 5,
-            h: 3 + Math.random() * 4,
+            vy: Math.sin(angle) * speed - 4,
+            g: 0.13 + Math.random() * 0.08,
+            w: 4 + Math.random() * 6,
+            h: 3 + Math.random() * 5,
             rot: Math.random() * 6,
-            vr: (Math.random() - 0.5) * 0.35,
+            vr: (Math.random() - 0.5) * 0.4,
             color: colors[n % colors.length],
-            life: 50 + Math.random() * 40
+            life: 55 + Math.random() * 45
           });
         }
         let frame = 0;
@@ -2917,96 +2897,74 @@
             ctx.save();
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rot);
-            ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 40));
+            ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 45));
             ctx.fillStyle = p.color;
             ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
             ctx.restore();
           }
-          if (alive > 0 && frame < 100) requestAnimationFrame(tick);
+          if (alive > 0 && frame < 110) requestAnimationFrame(tick);
           else ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
         })();
-      } catch (e) { console.warn('confetti', e); }
-    }
-
-    function proxyImg(url) {
-      if (!url) return '';
-      const u = String(url).trim();
-      if (!u) return '';
-      // уже прокси или data — как есть
-      if (/^data:/i.test(u)) return u;
-      if (/images\.weserv\.nl/i.test(u)) return u;
-      // проксируем внешние URL — обходит блокировки hotlink / mixed content
-      try {
-        const cleaned = u.replace(/^http:\/\//i, 'https://');
-        return 'https://images.weserv.nl/?url=' + encodeURIComponent(cleaned.replace(/^https?:\/\//i, '')) + '&w=96&h=96&fit=cover&output=webp';
       } catch (e) {
-        return u;
+        console.warn('confetti', e);
       }
     }
 
-    function getAvatar(item, size, withConfetti) {
+    function getAvatar(item, size, confetti) {
       size = size || 54;
-      withConfetti = !!withConfetti;
-      const colors = ['#3b6b9a', '#6b5b8c', '#4a7c6f', '#8b5a2b', '#5a6b8c', '#7a4c6f'];
+      const confettiAttr = confetti
+        ? ' onclick="event.stopPropagation();launchConfetti(event)" title="Салют!"'
+        : '';
+      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
-      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
       const isPriv = !!item.is_private;
-      const color = isPriv ? '#5c6bc0' : colors[Math.abs((name || 'x').length) % colors.length];
-      const click = withConfetti
-        ? ' onclick="event.stopPropagation();launchConfetti(event)" title="Салют!" style="cursor:pointer;"'
-        : '';
+      const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
+      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
       let uname = item.username ? String(item.username) : '';
-      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
-      uname = uname.split('/')[0].split('?')[0].toLowerCase();
+      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
-      // один основной URL + один запасной
-      let src = '';
-      let fallback = '';
-      if (item.avatar_url && String(item.avatar_url).trim()) {
-        const au = String(item.avatar_url).trim();
-        if (!/t_logo|favicon|telegram\.org\/img/i.test(au)) {
-          src = proxyImg(au);
-        }
-      }
+      // 1) avatar_url  2) unavatar  3) ещё один unavatar-фолбэк
+      const sources = [];
+      if (item.avatar_url) sources.push(String(item.avatar_url).replace(/"/g, ''));
       if (uname && !isPriv && !uname.startsWith('+')) {
-        const ua = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
-        if (!src) src = proxyImg(ua);
-        else fallback = proxyImg(ua);
+        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
+        sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
       }
 
-      const letterBg = 'background:' + color + ';';
-      if (src) {
-        const fb = fallback
-          ? ("this.onerror=null;this.src='" + fallback.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "';")
-          : "this.style.display='none';";
-        return (
-          '<div class="card-avatar"' + click + ' style="width:' + size + 'px;height:' + size + 'px;' + letterBg + 'position:relative;overflow:hidden;flex-shrink:0;border-radius:50%;">' +
-            '<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:' + (size * 0.4) + 'px;font-weight:600;color:#fff;z-index:0;">' + letter + '</span>' +
-            '<img src="' + src.replace(/"/g, '&quot;') + '" alt="" width="' + size + '" height="' + size + '" loading="lazy" decoding="async" referrerpolicy="no-referrer" ' +
-              'onload="this.style.opacity=1" onerror="' + fb + '" ' +
-              'style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity .2s;pointer-events:none;">' +
-          '</div>'
-        );
+      if (sources.length) {
+        const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        // цепочка onerror: следующий источник, в конце скрыть
+        let onerrChain = "this.style.display='none'";
+        for (let i = sources.length - 1; i >= 1; i--) {
+          const src = esc(sources[i]);
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
+        }
+        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
+          ${letterHtml}
+          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
+            onload="this.style.opacity=1" onerror="${onerrChain}"
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+        </div>`;
       }
 
       if (isPriv) {
-        return (
-          '<div class="card-avatar"' + click + ' style="width:' + size + 'px;height:' + size + 'px;' + letterBg + 'position:relative;flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:' + (size * 0.36) + 'px;color:#fff;font-weight:600;">' +
-            letter +
-            '<span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:' + (size * 0.38) + 'px;height:' + (size * 0.38) + 'px;display:flex;align-items:center;justify-content:center;font-size:' + (size * 0.2) + 'px;">🔒</span>' +
-          '</div>'
-        );
+        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
+          ${letter}
+          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+        </div>`;
       }
 
-      return (
-        '<div class="card-avatar"' + click + ' style="width:' + size + 'px;height:' + size + 'px;' + letterBg + 'flex-shrink:0;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:' + (size * 0.4) + 'px;color:#fff;font-weight:600;">' +
-          letter +
-        '</div>'
-      );
+      return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
     }
 
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const diff = new Date(topUntil) - new Date();
+      return Math.max(0, Math.ceil(diff / 86400000));
+    }
 
     function setFilter(f) {
       currentFilter = f;
