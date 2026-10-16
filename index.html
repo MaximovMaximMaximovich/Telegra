@@ -510,8 +510,7 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      max-height: 320px;
-      overflow-y: auto;
+      /* без лимита высоты — показываем все недавние */
     }
     .recent-list .item-row {
       border-color: #c5d9d0;
@@ -917,6 +916,7 @@
             <option value="">Все категории</option>
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
             <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
@@ -974,18 +974,20 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <label>1. Название канала</label>
+      <p id="modal-type-hint" style="font-size:0.85rem;color:var(--muted);margin:-8px 0 12px;">Тип: —</p>
+      <label>1. Название</label>
       <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
       <label>2. Ссылка</label>
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
       <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
       <label>3. Описание</label>
       <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
-      <label>4. Категория</label>
+      <label>4. Категория (тема)</label>
       <select id="item-category">
         <option value="">Выберите категорию</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1120,6 +1122,7 @@
         <option value="Разное">Разное</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1179,6 +1182,7 @@
         <option value="">— выберите —</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1240,6 +1244,7 @@
         <option value="">Все категории</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1301,6 +1306,7 @@
         <option value="">Все категории</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
+        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -3160,14 +3166,20 @@
     function openModal(type) {
       currentType = type;
       const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
+      const typeNames = { chat: 'Чат', channel: 'Канал', bot: 'Бот' };
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+      const hint = document.getElementById('modal-type-hint');
+      if (hint) {
+        hint.innerHTML = 'Тип записи: <strong>' + (typeNames[type] || type) + '</strong> · ниже выберите категорию (тему)';
+      }
       const nameEl = document.getElementById('item-name');
       const linkEl = document.getElementById('item-link');
       const descEl = document.getElementById('item-desc');
       if (nameEl) nameEl.value = '';
       if (linkEl) linkEl.value = '';
       if (descEl) descEl.value = '';
-      document.getElementById('item-category').value = '';
+      const catEl = document.getElementById('item-category');
+      if (catEl) catEl.value = '';
       hideAddProgress();
       document.getElementById('add-modal').classList.add('active');
     }
