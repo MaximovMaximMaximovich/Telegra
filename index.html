@@ -10,9 +10,6 @@
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://телегра.site/">
 
-  <!-- Yandex verification -->
-  <meta name="yandex-verification" content="4393c63170f41afc" />
-  
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
@@ -513,7 +510,8 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      /* без лимита высоты — показываем все недавние */
+      max-height: 320px;
+      overflow-y: auto;
     }
     .recent-list .item-row {
       border-color: #c5d9d0;
@@ -919,7 +917,6 @@
             <option value="">Все категории</option>
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
             <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
@@ -977,20 +974,18 @@
   <div class="modal-overlay" id="add-modal">
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
-      <p id="modal-type-hint" style="font-size:0.85rem;color:var(--muted);margin:-8px 0 12px;">Тип: —</p>
-      <label>1. Название</label>
+      <label>1. Название канала</label>
       <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
       <label>2. Ссылка</label>
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
       <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
       <label>3. Описание</label>
       <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
-      <label>4. Категория (тема)</label>
+      <label>4. Категория</label>
       <select id="item-category">
         <option value="">Выберите категорию</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1024,7 +1019,6 @@
         <option value="Фриланс">Фриланс</option>
         <option value="Чаты">Чаты</option>
         <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
       </select>
 
       <div class="add-progress" id="add-progress">
@@ -1125,7 +1119,6 @@
         <option value="Разное">Разное</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1185,7 +1178,6 @@
         <option value="">— выберите —</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1247,7 +1239,6 @@
         <option value="">Все категории</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1309,7 +1300,6 @@
         <option value="">Все категории</option>
         <option value="Авто, мото, техника">Авто, мото, техника</option>
         <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
         <option value="Бизнес и стартапы">Бизнес и стартапы</option>
         <option value="Для взрослых 18+">Для взрослых 18+</option>
         <option value="Для мужчин">Для мужчин</option>
@@ -1609,14 +1599,8 @@
       trackEvent('page_view', null);
     }
 
-    let filterDebounceTimer = null;
     function onSearchInput() {
-      // Debounce heavy re-render to avoid lag on large catalogs / mobile
-      if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
-      filterDebounceTimer = setTimeout(() => {
-        applyFilters();
-      }, 180);
-
+      applyFilters();
       const q = (document.getElementById('search-input')?.value || '').trim();
       if (searchTrackTimer) clearTimeout(searchTrackTimer);
       if (q.length < 2) return;
@@ -2248,7 +2232,7 @@
       }
     }
 
-    function closePrivateNameModal() {
+            function closePrivateNameModal() {
       document.getElementById('private-name-modal').classList.remove('active');
       pendingPrivate = null;
     }
@@ -2978,9 +2962,8 @@
 
     function getDaysLeft(topUntil) {
       if (!topUntil) return 0;
-      const ms = new Date(topUntil).getTime() - Date.now();
-      if (isNaN(ms) || ms <= 0) return 0;
-      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+      const diff = new Date(topUntil) - new Date();
+      return Math.max(0, Math.ceil(diff / 86400000));
     }
 
     function setFilter(f) {
@@ -2994,6 +2977,15 @@
     function setCategoryFilter(cat) {
       currentCategory = cat || '';
       applyFilters();
+    }
+
+
+
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const ms = new Date(topUntil).getTime() - Date.now();
+      if (isNaN(ms) || ms <= 0) return 0;
+      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
     }
 
     function isRecentUserAdd(item) {
@@ -3169,20 +3161,14 @@
     function openModal(type) {
       currentType = type;
       const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
-      const typeNames = { chat: 'Чат', channel: 'Канал', bot: 'Бот' };
       document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
-      const hint = document.getElementById('modal-type-hint');
-      if (hint) {
-        hint.innerHTML = 'Тип записи: <strong>' + (typeNames[type] || type) + '</strong> · ниже выберите категорию (тему)';
-      }
       const nameEl = document.getElementById('item-name');
       const linkEl = document.getElementById('item-link');
       const descEl = document.getElementById('item-desc');
       if (nameEl) nameEl.value = '';
       if (linkEl) linkEl.value = '';
       if (descEl) descEl.value = '';
-      const catEl = document.getElementById('item-category');
-      if (catEl) catEl.value = '';
+      document.getElementById('item-category').value = '';
       hideAddProgress();
       document.getElementById('add-modal').classList.add('active');
     }
