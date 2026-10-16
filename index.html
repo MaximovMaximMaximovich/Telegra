@@ -1780,21 +1780,18 @@
 
     async function loadData() {
       if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        // не затираем списки, если данные уже были
+        if (!allItems.length) {
+          const msg = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
+          const tl = document.getElementById('top-list');
+          const il = document.getElementById('items-list');
+          if (tl) tl.innerHTML = msg;
+          if (il) il.innerHTML = msg;
+        }
         return;
       }
       try {
-        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
-        try {
-          await supabaseClient
-            .from('items')
-            .update({ is_top: false, top_until: null })
-            .lt('top_until', new Date().toISOString())
-            .eq('is_top', true);
-        } catch (e) {}
-
-        // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
+        // Сброс просроченных топов только на клиенте (update в БД часто падает у гостей из‑за RLS)
         const pageSize = 1000;
         let from = 0;
         let items = [];
@@ -1813,18 +1810,23 @@
           items = items.concat(batch);
           if (batch.length < pageSize) break;
           from += pageSize;
-          // защита от бесконечного цикла
           if (from > 100000) break;
         }
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
+          // если уже есть данные — не прячем их
+          if (!allItems.length) {
+            const tl = document.getElementById('top-list');
+            const il = document.getElementById('items-list');
+            if (tl) tl.innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || 'сеть') + '</div>';
+            if (il) il.innerHTML = '<div class="loading">Ошибка загрузки. Обновите страницу.</div>';
+          } else {
+            showStatus('Не удалось обновить список');
+          }
           return;
         }
 
-        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
         const nowIso = Date.now();
         allItems = (items || []).map(it => {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
@@ -1833,14 +1835,29 @@
           return it;
         });
 
-        const { data: bl } = await supabaseClient.from('blacklist').select('value');
-        blacklist = (bl || []).map(r => r.value);
+        try {
+          const { data: bl, error: blErr } = await supabaseClient.from('blacklist').select('value');
+          if (!blErr) blacklist = (bl || []).map(r => r.value);
+        } catch (blE) {
+          console.warn('blacklist load', blE);
+        }
 
-        render();
+        try {
+          render();
+        } catch (re) {
+          console.error('render error:', re);
+          showStatus('Ошибка отрисовки');
+        }
       } catch (e) {
         console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        if (!allItems.length) {
+          const tl = document.getElementById('top-list');
+          const il = document.getElementById('items-list');
+          if (tl) tl.innerHTML = '<div class="loading">Ошибка сети. Обновите страницу.</div>';
+          if (il) il.innerHTML = '<div class="loading">Ошибка сети. Обновите страницу.</div>';
+        } else {
+          showStatus('Ошибка сети при обновлении');
+        }
       }
     }
 
@@ -2912,9 +2929,11 @@
     }
 
 
-    function getAvatar(item, size, opts) {
+    function getAvatar(item, size, confettiOrOpts) {
       size = size || 54;
-      opts = opts || {};
+      const opts = (confettiOrOpts && typeof confettiOrOpts === 'object')
+        ? confettiOrOpts
+        : { eager: size >= 48, confetti: !!confettiOrOpts };
       const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
       const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
@@ -3081,6 +3100,7 @@
 
       // Рендер топа
       const topEl = document.getElementById('top-list');
+      if (topEl) {
       if (!topItems.length) {
         topEl.innerHTML = '<div class="loading">Пока пусто</div>';
       } else {
@@ -3093,7 +3113,7 @@
           const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
           return `
             <div class="card top-card">
-              ${getAvatar(item, 54, { eager: true, confetti: true })}
+              ${getAvatar(item, 54, true)}
               <div class="card-content">
                 <div class="type">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
                 <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
@@ -3110,9 +3130,11 @@
             </div>`;
         }).join('');
       }
+      }
 
       // Рендер списка (с ротацией)
       const listEl = document.getElementById('items-list');
+      if (listEl) {
       if (!rotated.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
@@ -3142,6 +3164,7 @@
               </div>
             </div>`;
         }).join('');
+      }
       }
 
       // Чёрный список
