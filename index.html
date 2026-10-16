@@ -3022,6 +3022,14 @@
     }
 
 
+
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const ms = new Date(topUntil).getTime() - Date.now();
+      if (isNaN(ms) || ms <= 0) return 0;
+      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+    }
+
     function isRecentUserAdd(item) {
       if (!item || !item.created_at) return false;
       if (item.source && item.source !== 'user') return false;
