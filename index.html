@@ -916,7 +916,7 @@
             <option value="">Все категории</option>
             <option value="Авто, мото, техника">Авто, мото, техника</option>
             <option value="Аниме">Аниме</option>
-            <option value="Знакомства">Знакомства</option>
+        <option value="Знакомства">Знакомства</option>
             <option value="Бизнес и стартапы">Бизнес и стартапы</option>
             <option value="Для взрослых 18+">Для взрослых 18+</option>
             <option value="Для мужчин">Для мужчин</option>
@@ -1801,7 +1801,7 @@
             .update({ is_top: false, top_until: null })
             .lt('top_until', new Date().toISOString())
             .eq('is_top', true);
-        } catch (e) { /* RLS может запрещать анонимам — это нормально */ }
+        } catch (e) {}
 
         // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
         const pageSize = 1000;
@@ -1828,13 +1828,12 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          const msg = (error.message || error.code || 'unknown').toString();
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + msg + '<br><small>Проверьте интернет / AdBlock</small></div>';
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
           document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
-          throw error; // чтобы сработал retry
+          return;
         }
 
-        // На клиенте тоже снимаем просроченный топ
+        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
         const nowIso = Date.now();
         allItems = (items || []).map(it => {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
@@ -1843,20 +1842,14 @@
           return it;
         });
 
-        try {
-          const { data: bl } = await supabaseClient.from('blacklist').select('value');
-          blacklist = (bl || []).map(r => r.value);
-        } catch (e) {
-          console.warn('blacklist load', e);
-          blacklist = blacklist || [];
-        }
+        const { data: bl } = await supabaseClient.from('blacklist').select('value');
+        blacklist = (bl || []).map(r => r.value);
 
         render();
       } catch (e) {
         console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети. Проверьте соединение.</div>';
+        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
         document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        throw e; // для retry
       }
     }
 
@@ -3002,11 +2995,10 @@
 
     function isRecentUserAdd(item) {
       if (!item || !item.created_at) return false;
-      // массовый импорт не показываем; одиночные добавления (user / admin) — да
-      if (item.source === 'bulk') return false;
+      if (item.source && item.source !== 'user') return false;
+      if (!item.source) return false; // старые записи без source не показываем в «недавних»
       const age = Date.now() - new Date(item.created_at).getTime();
-      if (isNaN(age) || age < 0) return false;
-      return age <= 3 * 24 * 60 * 60 * 1000;
+      return age >= 0 && age <= 3 * 24 * 60 * 60 * 1000;
     }
 
     function rotateList(arr) {
@@ -3259,63 +3251,30 @@
       });
     });
 
-    // Надёжная инициализация Supabase + загрузка данных (с ретраями)
-    async function ensureSupabase(maxWaitMs = 6000) {
-      if (supabaseClient) return true;
-      const start = Date.now();
-      while (Date.now() - start < maxWaitMs) {
+    // Старт — с повторной попыткой инициализации Supabase
+    (async () => {
+      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
+      if (!supabaseClient && window.supabase) {
+        try {
+          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } catch (e) {}
+      }
+      // Ещё одна попытка через 1.5 сек (на медленных сетях)
+      if (!supabaseClient) {
+        await new Promise(r => setTimeout(r, 1500));
         if (window.supabase && window.supabase.createClient) {
           try {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-            if (supabaseClient) return true;
-          } catch (e) {
-            console.warn('Supabase createClient error', e);
-          }
+          } catch (e) {}
         }
-        await new Promise(r => setTimeout(r, 400));
-      }
-      return !!supabaseClient;
-    }
-
-    async function loadDataWithRetry(retries = 3) {
-      for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-          await loadData();
-          // если после loadData allItems не undefined и нет сообщения об ошибке — считаем успехом
-          if (Array.isArray(allItems)) return true;
-        } catch (e) {
-          console.warn('loadData attempt ' + attempt + ' failed', e);
-        }
-        if (attempt < retries) {
-          showStatus('Повтор загрузки… (' + attempt + '/' + retries + ')', 3000);
-          await new Promise(r => setTimeout(r, 1200 * attempt));
-        }
-      }
-      // финальный фейл
-      const topEl = document.getElementById('top-list');
-      const listEl = document.getElementById('items-list');
-      if (topEl) topEl.innerHTML = '<div class="loading">Не удалось загрузить каталог.<br><button onclick="loadDataWithRetry(3)" style="margin-top:10px;padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--soft);cursor:pointer;">Повторить</button></div>';
-      if (listEl) listEl.innerHTML = '<div class="loading">Ошибка загрузки. <button onclick="loadDataWithRetry(3)" style="margin-top:8px;padding:6px 12px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;">Повторить</button></div>';
-      return false;
-    }
-
-    // Старт
-    (async () => {
-      const ok = await ensureSupabase(7000);
-      if (!ok) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">Библиотека базы данных не загрузилась.<br>Проверьте блокировщики рекламы / интернет и обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна. Отключите AdBlock и обновите.</div>';
-        return;
       }
 
       await checkSession();
       await loadPaymentBot();
-      await loadDataWithRetry(3);
+      await loadData();
       trackPageView();
-
-      setInterval(() => { loadDataWithRetry(2); }, 5 * 60 * 1000);
+      setInterval(loadData, 5 * 60 * 1000);
       setInterval(() => { if (isAdmin) loadAnalytics(); }, 5 * 60 * 1000);
-
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
@@ -3329,6 +3288,7 @@
         });
         applyFilters();
         if (changed && isAdmin) {
+          // админ дополнительно сбрасывает в БД
           loadData();
         }
       }, 60 * 1000);
