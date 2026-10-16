@@ -1019,6 +1019,7 @@
         <option value="Фриланс">Фриланс</option>
         <option value="Чаты">Чаты</option>
         <option value="Юриспруденция">Юриспруденция</option>
+        <option value="Разное">Разное</option>
       </select>
 
       <div class="add-progress" id="add-progress">
@@ -1599,8 +1600,14 @@
       trackEvent('page_view', null);
     }
 
+    let filterDebounceTimer = null;
     function onSearchInput() {
-      applyFilters();
+      // Debounce heavy re-render to avoid lag on large catalogs / mobile
+      if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
+      filterDebounceTimer = setTimeout(() => {
+        applyFilters();
+      }, 180);
+
       const q = (document.getElementById('search-input')?.value || '').trim();
       if (searchTrackTimer) clearTimeout(searchTrackTimer);
       if (q.length < 2) return;
@@ -2232,7 +2239,7 @@
       }
     }
 
-            function closePrivateNameModal() {
+    function closePrivateNameModal() {
       document.getElementById('private-name-modal').classList.remove('active');
       pendingPrivate = null;
     }
@@ -2962,8 +2969,9 @@
 
     function getDaysLeft(topUntil) {
       if (!topUntil) return 0;
-      const diff = new Date(topUntil) - new Date();
-      return Math.max(0, Math.ceil(diff / 86400000));
+      const ms = new Date(topUntil).getTime() - Date.now();
+      if (isNaN(ms) || ms <= 0) return 0;
+      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
     }
 
     function setFilter(f) {
@@ -2977,15 +2985,6 @@
     function setCategoryFilter(cat) {
       currentCategory = cat || '';
       applyFilters();
-    }
-
-
-
-    function getDaysLeft(topUntil) {
-      if (!topUntil) return 0;
-      const ms = new Date(topUntil).getTime() - Date.now();
-      if (isNaN(ms) || ms <= 0) return 0;
-      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
     }
 
     function isRecentUserAdd(item) {
