@@ -3056,9 +3056,14 @@
       let uname = item.username ? String(item.username) : '';
       uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
-      // 1) avatar_url  2) unavatar  3) ещё один unavatar-фолбэк
+      // 1) avatar_url  2) unavatar (только публичные)
       const sources = [];
-      if (item.avatar_url) sources.push(String(item.avatar_url).replace(/"/g, ''));
+      if (item.avatar_url) {
+        const au = String(item.avatar_url).replace(/"/g, '');
+        // для приватных не используем unavatar / дефолтные логотипы — сразу «перечёркнутый глаз»
+        const badForPrivate = isPriv && (/unavatar\.io|telegram\.org|t_logo|favicon/i.test(au));
+        if (!badForPrivate) sources.push(au);
+      }
       if (uname && !isPriv && !uname.startsWith('+')) {
         sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
         sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
@@ -3080,10 +3085,20 @@
         </div>`;
       }
 
+      // Приватный канал/чат без аватарки — ставим «перечёркнутый глаз»
       if (isPriv) {
-        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;">
-          ${letter}
-          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);">🔒</span>
+        const eyeSize = Math.max(14, Math.round(size * 0.42));
+        const slashW = Math.max(2, Math.round(size * 0.06));
+        return `<div class="card-avatar"${confettiAttr} title="Приватный — аватар недоступен"
+          style="width:${size}px;height:${size}px;background:#5c6bc0;position:relative;overflow:hidden;
+                 display:flex;align-items:center;justify-content:center;">
+          <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;
+                       font-size:${eyeSize}px;line-height:1;filter:grayscale(0.15);">
+            👁
+            <span style="position:absolute;left:50%;top:50%;width:${Math.round(size * 0.55)}px;height:${slashW}px;
+                         background:#fff;border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
+                         box-shadow:0 0 0 1px rgba(92,107,192,0.35);"></span>
+          </span>
         </div>`;
       }
 
