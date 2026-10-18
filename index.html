@@ -1922,12 +1922,14 @@
     }
 
     // Название / описание / аватар из Telegram.
-    // Берём t.me/username + t.me/s/username, несколько CORS-прокси, улучшенный парсинг.
+    // Каналы/чаты: t.me/username + t.me/s/username
+    // Боты: только t.me/username (у /s/ у ботов часто пусто)
     // Реальный CDN (telesco.pe) предпочтительнее unavatar.
-    async function fetchTgMeta(username, onProgress) {
+    async function fetchTgMeta(username, onProgress, entityType) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
+      const isBot = entityType === 'bot' || /bot$/i.test(uname);
 
       function decodeEntities(s) {
         if (!s) return s;
@@ -1959,7 +1961,6 @@
       function parseMeta(html) {
         if (!html || html.length < 80) return null;
 
-        // Страница «не существует» / ошибка
         if (/tgme_page_error|icon-error|doesn.?t seem to exist|page is unavailable|Invite link is invalid/i.test(html)) {
           return null;
         }
@@ -1973,13 +1974,15 @@
           /tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i,
           /property=["']og:title["']\s+content=["']([^"']+)["']/i,
           /content=["']([^"']+)["']\s+property=["']og:title["']/i,
-          /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
+          /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+          /<title>\s*([^<]{1,200}?)\s*<\/title>/i
         ];
         for (const re of titlePatterns) {
           const m = html.match(re);
           if (m && m[1]) {
             title = decodeEntities(m[1].trim());
             title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+            title = title.replace(/^Telegram:\s*/i, '').trim();
             if (isGoodTitle(title)) break;
             title = null;
           }
@@ -2008,18 +2011,29 @@
         }
 
         // ---------- AVATAR ----------
+        // У ботов часто: <img class="tgme_page_photo_image" src="...">
+        // или <i class="tgme_page_photo_image" style="background-image:url(...)">
         let avatar = null;
         const avatarPatterns = [
+          // img с классом tgme_page_photo_image (боты и каналы)
+          /<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i,
+          /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*tgme_page_photo_image[^"']*["']/i,
           /tgme_page_photo_image[^>]+src=["']([^"']+)["']/i,
           /class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i,
-          /src=["']([^"']+)["'][^>]*class=["'][^"']*tgme_page_photo_image/i,
-          /tgme_page_photo_image[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          // <i class="tgme_page_photo_image" style="background-image:url(...)">
+          /<i[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
           /class=["']tgme_page_photo_image["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /tgme_page_photo_image[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          // photo wrap background
           /tgme_page_photo[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
           /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
           /background-image:\s*url\(['"]?(https?:\/\/[^'")\s]*telesco\.pe\/[^'")\s]+)/i,
+          // вложенный img внутри photo
+          /tgme_page_photo[^>]*>[\s\S]{0,300}?<img[^>]+src=["']([^"']+)["']/i,
+          // og:image
           /property=["']og:image["']\s+content=["']([^"']+)["']/i,
           /content=["']([^"']+)["']\s+property=["']og:image["']/i,
+          // любой CDN-файл
           /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
         ];
         for (const re of avatarPatterns) {
@@ -2070,11 +2084,10 @@
         (u) => 'https://thingproxy.freeboard.io/fetch/' + u
       ];
 
-      // Две страницы: обычная карточка + web-preview (/s/)
-      const targets = [
-        'https://t.me/' + uname,
-        'https://t.me/s/' + uname
-      ];
+      // Боты: только t.me/username (/s/ у ботов обычно бесполезен)
+      const targets = isBot
+        ? ['https://t.me/' + uname]
+        : ['https://t.me/' + uname, 'https://t.me/s/' + uname];
 
       let meta = null;
       let step = 0;
@@ -2103,9 +2116,7 @@
             if (parsed) {
               meta = mergeMeta(meta, parsed);
               if (isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar)) {
-                if (meta.description || step >= 3) {
-                  break outer;
-                }
+                if (meta.description || step >= 2) break outer;
               }
             }
           } catch (e) {}
@@ -2127,8 +2138,9 @@
         meta.title = '@' + uname;
       }
 
+      // Fallback avatar: unavatar (для ботов тоже работает provider telegram)
       if (!meta.avatar || isBadAvatar(meta.avatar)) {
-        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname) + '?fallback=false';
+        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
       }
 
       setP(96, 'Почти готово…');
@@ -2309,7 +2321,7 @@
         }
 
         setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
-        const meta = await fetchTgMeta(username, setAddProgress);
+        const meta = await fetchTgMeta(username, setAddProgress, currentType);
 
         const row = {
           type: currentType,
@@ -2446,7 +2458,7 @@
         }
         try {
           showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' · @' + u, 120000);
-          let meta = await fetchTgMeta(u);
+          let meta = await fetchTgMeta(u, null, type);
           // если имя/аватар слабые — вторая попытка после паузы
           const weak = !meta
             || !meta.title
@@ -2456,7 +2468,7 @@
             || (!meta.description && /unavatar\.io/i.test(meta.avatar || ''));
           if (weak) {
             await new Promise(r => setTimeout(r, 1400));
-            const meta2 = await fetchTgMeta(u);
+            const meta2 = await fetchTgMeta(u, null, type);
             if (meta2) {
               meta = {
                 title: (meta2.title && meta2.title !== ('@' + u)) ? meta2.title : (meta && meta.title),
@@ -2587,7 +2599,7 @@
       }
       showStatus('Обновление метаданных…', 15000);
       try {
-        const meta = await fetchTgMeta(item.username);
+        const meta = await fetchTgMeta(item.username, null, item.type);
         const patch = {
           avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
         };
@@ -2906,7 +2918,7 @@
         const item = list[i];
         showStatus('Мета ' + (i + 1) + '/' + list.length + ': @' + item.username, 120000);
         try {
-          const meta = await fetchTgMeta(item.username);
+          const meta = await fetchTgMeta(item.username, null, item.type);
           if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
             skip++;
             await new Promise(r => setTimeout(r, 400));
