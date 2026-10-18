@@ -1915,7 +1915,9 @@
       return false;
     }
 
-    // Название / описание / аватар из Telegram (og:*) — несколько прокси + unavatar
+    // Название / описание / аватар из Telegram.
+    // Берём t.me/username + t.me/s/username, несколько CORS-прокси, улучшенный парсинг.
+    // Реальный CDN (telesco.pe) предпочтительнее unavatar.
     async function fetchTgMeta(username, onProgress) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
@@ -1923,7 +1925,7 @@
 
       function decodeEntities(s) {
         if (!s) return s;
-        return s
+        return String(s)
           .replace(/&amp;/g, '&')
           .replace(/&quot;/g, '"')
           .replace(/&#039;/g, "'")
@@ -1933,60 +1935,97 @@
           .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
           .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
       }
+
+      function isBadAvatar(url) {
+        if (!url) return true;
+        return /telegram\.org|t_logo|favicon|img\/Telegram|\/img\/t_logo|telegram_logo/i.test(url);
+      }
+
+      function isGoodTitle(t) {
+        if (!t) return false;
+        const s = t.trim();
+        if (!s || s.length < 1) return false;
+        if (/^Telegram$/i.test(s)) return false;
+        if (s === '@' + uname || s.toLowerCase() === uname.toLowerCase()) return false;
+        return true;
+      }
+
       function parseMeta(html) {
-        if (!html || html.length < 50) return null;
+        if (!html || html.length < 80) return null;
 
-        // 1) Заголовок: tgme_page_title (самый надёжный) → og:title
-        let title = null;
-        const tgTitle = html.match(/tgme_page_title[^>]*>\s*(?:<[^>]+>)?\s*([^<]{1,200})/i)
-          || html.match(/class=["']tgme_page_title["'][^>]*>\s*<span[^>]*>([^<]+)/i);
-        if (tgTitle) title = tgTitle[1].trim();
-        if (!title) {
-          const titleM = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i)
-            || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-          if (titleM) title = titleM[1].trim();
-        }
-        if (title) {
-          title = decodeEntities(title);
-          title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
-          if (/^Telegram$/i.test(title)) title = null;
-        }
-
-        // 2) Описание
-        let description = null;
-        const tgDesc = html.match(/tgme_page_description[^>]*>\s*([\s\S]*?)<\//i);
-        if (tgDesc) {
-          description = tgDesc[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        }
-        if (!description) {
-          const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
-          if (descM) description = descM[1].trim();
-        }
-        if (description) {
-          description = decodeEntities(description);
-          if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
-        }
-
-        // 3) Аватар
-        let avatar = null;
-        const tgPhoto = html.match(/tgme_page_photo_image[^>]+src=["']([^"']+)["']/i)
-          || html.match(/class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i);
-        if (tgPhoto) avatar = tgPhoto[1].trim();
-        if (!avatar) {
-          const imgM = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
-          if (imgM) avatar = imgM[1].trim();
-        }
-        if (avatar) {
-          avatar = decodeEntities(avatar);
-          if (/telegram\.org|t_logo|favicon|img\/Telegram/i.test(avatar)) avatar = null;
-        }
-
-        // страница «не существует»
-        if (/tgme_page_error|doesn.?t seem to exist|page is unavailable/i.test(html)) {
+        // Страница «не существует» / ошибка
+        if (/tgme_page_error|icon-error|doesn.?t seem to exist|page is unavailable|Invite link is invalid/i.test(html)) {
           return null;
+        }
+
+        // ---------- TITLE ----------
+        let title = null;
+        const titlePatterns = [
+          /class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_page_title[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{1,200})/i,
+          /class=["']tgme_channel_info_header_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i,
+          /property=["']og:title["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:title["']/i,
+          /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i
+        ];
+        for (const re of titlePatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            title = decodeEntities(m[1].trim());
+            title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+            if (isGoodTitle(title)) break;
+            title = null;
+          }
+        }
+
+        // ---------- DESCRIPTION ----------
+        let description = null;
+        const descPatterns = [
+          /class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_page_description[^>]*>\s*([\s\S]*?)<\//i,
+          /class=["']tgme_channel_info_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_channel_info_description[^>]*>\s*([\s\S]*?)<\//i,
+          /property=["']og:description["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:description["']/i
+        ];
+        for (const re of descPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let d = m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            d = decodeEntities(d);
+            if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d) && !/^You can contact/i.test(d)) {
+              description = d.slice(0, 500);
+              break;
+            }
+          }
+        }
+
+        // ---------- AVATAR ----------
+        let avatar = null;
+        const avatarPatterns = [
+          /tgme_page_photo_image[^>]+src=["']([^"']+)["']/i,
+          /class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i,
+          /src=["']([^"']+)["'][^>]*class=["'][^"']*tgme_page_photo_image/i,
+          /tgme_page_photo_image[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          /class=["']tgme_page_photo_image["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /tgme_page_photo[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/[^'")\s]*telesco\.pe\/[^'")\s]+)/i,
+          /property=["']og:image["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:image["']/i,
+          /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
+        ];
+        for (const re of avatarPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let a = decodeEntities(m[1].trim());
+            if (a.startsWith('//')) a = 'https:' + a;
+            if (!isBadAvatar(a) && /^https?:\/\//i.test(a)) {
+              avatar = a;
+              break;
+            }
+          }
         }
 
         if (!title && !avatar && !description) return null;
@@ -1997,48 +2036,96 @@
         };
       }
 
-      setP(15, 'Подключение к Telegram…');
+      function mergeMeta(into, from) {
+        if (!from) return into;
+        if (!into) return { ...from };
+        if (isGoodTitle(from.title) && (!isGoodTitle(into.title) || from.title.length > (into.title || '').length)) {
+          into.title = from.title;
+        }
+        if (from.description && (!into.description || from.description.length > into.description.length)) {
+          into.description = from.description;
+        }
+        if (from.avatar && !isBadAvatar(from.avatar)) {
+          const fromIsCdn = /telesco\.pe|cdn\d*\.telegram/i.test(from.avatar);
+          const intoIsCdn = into.avatar && /telesco\.pe|cdn\d*\.telegram/i.test(into.avatar);
+          if (!into.avatar || (fromIsCdn && !intoIsCdn)) {
+            into.avatar = from.avatar;
+          }
+        }
+        return into;
+      }
+
+      setP(8, 'Подключение к Telegram…');
+
       const proxies = [
         (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
         (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+        (u) => 'https://thingproxy.freeboard.io/fetch/' + u
       ];
-      const target = 'https://t.me/' + uname;
+
+      // Две страницы: обычная карточка + web-preview (/s/)
+      const targets = [
+        'https://t.me/' + uname,
+        'https://t.me/s/' + uname
+      ];
+
       let meta = null;
+      let step = 0;
+      const totalSteps = proxies.length * targets.length;
 
-      for (let i = 0; i < proxies.length; i++) {
-        setP(20 + i * 18, 'Загрузка данных (' + (i + 1) + '/' + proxies.length + ')…');
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 12000);
-          const res = await fetch(proxies[i](target), { signal: ctrl.signal });
-          clearTimeout(timer);
-          if (!res.ok) continue;
-          const html = await res.text();
-          const parsed = parseMeta(html);
-          if (parsed) {
-            if (!meta) meta = parsed;
-            else {
-              // собираем лучшее со всех прокси
-              if (parsed.title && parsed.title !== ('@' + uname)) meta.title = parsed.title;
-              else if (!meta.title) meta.title = parsed.title;
-              if (parsed.description) meta.description = parsed.description;
-              if (parsed.avatar) meta.avatar = parsed.avatar;
+      outer:
+      for (const target of targets) {
+        for (let i = 0; i < proxies.length; i++) {
+          step++;
+          const pct = 10 + Math.floor((step / totalSteps) * 70);
+          setP(pct, 'Загрузка данных (' + step + '/' + totalSteps + ')…');
+
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 14000);
+            const res = await fetch(proxies[i](target), {
+              signal: ctrl.signal,
+              headers: { 'Accept': 'text/html,application/xhtml+xml' }
+            });
+            clearTimeout(timer);
+            if (!res.ok) continue;
+            const html = await res.text();
+            if (!html || html.length < 100) continue;
+
+            const parsed = parseMeta(html);
+            if (parsed) {
+              meta = mergeMeta(meta, parsed);
+              if (isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar)) {
+                if (meta.description || step >= 3) {
+                  break outer;
+                }
+              }
             }
-            if (meta.title && meta.title !== ('@' + uname) && meta.description && meta.avatar) break;
+          } catch (e) {}
+
+          if (step < totalSteps) {
+            await new Promise(r => setTimeout(r, 280));
           }
-        } catch (e) {}
+        }
+        if (meta && isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar) && meta.description) {
+          break;
+        }
       }
 
-      setP(80, 'Подгрузка аватарки…');
+      setP(85, 'Подгрузка аватарки…');
+
       if (!meta) meta = { title: null, description: null, avatar: null };
-      // если title не нашли — хотя бы @username (но вызывающий код может сделать retry)
-      if (!meta.title) meta.title = '@' + uname;
-      if (!meta.avatar) {
-        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+
+      if (!isGoodTitle(meta.title)) {
+        meta.title = '@' + uname;
       }
 
-      setP(95, 'Почти готово…');
+      if (!meta.avatar || isBadAvatar(meta.avatar)) {
+        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname) + '?fallback=false';
+      }
+
+      setP(96, 'Почти готово…');
       return meta;
     }
 
@@ -2349,17 +2436,25 @@
         try {
           showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' · @' + u, 120000);
           let meta = await fetchTgMeta(u);
-          // если имя не подтянулось — вторая попытка после паузы
-          const weak = !meta || !meta.title || meta.title === ('@' + u) || (!meta.description && !meta.avatar);
+          // если имя/аватар слабые — вторая попытка после паузы
+          const weak = !meta
+            || !meta.title
+            || meta.title === ('@' + u)
+            || !meta.avatar
+            || /unavatar\.io/i.test(meta.avatar || '')
+            || (!meta.description && /unavatar\.io/i.test(meta.avatar || ''));
           if (weak) {
-            await new Promise(r => setTimeout(r, 1200));
+            await new Promise(r => setTimeout(r, 1400));
             const meta2 = await fetchTgMeta(u);
             if (meta2) {
               meta = {
                 title: (meta2.title && meta2.title !== ('@' + u)) ? meta2.title : (meta && meta.title),
                 description: meta2.description || (meta && meta.description) || null,
-                avatar: (meta2.avatar && !/unavatar\.io/i.test(meta2.avatar)) ? meta2.avatar
-                  : (meta && meta.avatar) || meta2.avatar || null
+                avatar: (meta2.avatar && !/unavatar\.io/i.test(meta2.avatar))
+                  ? meta2.avatar
+                  : (meta && meta.avatar && !/unavatar\.io/i.test(meta.avatar))
+                    ? meta.avatar
+                    : (meta2.avatar || (meta && meta.avatar) || null)
               };
             }
           }
