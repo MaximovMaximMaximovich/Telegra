@@ -28,7 +28,6 @@
 
   <!-- Theme -->
   <meta name="theme-color" content="#2c5f4e">
-  <meta name="yandex-verification" content="">
 
   <!-- Favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -1450,11 +1449,17 @@
         .replace(/'/g, '&#39;');
     }
     function escapeJsAttr(s) {
+      // для вставки в одинарные кавычки onclick="fn('...')"
       return String(s ?? '')
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
         .replace(/\r/g, '')
-        .replace(/\n/g, '\\n');
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '')
+        .replace(/\u2029/g, '');
     }
  // ротация каждые 5 мин
 
@@ -1831,7 +1836,7 @@
 
         if (error) {
           console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
+          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
           document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
           return;
         }
@@ -1901,12 +1906,13 @@
             .eq('invite_link', invite)
             .limit(3);
           if ((data || []).length) return true;
-          // на всякий случай сравнение в нормализованном виде
+          // доп. проверка по нормализованной форме (лимит, чтобы не тянуть всю БД)
           const { data: allInv } = await supabaseClient
             .from('items')
             .select('id, invite_link')
             .not('invite_link', 'is', null)
-            .limit(500);
+            .order('created_at', { ascending: false })
+            .limit(2000);
           if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
         }
       } catch (e) {
@@ -2214,6 +2220,10 @@
       const cancel = document.getElementById('add-cancel-btn');
       if (btn) btn.disabled = !!lock;
       if (cancel) cancel.disabled = !!lock;
+      ['item-name', 'item-link', 'item-desc', 'item-category'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !!lock;
+      });
     }
 
     async function addItem() {
@@ -2306,12 +2316,13 @@
           username: username,
           invite_link: null,
           is_private: false,
-          display_name: name || meta.title || ('@' + username),
-          description: userDesc || meta.description || null,
+          // Если пользователь ввёл своё название — сохраняем его; иначе берём из Telegram
+          display_name: name || (meta && meta.title) || ('@' + username),
+          description: userDesc || (meta && meta.description) || null,
           category: category,
           is_top: false,
           top_until: null,
-          avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
+          avatar_url: (meta && meta.avatar) || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
           source: isAdmin ? 'admin' : 'user'
         };
 
@@ -2611,18 +2622,24 @@
     }
 
     function isDeadTelegramHtml(html) {
-      if (!html || html.length < 80) return true;
+      // true  = точно мёртвая
+      // false = живая или неизвестно (не удаляем при сомнении)
+      if (!html || html.length < 80) return false; // слишком мало данных — не удаляем
       const h = html;
+      // явные признаки мёртвой страницы
       if (/tgme_page_error|icon-error/i.test(h)) return true;
       if (/Sorry,? this (channel|group|bot|user|page)/i.test(h)) return true;
       if (/doesn.?t seem to exist/i.test(h)) return true;
+      if (/If you have.?Telegram,? you can contact/i.test(h) && /tgme_page_error/i.test(h)) return true;
       if (/page is unavailable/i.test(h)) return true;
       if (/Invite link is invalid or has expired/i.test(h)) return true;
       if (/This invite link is invalid/i.test(h)) return true;
       if (/нет такой|не существует|ссылка недействительна|ссылка устарела/i.test(h)) return true;
-      // живая страница обычно имеет заголовок канала
-      const hasTitle = /tgme_page_title/i.test(h) || /property=["']og:title["']/i.test(h);
-      if (!hasTitle) return true;
+      // если есть явные признаки живой страницы — точно живая
+      const hasTitle = /tgme_page_title/i.test(h) || /tgme_channel_info_header_title/i.test(h) || /property=["']og:title["']/i.test(h);
+      const hasPhoto = /tgme_page_photo/i.test(h) || /telesco\.pe/i.test(h);
+      if (hasTitle || hasPhoto) return false;
+      // нет ни ошибки, ни title — неизвестно → не удаляем
       return false;
     }
 
@@ -2648,6 +2665,8 @@
           if (!html || html.length < 50) continue;
           gotHtml = true;
           if (isDeadTelegramHtml(html)) return { ok: false, reason: 'dead' };
+          // есть HTML без признаков смерти — считаем живой
+          // (неполные ответы прокси больше не помечаются как dead)
           return { ok: true };
         } catch (e) {}
       }
