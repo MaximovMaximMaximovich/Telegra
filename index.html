@@ -1795,70 +1795,153 @@
       render();
     }
 
-    async function loadData() {
+    function setListsMessage(msg) {
+      const html = '<div class="loading">' + msg + '</div>';
+      const top = document.getElementById('top-list');
+      const items = document.getElementById('items-list');
+      const recent = document.getElementById('recent-list');
+      if (top) top.innerHTML = html;
+      if (items) items.innerHTML = html;
+      if (recent) recent.innerHTML = html;
+    }
+
+    // Promise с таймаутом — чтобы запросы к Supabase не висели вечно
+    function withTimeout(promise, ms, label) {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error((label || 'Запрос') + ' превысил ' + (ms / 1000) + ' сек')), ms);
+      });
+      return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+    }
+
+    let loadDataInFlight = null;
+    let loadDataAttempts = 0;
+
+    async function loadData(isRetry) {
       if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
+        setListsMessage('База данных недоступна. Обновите страницу.');
         return;
       }
-      try {
-        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
-        try {
-          await supabaseClient
-            .from('items')
-            .update({ is_top: false, top_until: null })
-            .lt('top_until', new Date().toISOString())
-            .eq('is_top', true);
-        } catch (e) {}
 
-        // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
-        const pageSize = 1000;
-        let from = 0;
-        let items = [];
-        let error = null;
-        while (true) {
-          const res = await supabaseClient
-            .from('items')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .range(from, from + pageSize - 1);
-          if (res.error) {
-            error = res.error;
-            break;
-          }
-          const batch = res.data || [];
-          items = items.concat(batch);
-          if (batch.length < pageSize) break;
-          from += pageSize;
-          // защита от бесконечного цикла
-          if (from > 100000) break;
-        }
-
-        if (error) {
-          console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + escapeHtml(error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
-          return;
-        }
-
-        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
-        const nowIso = Date.now();
-        allItems = (items || []).map(it => {
-          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
-            return { ...it, is_top: false, top_until: null };
-          }
-          return it;
-        });
-
-        const { data: bl } = await supabaseClient.from('blacklist').select('value');
-        blacklist = (bl || []).map(r => r.value);
-
-        render();
-      } catch (e) {
-        console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+      // не запускаем параллельно несколько полных загрузок
+      if (loadDataInFlight && !isRetry) {
+        return loadDataInFlight;
       }
+
+      const run = (async () => {
+        try {
+          if (!isRetry) {
+            // не затираем уже показанные данные при фоновом обновлении
+            if (!allItems.length) {
+              setListsMessage('Загрузка…');
+            }
+          }
+
+          // Сброс просроченных топов — НЕ ждём (у анонима RLS может блокировать/вешать)
+          try {
+            supabaseClient
+              .from('items')
+              .update({ is_top: false, top_until: null })
+              .lt('top_until', new Date().toISOString())
+              .eq('is_top', true)
+              .then(() => {})
+              .catch(() => {});
+          } catch (e) {}
+
+          // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
+          const pageSize = 1000;
+          let from = 0;
+          let items = [];
+          let error = null;
+
+          while (true) {
+            let res;
+            try {
+              res = await withTimeout(
+                supabaseClient
+                  .from('items')
+                  .select('*')
+                  .order('created_at', { ascending: false })
+                  .range(from, from + pageSize - 1),
+                20000,
+                'Загрузка каталога'
+              );
+            } catch (e) {
+              error = { message: e.message || 'Таймаут загрузки' };
+              break;
+            }
+            if (res.error) {
+              error = res.error;
+              break;
+            }
+            const batch = res.data || [];
+            items = items.concat(batch);
+            if (batch.length < pageSize) break;
+            from += pageSize;
+            if (from > 100000) break;
+          }
+
+          if (error) {
+            console.error('loadData items error:', error);
+            // повтор при сетевой/таймаут ошибке
+            if (loadDataAttempts < 2) {
+              loadDataAttempts++;
+              showStatus('Повтор загрузки (' + loadDataAttempts + ')…', 5000);
+              await new Promise(r => setTimeout(r, 1200));
+              loadDataInFlight = null;
+              return loadData(true);
+            }
+            setListsMessage('Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
+              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>');
+            return;
+          }
+
+          loadDataAttempts = 0;
+
+          const nowIso = Date.now();
+          allItems = (items || []).map(it => {
+            if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
+              return { ...it, is_top: false, top_until: null };
+            }
+            return it;
+          });
+
+          // blacklist — не критично, таймаут 8 сек
+          try {
+            const blRes = await withTimeout(
+              supabaseClient.from('blacklist').select('value'),
+              8000,
+              'Чёрный список'
+            );
+            blacklist = ((blRes && blRes.data) || []).map(r => r.value);
+          } catch (e) {
+            console.warn('blacklist load', e);
+            blacklist = blacklist || [];
+          }
+
+          render();
+          if (!allItems.length) {
+            const top = document.getElementById('top-list');
+            if (top && top.innerHTML.includes('Загрузка')) {
+              top.innerHTML = '<div class="loading">Пока пусто</div>';
+            }
+          }
+        } catch (e) {
+          console.error('loadData error:', e);
+          if (loadDataAttempts < 2) {
+            loadDataAttempts++;
+            await new Promise(r => setTimeout(r, 1200));
+            loadDataInFlight = null;
+            return loadData(true);
+          }
+          setListsMessage('Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>');
+        } finally {
+          loadDataInFlight = null;
+        }
+      })();
+
+      loadDataInFlight = run;
+      return run;
     }
 
     function normalizeUsername(u) {
@@ -3432,28 +3515,39 @@
 
     // Старт — с повторной попыткой инициализации Supabase
     (async () => {
-      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
-      if (!supabaseClient && window.supabase) {
-        try {
-          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        } catch (e) {}
-      }
-      // Ещё одна попытка через 1.5 сек (на медленных сетях)
-      if (!supabaseClient) {
-        await new Promise(r => setTimeout(r, 1500));
+      function tryInitSupabase() {
+        if (supabaseClient) return true;
         if (window.supabase && window.supabase.createClient) {
           try {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-          } catch (e) {}
+            return !!supabaseClient;
+          } catch (e) {
+            console.error('Supabase init', e);
+          }
         }
+        return false;
       }
 
-      await checkSession();
-      await loadPaymentBot();
-      await loadData();
-      trackPageView();
-      setInterval(loadData, 5 * 60 * 1000);
-      setInterval(() => { if (isAdmin) loadAnalytics(); }, 5 * 60 * 1000);
+      tryInitSupabase();
+      // до 5 сек ждём CDN supabase-js
+      for (let i = 0; i < 10 && !supabaseClient; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        tryInitSupabase();
+      }
+
+      if (!supabaseClient) {
+        setListsMessage('Не удалось подключить базу (Supabase). Проверьте интернет и обновите страницу.');
+        showStatus('Supabase не загрузился', 8000);
+      } else {
+        // сессию и бота не блокируем навечно
+        try { await withTimeout(checkSession(), 10000, 'Сессия'); } catch (e) { console.warn(e); }
+        try { await withTimeout(loadPaymentBot(), 8000, 'Настройки'); } catch (e) { console.warn(e); }
+        await loadData();
+        trackPageView();
+      }
+
+      setInterval(() => { if (supabaseClient) loadData(); }, 5 * 60 * 1000);
+      setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
@@ -3466,10 +3560,7 @@
           return it;
         });
         applyFilters();
-        if (changed && isAdmin) {
-          // админ дополнительно сбрасывает в БД
-          loadData();
-        }
+        if (changed && isAdmin) loadData();
       }, 60 * 1000);
     })();
   </script>
