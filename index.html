@@ -2942,58 +2942,27 @@
       let uname = item.username ? String(item.username) : '';
       uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
-      function isBadAvatar(u) {
-        if (!u) return true;
-        return /t_logo|favicon|telegram\.org\/img\/|img\/Telegram/i.test(u);
-      }
-      function viaProxy(u) {
-        if (!u) return '';
-        u = String(u).trim();
-        if (!u || /^data:/i.test(u)) return u;
-        if (/images\.weserv\.nl/i.test(u)) return u;
-        try {
-          const noProto = u.replace(/^https?:\/\//i, '');
-          return 'https://images.weserv.nl/?url=' + encodeURIComponent(noProto) + '&w=128&h=128&fit=cover&output=webp';
-        } catch (e) {
-          return u;
-        }
-      }
-
       const sources = [];
-      const push = (u) => {
-        if (!u) return;
-        u = String(u).trim().replace(/"/g, '');
-        if (!u || isBadAvatar(u)) return;
-        if (sources.indexOf(u) >= 0) return;
-        sources.push(u);
-      };
-
-      // 1) URL из базы
       if (item.avatar_url) {
-        let au = String(item.avatar_url).trim();
+        let au = String(item.avatar_url).trim().replace(/"/g, '');
         if (au.startsWith('//')) au = 'https:' + au;
-        push(au);
-        // 2) тот же URL через прокси (часто помогает, если CDN режет прямые запросы)
-        push(viaProxy(au));
+        if (au && !/t_logo|favicon|telegram\.org\/img\//i.test(au)) sources.push(au);
       }
-      // 3–4) unavatar + прокси
       if (uname && !isPriv && !uname.startsWith('+')) {
-        const ua = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
-        push(ua);
-        push(viaProxy(ua));
+        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
       }
 
       if (sources.length) {
         const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
         let onerrChain = "this.style.display='none'";
-        for (let i = sources.length - 1; i >= 1; i--) {
-          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + esc(sources[i]) + "'";
+        for (let idx = sources.length - 1; idx >= 1; idx--) {
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + esc(sources[idx]) + "'";
         }
-        const first = sources[0].replace(/"/g, '&quot;');
-        const loadMode = confetti || size >= 48 ? 'eager' : 'lazy';
+        // & в URL обязательно экранируем — иначе HTML на ПК ломается
+        const first = sources[0].replace(/&/g, '&amp;').replace(/"/g, '&quot;');
         return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;flex-shrink:0;">
           ${letterHtml}
-          <img src="${first}" alt="" loading="${loadMode}" decoding="async" referrerpolicy="no-referrer"
+          <img src="${first}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
             onload="this.style.opacity=1" onerror="${onerrChain}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;pointer-events:none;">
         </div>`;
