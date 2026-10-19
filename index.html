@@ -2323,6 +2323,18 @@
         setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
         const meta = await fetchTgMeta(username, setAddProgress, currentType);
 
+        let avatarUrl = (meta && meta.avatar) || null;
+        // Для ботов: если из ТГ не пришёл реальный CDN-аватар — не ставим unavatar,
+        // на сайте покажется наш значок 🤖
+        const isBotAdd = currentType === 'bot' || /bot$/i.test(username);
+        if (isBotAdd) {
+          if (!avatarUrl || /unavatar\.io/i.test(avatarUrl) || /telegram\.org|t_logo/i.test(avatarUrl)) {
+            avatarUrl = null;
+          }
+        } else if (!avatarUrl) {
+          avatarUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(username);
+        }
+
         const row = {
           type: currentType,
           username: username,
@@ -2334,7 +2346,7 @@
           category: category,
           is_top: false,
           top_until: null,
-          avatar_url: (meta && meta.avatar) || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
+          avatar_url: avatarUrl,
           source: isAdmin ? 'admin' : 'user'
         };
 
@@ -2495,7 +2507,13 @@
             is_top: false,
             top_until: null,
             source: 'bulk',
-            avatar_url: (meta && meta.avatar) ? meta.avatar : ('https://unavatar.io/telegram/' + encodeURIComponent(u))
+            avatar_url: (function() {
+              const a = (meta && meta.avatar) ? meta.avatar : null;
+              if (type === 'bot' || /bot$/i.test(u)) {
+                if (!a || /unavatar\.io/i.test(a) || /telegram\.org|t_logo/i.test(a)) return null;
+              }
+              return a || ('https://unavatar.io/telegram/' + encodeURIComponent(u));
+            })()
           };
 
           const error = await insertItemRow(row);
@@ -3062,7 +3080,8 @@
       const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
       const isPriv = !!item.is_private;
-      const color = isPriv ? '#5c6bc0' : colors[Math.abs(name.length) % colors.length];
+      const isBot = item.type === 'bot' || (!!item.username && /bot$/i.test(String(item.username)));
+      const color = isPriv ? '#5c6bc0' : isBot ? '#2c5f4e' : colors[Math.abs(name.length) % colors.length];
       const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
       let uname = item.username ? String(item.username) : '';
@@ -3083,21 +3102,26 @@
 
       if (sources.length) {
         const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-        // цепочка onerror: следующий источник, в конце скрыть
+        // цепочка onerror: следующий источник; в конце — скрыть img (останется буква или робот)
         let onerrChain = "this.style.display='none'";
         for (let i = sources.length - 1; i >= 1; i--) {
           const src = esc(sources[i]);
           onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
         }
-        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;">
-          ${letterHtml}
+        // для бота под img кладём 🤖, чтобы при полном провале картинок остался робот
+        const underlay = isBot
+          ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${Math.max(16, Math.round(size * 0.5))}px;z-index:0;">🤖</span>`
+          : letterHtml;
+        const bg = isBot ? 'linear-gradient(145deg,#3d8b6e,#2c5f4e)' : color;
+        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${bg};position:relative;overflow:hidden;">
+          ${underlay}
           <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
             onload="this.style.opacity=1" onerror="${onerrChain}"
             style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
       }
 
-      // Приватный канал/чат без аватарки — ставим «перечёркнутый глаз»
+      // Приватный канал/чат без аватарки — «перечёркнутый глаз»
       if (isPriv) {
         const eyeSize = Math.max(14, Math.round(size * 0.42));
         const slashW = Math.max(2, Math.round(size * 0.06));
@@ -3111,6 +3135,17 @@
                          background:#fff;border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
                          box-shadow:0 0 0 1px rgba(92,107,192,0.35);"></span>
           </span>
+        </div>`;
+      }
+
+      // Бот без аватарки из ТГ — наш значок «android-бот»
+      if (isBot) {
+        const botSize = Math.max(16, Math.round(size * 0.5));
+        return `<div class="card-avatar"${confettiAttr} title="Бот"
+          style="width:${size}px;height:${size}px;background:linear-gradient(145deg,#3d8b6e,#2c5f4e);
+                 position:relative;display:flex;align-items:center;justify-content:center;
+                 box-shadow:inset 0 0 0 2px rgba(255,255,255,0.12);">
+          <span style="font-size:${botSize}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">🤖</span>
         </div>`;
       }
 
