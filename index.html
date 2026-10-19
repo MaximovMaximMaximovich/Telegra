@@ -34,28 +34,7 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-  <script>
-    // запасной CDN, если jsdelivr не ответил за 3 сек
-    (function(){
-      var done = false;
-      function mark(){ done = true; }
-      window.addEventListener('load', function(){
-        if (window.supabase) return;
-        if (done) return;
-        var s = document.createElement('script');
-        s.src = 'https://unpkg.com/@supabase/supabase-js@2';
-        s.onload = mark;
-        document.head.appendChild(s);
-      });
-      setTimeout(function(){
-        if (window.supabase || done) return;
-        var s = document.createElement('script');
-        s.src = 'https://unpkg.com/@supabase/supabase-js@2';
-        document.head.appendChild(s);
-      }, 3000);
-    })();
-  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -1434,6 +1413,7 @@
     // ======================
     // SUPABASE
     // ======================
+    console.info('[Telegra] script start');
     const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
 
@@ -3622,6 +3602,61 @@
       });
     });
 
+
+    // Явно в window — чтобы onclick="..." всегда видел функции
+    try {
+      window.openModal = openModal;
+      window.closeModal = closeModal;
+      window.addItem = addItem;
+      window.loadData = loadData;
+      window.setFilter = setFilter;
+      window.setCategoryFilter = setCategoryFilter;
+      window.onSearchInput = onSearchInput;
+      window.toggleLoginPopup = toggleLoginPopup;
+      window.loginAdmin = loginAdmin;
+      window.logoutAdmin = logoutAdmin;
+      window.openTopModal = openTopModal;
+      window.closeTopModal = closeTopModal;
+      window.confirmTopDays = confirmTopDays;
+      window.updatePrice = updatePrice;
+      window.openLegal = openLegal;
+      window.closeLegal = closeLegal;
+      window.openAnalyticsModal = openAnalyticsModal;
+      window.closeAnalyticsModal = closeAnalyticsModal;
+      window.loadAnalytics = loadAnalytics;
+      window.openBulkModal = openBulkModal;
+      window.closeBulkModal = closeBulkModal;
+      window.runBulkImport = runBulkImport;
+      window.openRefreshMetaModal = openRefreshMetaModal;
+      window.closeRefreshMetaModal = closeRefreshMetaModal;
+      window.runRefreshMetaByCategory = runRefreshMetaByCategory;
+      window.openCheckLinksModal = openCheckLinksModal;
+      window.closeCheckLinksModal = closeCheckLinksModal;
+      window.runCheckLinksByCategory = runCheckLinksByCategory;
+      window.openDeleteCategoryModal = openDeleteCategoryModal;
+      window.closeDeleteCategoryModal = closeDeleteCategoryModal;
+      window.runDeleteCategory = runDeleteCategory;
+      window.openBotSettings = openBotSettings;
+      window.closeBotSettings = closeBotSettings;
+      window.savePaymentBot = savePaymentBot;
+      window.openAdminTopModal = openAdminTopModal;
+      window.closeAdminTopModal = closeAdminTopModal;
+      window.confirmAdminTop = confirmAdminTop;
+      window.removeTop = removeTop;
+      window.deleteItem = deleteItem;
+      window.addToBlacklist = addToBlacklist;
+      window.removeFromBlacklist = removeFromBlacklist;
+      window.refreshMeta = refreshMeta;
+      window.checkAndDeleteItem = checkAndDeleteItem;
+      window.launchConfetti = launchConfetti;
+      window.closePrivateNameModal = closePrivateNameModal;
+      window.confirmPrivateName = confirmPrivateName;
+      window.loadDataAttempts = 0;
+    } catch (e) {
+      console.error('window export failed', e);
+    }
+
+
     // Старт — с повторной попыткой инициализации Supabase
     (async () => {
       function tryInitSupabase() {
@@ -3656,6 +3691,7 @@
       await loadData();
       trackPageView();
 
+      console.info('[Telegra] boot ok, items will load');
       setInterval(() => { loadData(); }, 5 * 60 * 1000);
       setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
