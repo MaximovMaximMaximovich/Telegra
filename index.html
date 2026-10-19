@@ -28,14 +28,13 @@
 
   <!-- Theme -->
   <meta name="theme-color" content="#2c5f4e">
-  <meta name="yandex-verification" content="">
 
   <!-- Favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -1414,6 +1413,7 @@
     // ======================
     // SUPABASE
     // ======================
+    console.info('[Telegra] script start');
     const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
 
@@ -1450,11 +1450,17 @@
         .replace(/'/g, '&#39;');
     }
     function escapeJsAttr(s) {
+      // для вставки в одинарные кавычки onclick="fn('...')"
       return String(s ?? '')
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
         .replace(/\r/g, '')
-        .replace(/\n/g, '\\n');
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '')
+        .replace(/\u2029/g, '');
     }
  // ротация каждые 5 мин
 
@@ -1790,70 +1796,241 @@
       render();
     }
 
-    async function loadData() {
-      if (!supabaseClient) {
-        document.getElementById('top-list').innerHTML = '<div class="loading">База данных недоступна. Обновите страницу.</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">База данных недоступна.</div>';
-        return;
-      }
+    function setListsMessage(msg) {
+      const html = '<div class="loading">' + msg + '</div>';
+      const top = document.getElementById('top-list');
+      const items = document.getElementById('items-list');
+      const recent = document.getElementById('recent-list');
+      if (top) top.innerHTML = html;
+      if (items) items.innerHTML = html;
+      if (recent) recent.innerHTML = html;
+    }
+
+    function withTimeout(promise, ms, label) {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error((label || 'Запрос') + ' превысил ' + (ms / 1000) + ' сек')), ms);
+      });
+      return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
+    }
+
+    // Прямой REST-запрос к Supabase (если JS-клиент завис или не инициализировался)
+    async function fetchItemsViaRest() {
+      const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Accept': 'application/json',
+        'Range': '0-9999'
+      };
+      const url = SUPABASE_URL + '/rest/v1/items?select=*&order=created_at.desc';
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
       try {
-        // Сброс просроченных топов в базе (если RLS позволяет — админ; иначе только клиентский фильтр)
-        try {
-          await supabaseClient
-            .from('items')
-            .update({ is_top: false, top_until: null })
-            .lt('top_until', new Date().toISOString())
-            .eq('is_top', true);
-        } catch (e) {}
-
-        // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
-        const pageSize = 1000;
-        let from = 0;
-        let items = [];
-        let error = null;
-        while (true) {
-          const res = await supabaseClient
-            .from('items')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .range(from, from + pageSize - 1);
-          if (res.error) {
-            error = res.error;
-            break;
-          }
-          const batch = res.data || [];
-          items = items.concat(batch);
-          if (batch.length < pageSize) break;
-          from += pageSize;
-          // защита от бесконечного цикла
-          if (from > 100000) break;
+        const res = await fetch(url, { headers, signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
         }
-
-        if (error) {
-          console.error('loadData items error:', error);
-          document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка загрузки: ' + (error.message || '') + '</div>';
-          document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка загрузки</div>';
-          return;
-        }
-
-        // На клиенте тоже снимаем просроченный топ (на случай если update не прошёл из‑за RLS)
-        const nowIso = Date.now();
-        allItems = (items || []).map(it => {
-          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
-            return { ...it, is_top: false, top_until: null };
-          }
-          return it;
-        });
-
-        const { data: bl } = await supabaseClient.from('blacklist').select('value');
-        blacklist = (bl || []).map(r => r.value);
-
-        render();
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
       } catch (e) {
-        console.error('loadData error:', e);
-        document.getElementById('top-list').innerHTML = '<div class="loading">Ошибка сети</div>';
-        document.getElementById('items-list').innerHTML = '<div class="loading">Ошибка сети</div>';
+        clearTimeout(timer);
+        throw e;
       }
+    }
+
+    async function fetchBlacklistViaRest() {
+      try {
+        const headers = {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Accept': 'application/json'
+        };
+        const res = await withTimeout(
+          fetch(SUPABASE_URL + '/rest/v1/blacklist?select=value', { headers }),
+          8000,
+          'ЧС'
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data || []).map(r => r.value);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    let loadDataInFlight = null;
+    let loadDataAttempts = 0;
+
+    async function loadData(isRetry) {
+      // не гоняем параллельные полные загрузки
+      if (loadDataInFlight && !isRetry) {
+        return loadDataInFlight;
+      }
+
+      const run = (async () => {
+        try {
+          if (!allItems.length) {
+            setListsMessage('Загрузка…');
+          }
+
+          // фоновый сброс топа — только если клиент есть, не ждём
+          if (supabaseClient) {
+            try {
+              supabaseClient
+                .from('items')
+                .update({ is_top: false, top_until: null })
+                .lt('top_until', new Date().toISOString())
+                .eq('is_top', true)
+                .then(() => {})
+                .catch(() => {});
+            } catch (e) {}
+          }
+
+          let items = [];
+          let error = null;
+          let usedRest = false;
+
+          // --- Способ 1: supabase-js ---
+          if (supabaseClient) {
+            try {
+              const pageSize = 1000;
+              let from = 0;
+              while (true) {
+                const res = await withTimeout(
+                  supabaseClient
+                    .from('items')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .range(from, from + pageSize - 1),
+                  18000,
+                  'Загрузка каталога'
+                );
+                if (res.error) {
+                  error = res.error;
+                  break;
+                }
+                const batch = res.data || [];
+                items = items.concat(batch);
+                if (batch.length < pageSize) break;
+                from += pageSize;
+                if (from > 100000) break;
+              }
+            } catch (e) {
+              error = { message: e.message || String(e) };
+              items = [];
+            }
+          } else {
+            error = { message: 'Клиент Supabase не инициализирован' };
+          }
+
+          // --- Способ 2: REST API (обход, если JS-клиент не сработал) ---
+          if (error || (!items.length && error)) {
+            try {
+              console.warn('loadData: fallback REST', error && error.message);
+              items = await fetchItemsViaRest();
+              error = null;
+              usedRest = true;
+            } catch (e2) {
+              error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+            }
+          }
+
+          // пустой каталог без ошибки — это нормально
+          if (error && items.length === 0 && /permission|RLS|JWT|401|403/i.test(error.message || '')) {
+            // оставим error
+          } else if (!error) {
+            // ok
+          }
+
+          if (error && !items.length) {
+            console.error('loadData error:', error);
+            if (loadDataAttempts < 2) {
+              loadDataAttempts++;
+              showStatus('Повтор загрузки (' + loadDataAttempts + ')…', 5000);
+              await new Promise(r => setTimeout(r, 1500));
+              // пересоздать клиент на всякий случай
+              try {
+                if (window.supabase && window.supabase.createClient) {
+                  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+              } catch (e) {}
+              loadDataInFlight = null;
+              return loadData(true);
+            }
+            setListsMessage(
+              'Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
+              '<br><span style="font-size:0.8rem;color:#888;">Проверьте RLS-политику SELECT для таблицы items</span>' +
+              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+            );
+            return;
+          }
+
+          loadDataAttempts = 0;
+
+          const nowIso = Date.now();
+          allItems = (items || []).map(it => {
+            if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
+              return { ...it, is_top: false, top_until: null };
+            }
+            return it;
+          });
+
+          // blacklist
+          if (supabaseClient && !usedRest) {
+            try {
+              const blRes = await withTimeout(
+                supabaseClient.from('blacklist').select('value'),
+                8000,
+                'Чёрный список'
+              );
+              blacklist = ((blRes && blRes.data) || []).map(r => r.value);
+            } catch (e) {
+              blacklist = await fetchBlacklistViaRest();
+            }
+          } else {
+            blacklist = await fetchBlacklistViaRest();
+          }
+
+          try {
+            render();
+          } catch (re) {
+            console.error('render error', re);
+            setListsMessage('Данные получены, но ошибка отрисовки: ' + escapeHtml(re.message || ''));
+            return;
+          }
+
+          if (!allItems.length) {
+            const top = document.getElementById('top-list');
+            if (top) top.innerHTML = '<div class="loading">Пока пусто</div>';
+            const il = document.getElementById('items-list');
+            if (il && /Загрузка/.test(il.innerHTML)) {
+              il.innerHTML = '<div class="loading">Пока пусто</div>';
+            }
+          }
+
+          if (usedRest) {
+            console.info('Каталог загружен через REST API, записей:', allItems.length);
+          }
+        } catch (e) {
+          console.error('loadData fatal:', e);
+          if (loadDataAttempts < 2) {
+            loadDataAttempts++;
+            await new Promise(r => setTimeout(r, 1500));
+            loadDataInFlight = null;
+            return loadData(true);
+          }
+          setListsMessage(
+            'Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+          );
+        } finally {
+          loadDataInFlight = null;
+        }
+      })();
+
+      loadDataInFlight = run;
+      return run;
     }
 
     function normalizeUsername(u) {
@@ -1901,12 +2078,13 @@
             .eq('invite_link', invite)
             .limit(3);
           if ((data || []).length) return true;
-          // на всякий случай сравнение в нормализованном виде
+          // доп. проверка по нормализованной форме (лимит, чтобы не тянуть всю БД)
           const { data: allInv } = await supabaseClient
             .from('items')
             .select('id, invite_link')
             .not('invite_link', 'is', null)
-            .limit(500);
+            .order('created_at', { ascending: false })
+            .limit(2000);
           if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
         }
       } catch (e) {
@@ -1915,15 +2093,19 @@
       return false;
     }
 
-    // Название / описание / аватар из Telegram (og:*) — несколько прокси + unavatar
-    async function fetchTgMeta(username, onProgress) {
+    // Название / описание / аватар из Telegram.
+    // Каналы/чаты: t.me/username + t.me/s/username
+    // Боты: только t.me/username (у /s/ у ботов часто пусто)
+    // Реальный CDN (telesco.pe) предпочтительнее unavatar.
+    async function fetchTgMeta(username, onProgress, entityType) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
+      const isBot = entityType === 'bot' || /bot$/i.test(uname);
 
       function decodeEntities(s) {
         if (!s) return s;
-        return s
+        return String(s)
           .replace(/&amp;/g, '&')
           .replace(/&quot;/g, '"')
           .replace(/&#039;/g, "'")
@@ -1933,60 +2115,109 @@
           .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
           .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
       }
+
+      function isBadAvatar(url) {
+        if (!url) return true;
+        return /telegram\.org|t_logo|favicon|img\/Telegram|\/img\/t_logo|telegram_logo/i.test(url);
+      }
+
+      function isGoodTitle(t) {
+        if (!t) return false;
+        const s = t.trim();
+        if (!s || s.length < 1) return false;
+        if (/^Telegram$/i.test(s)) return false;
+        if (s === '@' + uname || s.toLowerCase() === uname.toLowerCase()) return false;
+        return true;
+      }
+
       function parseMeta(html) {
-        if (!html || html.length < 50) return null;
+        if (!html || html.length < 80) return null;
 
-        // 1) Заголовок: tgme_page_title (самый надёжный) → og:title
-        let title = null;
-        const tgTitle = html.match(/tgme_page_title[^>]*>\s*(?:<[^>]+>)?\s*([^<]{1,200})/i)
-          || html.match(/class=["']tgme_page_title["'][^>]*>\s*<span[^>]*>([^<]+)/i);
-        if (tgTitle) title = tgTitle[1].trim();
-        if (!title) {
-          const titleM = html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i)
-            || html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i);
-          if (titleM) title = titleM[1].trim();
-        }
-        if (title) {
-          title = decodeEntities(title);
-          title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
-          if (/^Telegram$/i.test(title)) title = null;
-        }
-
-        // 2) Описание
-        let description = null;
-        const tgDesc = html.match(/tgme_page_description[^>]*>\s*([\s\S]*?)<\//i);
-        if (tgDesc) {
-          description = tgDesc[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        }
-        if (!description) {
-          const descM = html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:description["']/i);
-          if (descM) description = descM[1].trim();
-        }
-        if (description) {
-          description = decodeEntities(description);
-          if (/^If you have.?Telegram/i.test(description) || description.length < 3) description = null;
-        }
-
-        // 3) Аватар
-        let avatar = null;
-        const tgPhoto = html.match(/tgme_page_photo_image[^>]+src=["']([^"']+)["']/i)
-          || html.match(/class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i);
-        if (tgPhoto) avatar = tgPhoto[1].trim();
-        if (!avatar) {
-          const imgM = html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i)
-            || html.match(/content=["']([^"']+)["']\s+property=["']og:image["']/i);
-          if (imgM) avatar = imgM[1].trim();
-        }
-        if (avatar) {
-          avatar = decodeEntities(avatar);
-          if (/telegram\.org|t_logo|favicon|img\/Telegram/i.test(avatar)) avatar = null;
-        }
-
-        // страница «не существует»
-        if (/tgme_page_error|doesn.?t seem to exist|page is unavailable/i.test(html)) {
+        if (/tgme_page_error|icon-error|doesn.?t seem to exist|page is unavailable|Invite link is invalid/i.test(html)) {
           return null;
+        }
+
+        // ---------- TITLE ----------
+        let title = null;
+        const titlePatterns = [
+          /class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_page_title[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{1,200})/i,
+          /class=["']tgme_channel_info_header_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i,
+          /property=["']og:title["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:title["']/i,
+          /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+          /<title>\s*([^<]{1,200}?)\s*<\/title>/i
+        ];
+        for (const re of titlePatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            title = decodeEntities(m[1].trim());
+            title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+            title = title.replace(/^Telegram:\s*/i, '').trim();
+            if (isGoodTitle(title)) break;
+            title = null;
+          }
+        }
+
+        // ---------- DESCRIPTION ----------
+        let description = null;
+        const descPatterns = [
+          /class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_page_description[^>]*>\s*([\s\S]*?)<\//i,
+          /class=["']tgme_channel_info_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_channel_info_description[^>]*>\s*([\s\S]*?)<\//i,
+          /property=["']og:description["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:description["']/i
+        ];
+        for (const re of descPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let d = m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            d = decodeEntities(d);
+            if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d) && !/^You can contact/i.test(d)) {
+              description = d.slice(0, 500);
+              break;
+            }
+          }
+        }
+
+        // ---------- AVATAR ----------
+        // У ботов часто: <img class="tgme_page_photo_image" src="...">
+        // или <i class="tgme_page_photo_image" style="background-image:url(...)">
+        let avatar = null;
+        const avatarPatterns = [
+          // img с классом tgme_page_photo_image (боты и каналы)
+          /<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i,
+          /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*tgme_page_photo_image[^"']*["']/i,
+          /tgme_page_photo_image[^>]+src=["']([^"']+)["']/i,
+          /class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i,
+          // <i class="tgme_page_photo_image" style="background-image:url(...)">
+          /<i[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /class=["']tgme_page_photo_image["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /tgme_page_photo_image[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          // photo wrap background
+          /tgme_page_photo[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/[^'")\s]*telesco\.pe\/[^'")\s]+)/i,
+          // вложенный img внутри photo
+          /tgme_page_photo[^>]*>[\s\S]{0,300}?<img[^>]+src=["']([^"']+)["']/i,
+          // og:image
+          /property=["']og:image["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:image["']/i,
+          // любой CDN-файл
+          /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
+        ];
+        for (const re of avatarPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let a = decodeEntities(m[1].trim());
+            if (a.startsWith('//')) a = 'https:' + a;
+            if (!isBadAvatar(a) && /^https?:\/\//i.test(a)) {
+              avatar = a;
+              break;
+            }
+          }
         }
 
         if (!title && !avatar && !description) return null;
@@ -1997,48 +2228,94 @@
         };
       }
 
-      setP(15, 'Подключение к Telegram…');
+      function mergeMeta(into, from) {
+        if (!from) return into;
+        if (!into) return { ...from };
+        if (isGoodTitle(from.title) && (!isGoodTitle(into.title) || from.title.length > (into.title || '').length)) {
+          into.title = from.title;
+        }
+        if (from.description && (!into.description || from.description.length > into.description.length)) {
+          into.description = from.description;
+        }
+        if (from.avatar && !isBadAvatar(from.avatar)) {
+          const fromIsCdn = /telesco\.pe|cdn\d*\.telegram/i.test(from.avatar);
+          const intoIsCdn = into.avatar && /telesco\.pe|cdn\d*\.telegram/i.test(into.avatar);
+          if (!into.avatar || (fromIsCdn && !intoIsCdn)) {
+            into.avatar = from.avatar;
+          }
+        }
+        return into;
+      }
+
+      setP(8, 'Подключение к Telegram…');
+
       const proxies = [
         (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
         (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
+        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+        (u) => 'https://thingproxy.freeboard.io/fetch/' + u
       ];
-      const target = 'https://t.me/' + uname;
-      let meta = null;
 
-      for (let i = 0; i < proxies.length; i++) {
-        setP(20 + i * 18, 'Загрузка данных (' + (i + 1) + '/' + proxies.length + ')…');
-        try {
-          const ctrl = new AbortController();
-          const timer = setTimeout(() => ctrl.abort(), 12000);
-          const res = await fetch(proxies[i](target), { signal: ctrl.signal });
-          clearTimeout(timer);
-          if (!res.ok) continue;
-          const html = await res.text();
-          const parsed = parseMeta(html);
-          if (parsed) {
-            if (!meta) meta = parsed;
-            else {
-              // собираем лучшее со всех прокси
-              if (parsed.title && parsed.title !== ('@' + uname)) meta.title = parsed.title;
-              else if (!meta.title) meta.title = parsed.title;
-              if (parsed.description) meta.description = parsed.description;
-              if (parsed.avatar) meta.avatar = parsed.avatar;
+      // Боты: только t.me/username (/s/ у ботов обычно бесполезен)
+      const targets = isBot
+        ? ['https://t.me/' + uname]
+        : ['https://t.me/' + uname, 'https://t.me/s/' + uname];
+
+      let meta = null;
+      let step = 0;
+      const totalSteps = proxies.length * targets.length;
+
+      outer:
+      for (const target of targets) {
+        for (let i = 0; i < proxies.length; i++) {
+          step++;
+          const pct = 10 + Math.floor((step / totalSteps) * 70);
+          setP(pct, 'Загрузка данных (' + step + '/' + totalSteps + ')…');
+
+          try {
+            const ctrl = new AbortController();
+            const timer = setTimeout(() => ctrl.abort(), 14000);
+            const res = await fetch(proxies[i](target), {
+              signal: ctrl.signal,
+              headers: { 'Accept': 'text/html,application/xhtml+xml' }
+            });
+            clearTimeout(timer);
+            if (!res.ok) continue;
+            const html = await res.text();
+            if (!html || html.length < 100) continue;
+
+            const parsed = parseMeta(html);
+            if (parsed) {
+              meta = mergeMeta(meta, parsed);
+              if (isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar)) {
+                if (meta.description || step >= 2) break outer;
+              }
             }
-            if (meta.title && meta.title !== ('@' + uname) && meta.description && meta.avatar) break;
+          } catch (e) {}
+
+          if (step < totalSteps) {
+            await new Promise(r => setTimeout(r, 280));
           }
-        } catch (e) {}
+        }
+        if (meta && isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar) && meta.description) {
+          break;
+        }
       }
 
-      setP(80, 'Подгрузка аватарки…');
+      setP(85, 'Подгрузка аватарки…');
+
       if (!meta) meta = { title: null, description: null, avatar: null };
-      // если title не нашли — хотя бы @username (но вызывающий код может сделать retry)
-      if (!meta.title) meta.title = '@' + uname;
-      if (!meta.avatar) {
+
+      if (!isGoodTitle(meta.title)) {
+        meta.title = '@' + uname;
+      }
+
+      // Fallback avatar: unavatar (для ботов тоже работает provider telegram)
+      if (!meta.avatar || isBadAvatar(meta.avatar)) {
         meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
       }
 
-      setP(95, 'Почти готово…');
+      setP(96, 'Почти готово…');
       return meta;
     }
 
@@ -2127,6 +2404,10 @@
       const cancel = document.getElementById('add-cancel-btn');
       if (btn) btn.disabled = !!lock;
       if (cancel) cancel.disabled = !!lock;
+      ['item-name', 'item-link', 'item-desc', 'item-category'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !!lock;
+      });
     }
 
     async function addItem() {
@@ -2212,19 +2493,32 @@
         }
 
         setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
-        const meta = await fetchTgMeta(username, setAddProgress);
+        const meta = await fetchTgMeta(username, setAddProgress, currentType);
+
+        let avatarUrl = (meta && meta.avatar) || null;
+        // Для ботов: если из ТГ не пришёл реальный CDN-аватар — не ставим unavatar,
+        // на сайте покажется наш значок 🤖
+        const isBotAdd = currentType === 'bot' || /bot$/i.test(username);
+        if (isBotAdd) {
+          if (!avatarUrl || /unavatar\.io/i.test(avatarUrl) || /telegram\.org|t_logo/i.test(avatarUrl)) {
+            avatarUrl = null;
+          }
+        } else if (!avatarUrl) {
+          avatarUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(username);
+        }
 
         const row = {
           type: currentType,
           username: username,
           invite_link: null,
           is_private: false,
-          display_name: name || meta.title || ('@' + username),
-          description: userDesc || meta.description || null,
+          // Если пользователь ввёл своё название — сохраняем его; иначе берём из Telegram
+          display_name: name || (meta && meta.title) || ('@' + username),
+          description: userDesc || (meta && meta.description) || null,
           category: category,
           is_top: false,
           top_until: null,
-          avatar_url: meta.avatar || ('https://unavatar.io/telegram/' + encodeURIComponent(username)),
+          avatar_url: avatarUrl,
           source: isAdmin ? 'admin' : 'user'
         };
 
@@ -2348,18 +2642,26 @@
         }
         try {
           showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' · @' + u, 120000);
-          let meta = await fetchTgMeta(u);
-          // если имя не подтянулось — вторая попытка после паузы
-          const weak = !meta || !meta.title || meta.title === ('@' + u) || (!meta.description && !meta.avatar);
+          let meta = await fetchTgMeta(u, null, type);
+          // если имя/аватар слабые — вторая попытка после паузы
+          const weak = !meta
+            || !meta.title
+            || meta.title === ('@' + u)
+            || !meta.avatar
+            || /unavatar\.io/i.test(meta.avatar || '')
+            || (!meta.description && /unavatar\.io/i.test(meta.avatar || ''));
           if (weak) {
-            await new Promise(r => setTimeout(r, 1200));
-            const meta2 = await fetchTgMeta(u);
+            await new Promise(r => setTimeout(r, 1400));
+            const meta2 = await fetchTgMeta(u, null, type);
             if (meta2) {
               meta = {
                 title: (meta2.title && meta2.title !== ('@' + u)) ? meta2.title : (meta && meta.title),
                 description: meta2.description || (meta && meta.description) || null,
-                avatar: (meta2.avatar && !/unavatar\.io/i.test(meta2.avatar)) ? meta2.avatar
-                  : (meta && meta.avatar) || meta2.avatar || null
+                avatar: (meta2.avatar && !/unavatar\.io/i.test(meta2.avatar))
+                  ? meta2.avatar
+                  : (meta && meta.avatar && !/unavatar\.io/i.test(meta.avatar))
+                    ? meta.avatar
+                    : (meta2.avatar || (meta && meta.avatar) || null)
               };
             }
           }
@@ -2377,7 +2679,13 @@
             is_top: false,
             top_until: null,
             source: 'bulk',
-            avatar_url: (meta && meta.avatar) ? meta.avatar : ('https://unavatar.io/telegram/' + encodeURIComponent(u))
+            avatar_url: (function() {
+              const a = (meta && meta.avatar) ? meta.avatar : null;
+              if (type === 'bot' || /bot$/i.test(u)) {
+                if (!a || /unavatar\.io/i.test(a) || /telegram\.org|t_logo/i.test(a)) return null;
+              }
+              return a || ('https://unavatar.io/telegram/' + encodeURIComponent(u));
+            })()
           };
 
           const error = await insertItemRow(row);
@@ -2481,7 +2789,7 @@
       }
       showStatus('Обновление метаданных…', 15000);
       try {
-        const meta = await fetchTgMeta(item.username);
+        const meta = await fetchTgMeta(item.username, null, item.type);
         const patch = {
           avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
         };
@@ -2516,18 +2824,24 @@
     }
 
     function isDeadTelegramHtml(html) {
-      if (!html || html.length < 80) return true;
+      // true  = точно мёртвая
+      // false = живая или неизвестно (не удаляем при сомнении)
+      if (!html || html.length < 80) return false; // слишком мало данных — не удаляем
       const h = html;
+      // явные признаки мёртвой страницы
       if (/tgme_page_error|icon-error/i.test(h)) return true;
       if (/Sorry,? this (channel|group|bot|user|page)/i.test(h)) return true;
       if (/doesn.?t seem to exist/i.test(h)) return true;
+      if (/If you have.?Telegram,? you can contact/i.test(h) && /tgme_page_error/i.test(h)) return true;
       if (/page is unavailable/i.test(h)) return true;
       if (/Invite link is invalid or has expired/i.test(h)) return true;
       if (/This invite link is invalid/i.test(h)) return true;
       if (/нет такой|не существует|ссылка недействительна|ссылка устарела/i.test(h)) return true;
-      // живая страница обычно имеет заголовок канала
-      const hasTitle = /tgme_page_title/i.test(h) || /property=["']og:title["']/i.test(h);
-      if (!hasTitle) return true;
+      // если есть явные признаки живой страницы — точно живая
+      const hasTitle = /tgme_page_title/i.test(h) || /tgme_channel_info_header_title/i.test(h) || /property=["']og:title["']/i.test(h);
+      const hasPhoto = /tgme_page_photo/i.test(h) || /telesco\.pe/i.test(h);
+      if (hasTitle || hasPhoto) return false;
+      // нет ни ошибки, ни title — неизвестно → не удаляем
       return false;
     }
 
@@ -2553,6 +2867,8 @@
           if (!html || html.length < 50) continue;
           gotHtml = true;
           if (isDeadTelegramHtml(html)) return { ok: false, reason: 'dead' };
+          // есть HTML без признаков смерти — считаем живой
+          // (неполные ответы прокси больше не помечаются как dead)
           return { ok: true };
         } catch (e) {}
       }
@@ -2792,7 +3108,7 @@
         const item = list[i];
         showStatus('Мета ' + (i + 1) + '/' + list.length + ': @' + item.username, 120000);
         try {
-          const meta = await fetchTgMeta(item.username);
+          const meta = await fetchTgMeta(item.username, null, item.type);
           if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
             skip++;
             await new Promise(r => setTimeout(r, 400));
@@ -2933,49 +3249,79 @@
         : '';
       const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
       const raw = (item.display_name || item.username || item.invite_link || '?').toString();
-      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-ЯёЁ0-9]/g, '');
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
       const letter = (name[0] || '?').toUpperCase();
       const isPriv = !!item.is_private;
-      const color = isPriv ? '#5c6bc0' : colors[Math.abs((name || 'x').length) % colors.length];
-      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;pointer-events:none;">${letter}</span>`;
+      const isBot = item.type === 'bot' || (!!item.username && /bot$/i.test(String(item.username)));
+      const color = isPriv ? '#5c6bc0' : isBot ? '#2c5f4e' : colors[Math.abs(name.length) % colors.length];
+      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
 
       let uname = item.username ? String(item.username) : '';
       uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
 
+      // 1) avatar_url  2) unavatar (только публичные)
       const sources = [];
       if (item.avatar_url) {
-        let au = String(item.avatar_url).trim().replace(/"/g, '');
-        if (au.startsWith('//')) au = 'https:' + au;
-        if (au && !/t_logo|favicon|telegram\.org\/img\//i.test(au)) sources.push(au);
+        const au = String(item.avatar_url).replace(/"/g, '');
+        // для приватных не используем unavatar / дефолтные логотипы — сразу «перечёркнутый глаз»
+        const badForPrivate = isPriv && (/unavatar\.io|telegram\.org|t_logo|favicon/i.test(au));
+        if (!badForPrivate) sources.push(au);
       }
       if (uname && !isPriv && !uname.startsWith('+')) {
         sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
+        sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
       }
 
       if (sources.length) {
         const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        // цепочка onerror: следующий источник; в конце — скрыть img (останется буква или робот)
         let onerrChain = "this.style.display='none'";
-        for (let idx = sources.length - 1; idx >= 1; idx--) {
-          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + esc(sources[idx]) + "'";
+        for (let i = sources.length - 1; i >= 1; i--) {
+          const src = esc(sources[i]);
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
         }
-        // & в URL обязательно экранируем — иначе HTML на ПК ломается
-        const first = sources[0].replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;overflow:hidden;flex-shrink:0;">
-          ${letterHtml}
-          <img src="${first}" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"
+        // для бота под img кладём 🤖, чтобы при полном провале картинок остался робот
+        const underlay = isBot
+          ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${Math.max(16, Math.round(size * 0.5))}px;z-index:0;">🤖</span>`
+          : letterHtml;
+        const bg = isBot ? 'linear-gradient(145deg,#3d8b6e,#2c5f4e)' : color;
+        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${bg};position:relative;overflow:hidden;">
+          ${underlay}
+          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
             onload="this.style.opacity=1" onerror="${onerrChain}"
-            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;pointer-events:none;">
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
         </div>`;
       }
 
+      // Приватный канал/чат без аватарки — «перечёркнутый глаз»
       if (isPriv) {
-        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};position:relative;font-size:${size * 0.36}px;flex-shrink:0;">
-          ${letter}
-          <span style="position:absolute;bottom:-2px;right:-2px;background:#fff;border-radius:50%;width:${size * 0.38}px;height:${size * 0.38}px;display:flex;align-items:center;justify-content:center;font-size:${size * 0.22}px;box-shadow:0 1px 3px rgba(0,0,0,0.2);pointer-events:none;">🔒</span>
+        const eyeSize = Math.max(14, Math.round(size * 0.42));
+        const slashW = Math.max(2, Math.round(size * 0.06));
+        return `<div class="card-avatar"${confettiAttr} title="Приватный — аватар недоступен"
+          style="width:${size}px;height:${size}px;background:#5c6bc0;position:relative;overflow:hidden;
+                 display:flex;align-items:center;justify-content:center;">
+          <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;
+                       font-size:${eyeSize}px;line-height:1;filter:grayscale(0.15);">
+            👁
+            <span style="position:absolute;left:50%;top:50%;width:${Math.round(size * 0.55)}px;height:${slashW}px;
+                         background:#fff;border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
+                         box-shadow:0 0 0 1px rgba(92,107,192,0.35);"></span>
+          </span>
         </div>`;
       }
 
-      return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;flex-shrink:0;">${letter}</div>`;
+      // Бот без аватарки из ТГ — наш значок «android-бот»
+      if (isBot) {
+        const botSize = Math.max(16, Math.round(size * 0.5));
+        return `<div class="card-avatar"${confettiAttr} title="Бот"
+          style="width:${size}px;height:${size}px;background:linear-gradient(145deg,#3d8b6e,#2c5f4e);
+                 position:relative;display:flex;align-items:center;justify-content:center;
+                 box-shadow:inset 0 0 0 2px rgba(255,255,255,0.12);">
+          <span style="font-size:${botSize}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">🤖</span>
+        </div>`;
+      }
+
+      return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
     }
 
     function getDaysLeft(topUntil) {
@@ -3256,30 +3602,98 @@
       });
     });
 
+
+    // Явно в window — чтобы onclick="..." всегда видел функции
+    try {
+      window.openModal = openModal;
+      window.closeModal = closeModal;
+      window.addItem = addItem;
+      window.loadData = loadData;
+      window.setFilter = setFilter;
+      window.setCategoryFilter = setCategoryFilter;
+      window.onSearchInput = onSearchInput;
+      window.toggleLoginPopup = toggleLoginPopup;
+      window.loginAdmin = loginAdmin;
+      window.logoutAdmin = logoutAdmin;
+      window.openTopModal = openTopModal;
+      window.closeTopModal = closeTopModal;
+      window.confirmTopDays = confirmTopDays;
+      window.updatePrice = updatePrice;
+      window.openLegal = openLegal;
+      window.closeLegal = closeLegal;
+      window.openAnalyticsModal = openAnalyticsModal;
+      window.closeAnalyticsModal = closeAnalyticsModal;
+      window.loadAnalytics = loadAnalytics;
+      window.openBulkModal = openBulkModal;
+      window.closeBulkModal = closeBulkModal;
+      window.runBulkImport = runBulkImport;
+      window.openRefreshMetaModal = openRefreshMetaModal;
+      window.closeRefreshMetaModal = closeRefreshMetaModal;
+      window.runRefreshMetaByCategory = runRefreshMetaByCategory;
+      window.openCheckLinksModal = openCheckLinksModal;
+      window.closeCheckLinksModal = closeCheckLinksModal;
+      window.runCheckLinksByCategory = runCheckLinksByCategory;
+      window.openDeleteCategoryModal = openDeleteCategoryModal;
+      window.closeDeleteCategoryModal = closeDeleteCategoryModal;
+      window.runDeleteCategory = runDeleteCategory;
+      window.openBotSettings = openBotSettings;
+      window.closeBotSettings = closeBotSettings;
+      window.savePaymentBot = savePaymentBot;
+      window.openAdminTopModal = openAdminTopModal;
+      window.closeAdminTopModal = closeAdminTopModal;
+      window.confirmAdminTop = confirmAdminTop;
+      window.removeTop = removeTop;
+      window.deleteItem = deleteItem;
+      window.addToBlacklist = addToBlacklist;
+      window.removeFromBlacklist = removeFromBlacklist;
+      window.refreshMeta = refreshMeta;
+      window.checkAndDeleteItem = checkAndDeleteItem;
+      window.launchConfetti = launchConfetti;
+      window.closePrivateNameModal = closePrivateNameModal;
+      window.confirmPrivateName = confirmPrivateName;
+      window.loadDataAttempts = 0;
+    } catch (e) {
+      console.error('window export failed', e);
+    }
+
+
     // Старт — с повторной попыткой инициализации Supabase
     (async () => {
-      // Если библиотека ещё не загрузилась — ждём немного и пробуем снова
-      if (!supabaseClient && window.supabase) {
-        try {
-          supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-        } catch (e) {}
-      }
-      // Ещё одна попытка через 1.5 сек (на медленных сетях)
-      if (!supabaseClient) {
-        await new Promise(r => setTimeout(r, 1500));
+      function tryInitSupabase() {
+        if (supabaseClient) return true;
         if (window.supabase && window.supabase.createClient) {
           try {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-          } catch (e) {}
+            return !!supabaseClient;
+          } catch (e) {
+            console.error('Supabase init', e);
+          }
         }
+        return false;
       }
 
-      await checkSession();
-      await loadPaymentBot();
+      tryInitSupabase();
+      // до 5 сек ждём CDN supabase-js
+      for (let i = 0; i < 10 && !supabaseClient; i++) {
+        await new Promise(r => setTimeout(r, 500));
+        tryInitSupabase();
+      }
+
+      if (!supabaseClient) {
+        console.warn('supabase-js не загрузился — будет REST fallback');
+        showStatus('Загрузка через запасной канал…', 5000);
+      } else {
+        try { await withTimeout(checkSession(), 10000, 'Сессия'); } catch (e) { console.warn(e); }
+        try { await withTimeout(loadPaymentBot(), 8000, 'Настройки'); } catch (e) { console.warn(e); }
+      }
+
+      // грузим каталог всегда (js-клиент или REST)
       await loadData();
       trackPageView();
-      setInterval(loadData, 5 * 60 * 1000);
-      setInterval(() => { if (isAdmin) loadAnalytics(); }, 5 * 60 * 1000);
+
+      console.info('[Telegra] boot ok, items will load');
+      setInterval(() => { loadData(); }, 5 * 60 * 1000);
+      setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
@@ -3292,10 +3706,7 @@
           return it;
         });
         applyFilters();
-        if (changed && isAdmin) {
-          // админ дополнительно сбрасывает в БД
-          loadData();
-        }
+        if (changed && isAdmin) loadData();
       }, 60 * 1000);
     })();
   </script>
