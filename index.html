@@ -34,7 +34,28 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+  <script>
+    // запасной CDN, если jsdelivr не ответил за 3 сек
+    (function(){
+      var done = false;
+      function mark(){ done = true; }
+      window.addEventListener('load', function(){
+        if (window.supabase) return;
+        if (done) return;
+        var s = document.createElement('script');
+        s.src = 'https://unpkg.com/@supabase/supabase-js@2';
+        s.onload = mark;
+        document.head.appendChild(s);
+      });
+      setTimeout(function(){
+        if (window.supabase || done) return;
+        var s = document.createElement('script');
+        s.src = 'https://unpkg.com/@supabase/supabase-js@2';
+        document.head.appendChild(s);
+      }, 3000);
+    })();
+  </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
@@ -1805,94 +1826,164 @@
       if (recent) recent.innerHTML = html;
     }
 
-    // Promise с таймаутом — чтобы запросы к Supabase не висели вечно
     function withTimeout(promise, ms, label) {
       let timer;
       const timeout = new Promise((_, reject) => {
         timer = setTimeout(() => reject(new Error((label || 'Запрос') + ' превысил ' + (ms / 1000) + ' сек')), ms);
       });
-      return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+      return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
+    }
+
+    // Прямой REST-запрос к Supabase (если JS-клиент завис или не инициализировался)
+    async function fetchItemsViaRest() {
+      const headers = {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Accept': 'application/json',
+        'Range': '0-9999'
+      };
+      const url = SUPABASE_URL + '/rest/v1/items?select=*&order=created_at.desc';
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 20000);
+      try {
+        const res = await fetch(url, { headers, signal: ctrl.signal });
+        clearTimeout(timer);
+        if (!res.ok) {
+          const t = await res.text().catch(() => '');
+          throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
+
+    async function fetchBlacklistViaRest() {
+      try {
+        const headers = {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Accept': 'application/json'
+        };
+        const res = await withTimeout(
+          fetch(SUPABASE_URL + '/rest/v1/blacklist?select=value', { headers }),
+          8000,
+          'ЧС'
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data || []).map(r => r.value);
+      } catch (e) {
+        return [];
+      }
     }
 
     let loadDataInFlight = null;
     let loadDataAttempts = 0;
 
     async function loadData(isRetry) {
-      if (!supabaseClient) {
-        setListsMessage('База данных недоступна. Обновите страницу.');
-        return;
-      }
-
-      // не запускаем параллельно несколько полных загрузок
+      // не гоняем параллельные полные загрузки
       if (loadDataInFlight && !isRetry) {
         return loadDataInFlight;
       }
 
       const run = (async () => {
         try {
-          if (!isRetry) {
-            // не затираем уже показанные данные при фоновом обновлении
-            if (!allItems.length) {
-              setListsMessage('Загрузка…');
-            }
+          if (!allItems.length) {
+            setListsMessage('Загрузка…');
           }
 
-          // Сброс просроченных топов — НЕ ждём (у анонима RLS может блокировать/вешать)
-          try {
-            supabaseClient
-              .from('items')
-              .update({ is_top: false, top_until: null })
-              .lt('top_until', new Date().toISOString())
-              .eq('is_top', true)
-              .then(() => {})
-              .catch(() => {});
-          } catch (e) {}
+          // фоновый сброс топа — только если клиент есть, не ждём
+          if (supabaseClient) {
+            try {
+              supabaseClient
+                .from('items')
+                .update({ is_top: false, top_until: null })
+                .lt('top_until', new Date().toISOString())
+                .eq('is_top', true)
+                .then(() => {})
+                .catch(() => {});
+            } catch (e) {}
+          }
 
-          // Загружаем ВСЕ записи пачками (лимит Supabase по умолчанию — 1000)
-          const pageSize = 1000;
-          let from = 0;
           let items = [];
           let error = null;
+          let usedRest = false;
 
-          while (true) {
-            let res;
+          // --- Способ 1: supabase-js ---
+          if (supabaseClient) {
             try {
-              res = await withTimeout(
-                supabaseClient
-                  .from('items')
-                  .select('*')
-                  .order('created_at', { ascending: false })
-                  .range(from, from + pageSize - 1),
-                20000,
-                'Загрузка каталога'
-              );
+              const pageSize = 1000;
+              let from = 0;
+              while (true) {
+                const res = await withTimeout(
+                  supabaseClient
+                    .from('items')
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .range(from, from + pageSize - 1),
+                  18000,
+                  'Загрузка каталога'
+                );
+                if (res.error) {
+                  error = res.error;
+                  break;
+                }
+                const batch = res.data || [];
+                items = items.concat(batch);
+                if (batch.length < pageSize) break;
+                from += pageSize;
+                if (from > 100000) break;
+              }
             } catch (e) {
-              error = { message: e.message || 'Таймаут загрузки' };
-              break;
+              error = { message: e.message || String(e) };
+              items = [];
             }
-            if (res.error) {
-              error = res.error;
-              break;
-            }
-            const batch = res.data || [];
-            items = items.concat(batch);
-            if (batch.length < pageSize) break;
-            from += pageSize;
-            if (from > 100000) break;
+          } else {
+            error = { message: 'Клиент Supabase не инициализирован' };
           }
 
-          if (error) {
-            console.error('loadData items error:', error);
-            // повтор при сетевой/таймаут ошибке
+          // --- Способ 2: REST API (обход, если JS-клиент не сработал) ---
+          if (error || (!items.length && error)) {
+            try {
+              console.warn('loadData: fallback REST', error && error.message);
+              items = await fetchItemsViaRest();
+              error = null;
+              usedRest = true;
+            } catch (e2) {
+              error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+            }
+          }
+
+          // пустой каталог без ошибки — это нормально
+          if (error && items.length === 0 && /permission|RLS|JWT|401|403/i.test(error.message || '')) {
+            // оставим error
+          } else if (!error) {
+            // ok
+          }
+
+          if (error && !items.length) {
+            console.error('loadData error:', error);
             if (loadDataAttempts < 2) {
               loadDataAttempts++;
               showStatus('Повтор загрузки (' + loadDataAttempts + ')…', 5000);
-              await new Promise(r => setTimeout(r, 1200));
+              await new Promise(r => setTimeout(r, 1500));
+              // пересоздать клиент на всякий случай
+              try {
+                if (window.supabase && window.supabase.createClient) {
+                  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+              } catch (e) {}
               loadDataInFlight = null;
               return loadData(true);
             }
-            setListsMessage('Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
-              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>');
+            setListsMessage(
+              'Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
+              '<br><span style="font-size:0.8rem;color:#888;">Проверьте RLS-политику SELECT для таблицы items</span>' +
+              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+            );
             return;
           }
 
@@ -1906,35 +1997,53 @@
             return it;
           });
 
-          // blacklist — не критично, таймаут 8 сек
-          try {
-            const blRes = await withTimeout(
-              supabaseClient.from('blacklist').select('value'),
-              8000,
-              'Чёрный список'
-            );
-            blacklist = ((blRes && blRes.data) || []).map(r => r.value);
-          } catch (e) {
-            console.warn('blacklist load', e);
-            blacklist = blacklist || [];
+          // blacklist
+          if (supabaseClient && !usedRest) {
+            try {
+              const blRes = await withTimeout(
+                supabaseClient.from('blacklist').select('value'),
+                8000,
+                'Чёрный список'
+              );
+              blacklist = ((blRes && blRes.data) || []).map(r => r.value);
+            } catch (e) {
+              blacklist = await fetchBlacklistViaRest();
+            }
+          } else {
+            blacklist = await fetchBlacklistViaRest();
           }
 
-          render();
+          try {
+            render();
+          } catch (re) {
+            console.error('render error', re);
+            setListsMessage('Данные получены, но ошибка отрисовки: ' + escapeHtml(re.message || ''));
+            return;
+          }
+
           if (!allItems.length) {
             const top = document.getElementById('top-list');
-            if (top && top.innerHTML.includes('Загрузка')) {
-              top.innerHTML = '<div class="loading">Пока пусто</div>';
+            if (top) top.innerHTML = '<div class="loading">Пока пусто</div>';
+            const il = document.getElementById('items-list');
+            if (il && /Загрузка/.test(il.innerHTML)) {
+              il.innerHTML = '<div class="loading">Пока пусто</div>';
             }
           }
+
+          if (usedRest) {
+            console.info('Каталог загружен через REST API, записей:', allItems.length);
+          }
         } catch (e) {
-          console.error('loadData error:', e);
+          console.error('loadData fatal:', e);
           if (loadDataAttempts < 2) {
             loadDataAttempts++;
-            await new Promise(r => setTimeout(r, 1200));
+            await new Promise(r => setTimeout(r, 1500));
             loadDataInFlight = null;
             return loadData(true);
           }
-          setListsMessage('Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>');
+          setListsMessage(
+            'Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+          );
         } finally {
           loadDataInFlight = null;
         }
@@ -3536,17 +3645,18 @@
       }
 
       if (!supabaseClient) {
-        setListsMessage('Не удалось подключить базу (Supabase). Проверьте интернет и обновите страницу.');
-        showStatus('Supabase не загрузился', 8000);
+        console.warn('supabase-js не загрузился — будет REST fallback');
+        showStatus('Загрузка через запасной канал…', 5000);
       } else {
-        // сессию и бота не блокируем навечно
         try { await withTimeout(checkSession(), 10000, 'Сессия'); } catch (e) { console.warn(e); }
         try { await withTimeout(loadPaymentBot(), 8000, 'Настройки'); } catch (e) { console.warn(e); }
-        await loadData();
-        trackPageView();
       }
 
-      setInterval(() => { if (supabaseClient) loadData(); }, 5 * 60 * 1000);
+      // грузим каталог всегда (js-клиент или REST)
+      await loadData();
+      trackPageView();
+
+      setInterval(() => { loadData(); }, 5 * 60 * 1000);
       setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
