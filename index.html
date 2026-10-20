@@ -2232,11 +2232,12 @@
     // Каналы/чаты: t.me/username + t.me/s/username
     // Боты: только t.me/username (у /s/ у ботов часто пусто)
     // Реальный CDN (telesco.pe) предпочтительнее unavatar.
-    async function fetchTgMeta(username, onProgress, entityType) {
+    async function fetchTgMeta(username, onProgress, entityType, opts) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
       const isBot = entityType === 'bot' || /bot$/i.test(uname);
+      const fast = !!(opts && opts.fast);
 
       function decodeEntities(s) {
         if (!s) return s;
@@ -2384,57 +2385,85 @@
 
       setP(8, 'Подключение к Telegram…');
 
-      const proxies = [
-        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-        (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
-        (u) => 'https://thingproxy.freeboard.io/fetch/' + u
-      ];
+      const proxies = fast
+        ? [
+            (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+            (u) => 'https://corsproxy.io/?' + encodeURIComponent(u)
+          ]
+        : [
+            (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+            (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
+            (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
+            (u) => 'https://thingproxy.freeboard.io/fetch/' + u
+          ];
 
-      // Боты: только t.me/username (/s/ у ботов обычно бесполезен)
-      const targets = isBot
+      // В fast: сначала только t.me/username; /s/ — только если мета слабая
+      const primaryTargets = isBot
         ? ['https://t.me/' + uname]
-        : ['https://t.me/' + uname, 'https://t.me/s/' + uname];
+        : ['https://t.me/' + uname];
+      const secondaryTargets = (!isBot && !fast)
+        ? ['https://t.me/s/' + uname]
+        : (!isBot ? ['https://t.me/s/' + uname] : []);
 
-      let meta = null;
-      let step = 0;
-      const totalSteps = proxies.length * targets.length;
+      const fetchTimeout = fast ? 9000 : 14000;
 
-      outer:
-      for (const target of targets) {
-        for (let i = 0; i < proxies.length; i++) {
-          step++;
-          const pct = 10 + Math.floor((step / totalSteps) * 70);
-          setP(pct, 'Загрузка данных (' + step + '/' + totalSteps + ')…');
+      async function fetchOneHtml(target, proxyFn) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), fetchTimeout);
+        try {
+          const res = await fetch(proxyFn(target), {
+            signal: ctrl.signal,
+            headers: { 'Accept': 'text/html,application/xhtml+xml' }
+          });
+          clearTimeout(timer);
+          if (!res.ok) return null;
+          const html = await res.text();
+          if (!html || html.length < 100) return null;
+          return parseMeta(html);
+        } catch (e) {
+          clearTimeout(timer);
+          return null;
+        }
+      }
 
-          try {
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 14000);
-            const res = await fetch(proxies[i](target), {
-              signal: ctrl.signal,
-              headers: { 'Accept': 'text/html,application/xhtml+xml' }
-            });
-            clearTimeout(timer);
-            if (!res.ok) continue;
-            const html = await res.text();
-            if (!html || html.length < 100) continue;
-
-            const parsed = parseMeta(html);
-            if (parsed) {
-              meta = mergeMeta(meta, parsed);
-              if (isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar)) {
-                if (meta.description || step >= 2) break outer;
-              }
+      async function loadFromTargets(targets) {
+        let local = null;
+        for (const target of targets) {
+          if (fast) {
+            // параллельно 2 прокси — берём первый удачный / мёржим
+            const jobs = proxies.map(fn => fetchOneHtml(target, fn));
+            const results = await Promise.all(jobs);
+            for (const parsed of results) {
+              if (parsed) local = mergeMeta(local, parsed);
             }
-          } catch (e) {}
-
-          if (step < totalSteps) {
-            await new Promise(r => setTimeout(r, 280));
+          } else {
+            for (let i = 0; i < proxies.length; i++) {
+              setP(10 + Math.floor(((i + 1) / proxies.length) * 70), 'Загрузка данных…');
+              const parsed = await fetchOneHtml(target, proxies[i]);
+              if (parsed) {
+                local = mergeMeta(local, parsed);
+                if (isGoodTitle(local.title) && local.avatar && !isBadAvatar(local.avatar) && !/unavatar/i.test(local.avatar) && local.description) {
+                  return local;
+                }
+              }
+              if (i < proxies.length - 1) await new Promise(r => setTimeout(r, 200));
+            }
+          }
+          if (local && isGoodTitle(local.title) && local.avatar && !isBadAvatar(local.avatar) && !/unavatar/i.test(local.avatar)) {
+            if (local.description || fast) return local;
           }
         }
-        if (meta && isGoodTitle(meta.title) && meta.avatar && !isBadAvatar(meta.avatar) && !/unavatar/i.test(meta.avatar) && meta.description) {
-          break;
-        }
+        return local;
+      }
+
+      let meta = await loadFromTargets(primaryTargets);
+
+      // Догрузка /s/ только если не бот и мета слабая
+      const weakMeta = !meta || !isGoodTitle(meta.title) || !meta.avatar || isBadAvatar(meta.avatar) || /unavatar/i.test(meta.avatar || '');
+      if (weakMeta && secondaryTargets.length) {
+        setP(70, 'Уточнение данных…');
+        const meta2 = await loadFromTargets(secondaryTargets);
+        meta = mergeMeta(meta, meta2);
       }
 
       setP(85, 'Подгрузка аватарки…');
@@ -2445,7 +2474,6 @@
         meta.title = '@' + uname;
       }
 
-      // Fallback avatar: unavatar (для ботов тоже работает provider telegram)
       if (!meta.avatar || isBadAvatar(meta.avatar)) {
         meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
       }
@@ -2745,7 +2773,6 @@
       const type = document.getElementById('bulk-type').value;
       const category = document.getElementById('bulk-category').value || 'Разное';
       const raw = document.getElementById('bulk-list').value || '';
-      // пробел, запятая, точка с запятой, перенос строки
       const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
       const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
 
@@ -2755,39 +2782,53 @@
         return;
       }
 
-      // актуальные данные из базы перед импортом
       try { await loadData(); } catch (e) {}
 
       const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
-      let ok = 0, skip = 0, fail = 0;
+      const blSet = new Set(blacklist.map(b => normalizeUsername(b)).filter(Boolean));
 
-      showStatus('Импорт… 0/' + usernames.length, 120000);
-      for (let i = 0; i < usernames.length; i++) {
-        const u = usernames[i];
-        if (seen.has(u) || isDuplicate(u, null) || blacklist.some(b => normalizeUsername(b) === u)) {
-          skip++;
-          showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' (пропуск)', 120000);
-          continue;
+      // Пакетная проверка уже существующих в БД (один запрос вместо N)
+      try {
+        const chunk = 100;
+        for (let i = 0; i < usernames.length; i += chunk) {
+          const slice = usernames.slice(i, i + chunk);
+          const { data } = await supabaseClient
+            .from('items')
+            .select('username')
+            .in('username', slice);
+          (data || []).forEach(r => {
+            const n = normalizeUsername(r.username);
+            if (n) seen.add(n);
+          });
         }
-        // проверка в БД
-        if (await existsInDb(u, null)) {
-          seen.add(u);
-          skip++;
-          continue;
-        }
+      } catch (e) {
+        console.warn('bulk precheck', e);
+      }
+
+      const queue = usernames.filter(u => !seen.has(u) && !blSet.has(u));
+      const skippedUpfront = usernames.length - queue.length;
+      let ok = 0, skip = skippedUpfront, fail = 0;
+      let done = 0;
+      const total = usernames.length;
+
+      showStatus('Импорт… 0/' + total + (queue.length ? ' (в очереди ' + queue.length + ')' : ''), 120000);
+
+      // Параллельно 3 канала: мета + запись. Пауза между стартами, чтобы не забить прокси.
+      const CONCURRENCY = 3;
+      let qIndex = 0;
+
+      async function processOne(u) {
         try {
-          showStatus('Импорт… ' + (i + 1) + '/' + usernames.length + ' · @' + u, 120000);
-          let meta = await fetchTgMeta(u, null, type);
-          // если имя/аватар слабые — вторая попытка после паузы
+          let meta = await fetchTgMeta(u, null, type, { fast: true });
           const weak = !meta
             || !meta.title
             || meta.title === ('@' + u)
             || !meta.avatar
-            || /unavatar\.io/i.test(meta.avatar || '')
-            || (!meta.description && /unavatar\.io/i.test(meta.avatar || ''));
+            || /unavatar\.io/i.test(meta.avatar || '');
+          // Одна быстрая повторная попытка только если совсем пусто
           if (weak) {
-            await new Promise(r => setTimeout(r, 1400));
-            const meta2 = await fetchTgMeta(u, null, type);
+            await new Promise(r => setTimeout(r, 400));
+            const meta2 = await fetchTgMeta(u, null, type, { fast: true });
             if (meta2) {
               meta = {
                 title: (meta2.title && meta2.title !== ('@' + u)) ? meta2.title : (meta && meta.title),
@@ -2847,11 +2888,28 @@
         } catch (e) {
           console.warn('bulk', u, e);
           fail++;
+        } finally {
+          done++;
+          showStatus('Импорт… ' + done + '/' + total + ' · +' + ok + (fail ? ' · ошибок ' + fail : ''), 120000);
         }
-        // пауза между каналами, чтобы прокси и TG не резали запросы
-        await new Promise(r => setTimeout(r, 1100));
-        showStatus('Импорт… ' + (i + 1) + '/' + usernames.length, 120000);
       }
+
+      async function worker() {
+        while (qIndex < queue.length) {
+          const my = qIndex++;
+          const u = queue[my];
+          await processOne(u);
+          // короткая пауза на воркер — не долбить прокси
+          await new Promise(r => setTimeout(r, 350));
+        }
+      }
+
+      const workers = [];
+      for (let w = 0; w < Math.min(CONCURRENCY, queue.length || 1); w++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
+
       bulkRunning = false;
       closeBulkModal();
       showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
