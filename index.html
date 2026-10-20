@@ -253,12 +253,23 @@
       font-weight: 600;
       display: none;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
       max-width: calc(100vw - 24px);
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .admin-badge.active { display: flex; }
+    @media (max-width: 600px) {
+      .admin-badge {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        gap: 4px;
+        max-width: calc(100vw - 16px);
+      }
+      .admin-badge button {
+        font-size: 0.68rem !important;
+      }
+    }
 
     .admin-stats {
       font-size: 0.68rem;
@@ -1005,44 +1016,7 @@
         <div class="category-box">
           <label for="category-filter">Категория</label>
           <select id="category-filter" onchange="setCategoryFilter(this.value)">
-            <option value="">Все категории</option>
-            <option value="Авто, мото, техника">Авто, мото, техника</option>
-            <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-            <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-            <option value="Для взрослых 18+">Для взрослых 18+</option>
-            <option value="Для мужчин">Для мужчин</option>
-            <option value="Для женщин">Для женщин</option>
-            <option value="Для родителей">Для родителей</option>
-            <option value="Блоги">Блоги</option>
-            <option value="Еда и напитки">Еда и напитки</option>
-            <option value="Здоровье и спорт">Здоровье и спорт</option>
-            <option value="Игры и приложения">Игры и приложения</option>
-            <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-            <option value="Криптовалюта">Криптовалюта</option>
-            <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-            <option value="Маркетплейсы">Маркетплейсы</option>
-            <option value="Медицина">Медицина</option>
-            <option value="Мода и красота">Мода и красота</option>
-            <option value="Музыка">Музыка</option>
-            <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-            <option value="Новости и СМИ">Новости и СМИ</option>
-            <option value="Продажи">Продажи</option>
-            <option value="Психология">Психология</option>
-            <option value="Путешествия">Путешествия</option>
-            <option value="Развлечения и юмор">Развлечения и юмор</option>
-            <option value="SMM">SMM</option>
-            <option value="Телеграм">Телеграм</option>
-            <option value="Технологии">Технологии</option>
-            <option value="Трейдинг">Трейдинг</option>
-            <option value="Нейросети и AI">Нейросети и AI</option>
-            <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-            <option value="Футбол, хоккей">Футбол, хоккей</option>
-            <option value="Фото, искусство">Фото, искусство</option>
-            <option value="Фриланс">Фриланс</option>
-            <option value="Чаты">Чаты</option>
-            <option value="Юриспруденция">Юриспруденция</option>
-            <option value="Разное">Разное</option>
+            <!-- заполняется из CATEGORIES -->
           </select>
         </div>
       </div>
@@ -1076,44 +1050,7 @@
       <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
       <label>4. Категория (тема)</label>
       <select id="item-category">
-        <option value="">Выберите категорию</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
+        <!-- заполняется из CATEGORIES -->
       </select>
 
       <div class="add-progress" id="add-progress">
@@ -1211,43 +1148,7 @@
       </select>
       <label>Категория</label>
       <select id="bulk-category">
-        <option value="Разное">Разное</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
+        <!-- заполняется из CATEGORIES -->
       </select>
       <label>Usernames через пробел (с @)</label>
       <textarea id="bulk-list" placeholder="@channel1 @channel2 @mybot" style="min-height:120px;"></textarea>
@@ -1271,44 +1172,7 @@
       </p>
       <label>Категория</label>
       <select id="delete-category-select">
-        <option value="">— выберите —</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
+        <!-- заполняется из CATEGORIES -->
       </select>
       <label>Только тип (необязательно)</label>
       <select id="delete-category-type">
@@ -1333,44 +1197,7 @@
       </p>
       <label>Категория</label>
       <select id="check-links-category">
-        <option value="">Все категории</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
+        <!-- заполняется из CATEGORIES -->
       </select>
       <label>Тип (необязательно)</label>
       <select id="check-links-type">
@@ -1395,44 +1222,7 @@
       </p>
       <label>Категория</label>
       <select id="refresh-meta-category">
-        <option value="">Все категории</option>
-        <option value="Авто, мото, техника">Авто, мото, техника</option>
-        <option value="Аниме">Аниме</option>
-        <option value="Знакомства">Знакомства</option>
-        <option value="Бизнес и стартапы">Бизнес и стартапы</option>
-        <option value="Для взрослых 18+">Для взрослых 18+</option>
-        <option value="Для мужчин">Для мужчин</option>
-        <option value="Для женщин">Для женщин</option>
-        <option value="Для родителей">Для родителей</option>
-        <option value="Блоги">Блоги</option>
-        <option value="Еда и напитки">Еда и напитки</option>
-        <option value="Здоровье и спорт">Здоровье и спорт</option>
-        <option value="Игры и приложения">Игры и приложения</option>
-        <option value="Инвестиции и финансы">Инвестиции и финансы</option>
-        <option value="Криптовалюта">Криптовалюта</option>
-        <option value="Маркетинг и реклама">Маркетинг и реклама</option>
-        <option value="Маркетплейсы">Маркетплейсы</option>
-        <option value="Медицина">Медицина</option>
-        <option value="Мода и красота">Мода и красота</option>
-        <option value="Музыка">Музыка</option>
-        <option value="Поиск работы, вакансии">Поиск работы, вакансии</option>
-        <option value="Новости и СМИ">Новости и СМИ</option>
-        <option value="Продажи">Продажи</option>
-        <option value="Психология">Психология</option>
-        <option value="Путешествия">Путешествия</option>
-        <option value="Развлечения и юмор">Развлечения и юмор</option>
-        <option value="SMM">SMM</option>
-        <option value="Телеграм">Телеграм</option>
-        <option value="Технологии">Технологии</option>
-        <option value="Трейдинг">Трейдинг</option>
-        <option value="Нейросети и AI">Нейросети и AI</option>
-        <option value="Фильмы и сериалы">Фильмы и сериалы</option>
-        <option value="Футбол, хоккей">Футбол, хоккей</option>
-        <option value="Фото, искусство">Фото, искусство</option>
-        <option value="Фриланс">Фриланс</option>
-        <option value="Чаты">Чаты</option>
-        <option value="Юриспруденция">Юриспруденция</option>
-        <option value="Разное">Разное</option>
+        <!-- заполняется из CATEGORIES -->
       </select>
       <label>Тип (необязательно)</label>
       <select id="refresh-meta-type">
@@ -1533,6 +1323,78 @@
     let listPageSize = 80;
     let listVisibleCount = 80;
     let lastFilteredList = [];
+
+    // Единый список категорий — больше не дублируем в 6 местах HTML
+    const CATEGORIES = [
+      'Авто, мото, техника', 'Аниме', 'Знакомства', 'Бизнес и стартапы',
+      'Для взрослых 18+', 'Для мужчин', 'Для женщин', 'Для родителей',
+      'Блоги', 'Еда и напитки', 'Здоровье и спорт', 'Игры и приложения',
+      'Инвестиции и финансы', 'Криптовалюта', 'Маркетинг и реклама', 'Маркетплейсы',
+      'Медицина', 'Мода и красота', 'Музыка', 'Поиск работы, вакансии',
+      'Новости и СМИ', 'Продажи', 'Психология', 'Путешествия',
+      'Развлечения и юмор', 'SMM', 'Телеграм', 'Технологии',
+      'Трейдинг', 'Нейросети и AI', 'Фильмы и сериалы', 'Футбол, хоккей',
+      'Фото, искусство', 'Фриланс', 'Чаты', 'Юриспруденция', 'Разное'
+    ];
+
+    // Простой кэш метаданных Telegram на время сессии (снижает нагрузку на прокси)
+    const tgMetaCache = new Map();
+    const TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
+
+    function fillCategorySelect(selectEl, opts = {}) {
+      if (!selectEl) return;
+      const {
+        includeEmpty = true,
+        emptyLabel = 'Все категории',
+        emptyValue = '',
+        selected = ''
+      } = opts;
+      const parts = [];
+      if (includeEmpty) {
+        parts.push(`<option value="${escapeHtml(emptyValue)}">${escapeHtml(emptyLabel)}</option>`);
+      }
+      for (const cat of CATEGORIES) {
+        const sel = (cat === selected) ? ' selected' : '';
+        parts.push(`<option value="${escapeHtml(cat)}"${sel}>${escapeHtml(cat)}</option>`);
+      }
+      selectEl.innerHTML = parts.join('');
+    }
+
+    function initCategorySelects() {
+      fillCategorySelect(document.getElementById('category-filter'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('item-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Выберите категорию',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('bulk-category'), {
+        includeEmpty: false,
+        selected: 'Разное'
+      });
+      // Для bulk если нет selected по умолчанию — ставим Разное вручную
+      const bulkCat = document.getElementById('bulk-category');
+      if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
+
+      fillCategorySelect(document.getElementById('delete-category-select'), {
+        includeEmpty: true,
+        emptyLabel: '— выберите —',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('check-links-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('refresh-meta-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+    }
 
     function escapeHtml(s) {
       return String(s ?? '')
@@ -2198,29 +2060,39 @@
       try {
         if (username) {
           const u = normalizeUsername(username);
+          // Точное сравнение после нормализации на клиенте (ilike может дать ложные)
           const { data } = await supabaseClient
             .from('items')
             .select('id, username')
             .ilike('username', u)
-            .limit(5);
+            .limit(8);
           if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
         }
         if (invite) {
-          const inv = normalizeInvite(invite);
+          // Сначала точное совпадение как в БД
           const { data } = await supabaseClient
             .from('items')
             .select('id, invite_link')
             .eq('invite_link', invite)
             .limit(3);
           if ((data || []).length) return true;
-          // доп. проверка по нормализованной форме (лимит, чтобы не тянуть всю БД)
-          const { data: allInv } = await supabaseClient
-            .from('items')
-            .select('id, invite_link')
-            .not('invite_link', 'is', null)
-            .order('created_at', { ascending: false })
-            .limit(2000);
-          if ((allInv || []).some(r => normalizeInvite(r.invite_link) === inv)) return true;
+
+          // Нормализованная форма: ищем по нескольким возможным вариантам записи
+          const inv = normalizeInvite(invite);
+          const variants = [invite, inv];
+          if (inv.startsWith('https://t.me/')) {
+            variants.push(inv.replace('https://t.me/', 'https://telegram.me/'));
+            variants.push(inv.replace(/^https:\/\//, 'http://'));
+          }
+          for (const v of [...new Set(variants)]) {
+            const { data: d2 } = await supabaseClient
+              .from('items')
+              .select('id')
+              .eq('invite_link', v)
+              .limit(1);
+            if (d2 && d2.length) return true;
+          }
+          // Больше не тянем 2000 строк — полагаемся на isDuplicate (allItems) + точные запросы
         }
       } catch (e) {
         console.warn('existsInDb', e);
@@ -2235,6 +2107,15 @@
     async function fetchTgMeta(username, onProgress, entityType, opts) {
       const uname = normalizeUsername(username);
       if (!uname) return { title: null, description: null, avatar: null };
+
+      // Кэш на сессию — не дёргаем прокси повторно для того же username
+      const cacheKey = uname + '|' + (entityType || '');
+      const cached = tgMetaCache.get(cacheKey);
+      if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
+        if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
+        return { ...cached.meta };
+      }
+
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
       const isBot = entityType === 'bot' || /bot$/i.test(uname);
       const fast = !!(opts && opts.fast);
@@ -2479,6 +2360,10 @@
       }
 
       setP(96, 'Почти готово…');
+      // Сохраняем в кэш сессии
+      try {
+        tgMetaCache.set(cacheKey, { ts: Date.now(), meta: { ...meta } });
+      } catch (e) {}
       return meta;
     }
 
@@ -3912,6 +3797,9 @@
         }
         return false;
       }
+
+      // Категории в селекты — один раз при старте
+      try { initCategorySelects(); } catch (e) { console.warn('initCategorySelects', e); }
 
       tryInitSupabase();
       // до 5 сек ждём CDN supabase-js
