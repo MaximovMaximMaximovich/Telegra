@@ -1440,6 +1440,9 @@
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
     let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+    let listPageSize = 80;
+    let listVisibleCount = 80;
+    let lastFilteredList = [];
 
     function escapeHtml(s) {
       return String(s ?? '')
@@ -1620,6 +1623,7 @@
       // Debounce heavy re-render to avoid lag on large catalogs / mobile
       if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
       filterDebounceTimer = setTimeout(() => {
+        listVisibleCount = listPageSize;
         applyFilters();
       }, 180);
 
@@ -1816,28 +1820,42 @@
 
     // Прямой REST-запрос к Supabase (если JS-клиент завис или не инициализировался)
     async function fetchItemsViaRest() {
-      const headers = {
+      const baseHeaders = {
         'apikey': SUPABASE_ANON_KEY,
         'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
         'Accept': 'application/json',
-        'Range': '0-9999'
+        'Prefer': 'count=exact'
       };
       const url = SUPABASE_URL + '/rest/v1/items?select=*&order=created_at.desc';
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 20000);
-      try {
-        const res = await fetch(url, { headers, signal: ctrl.signal });
-        clearTimeout(timer);
-        if (!res.ok) {
-          const t = await res.text().catch(() => '');
-          throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
+      const pageSize = 1000;
+      let from = 0;
+      let all = [];
+      while (true) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 25000);
+        try {
+          const res = await fetch(url, {
+            headers: { ...baseHeaders, 'Range': from + '-' + (from + pageSize - 1) },
+            signal: ctrl.signal
+          });
+          clearTimeout(timer);
+          if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
+          }
+          const batch = await res.json();
+          if (!Array.isArray(batch)) break;
+          all = all.concat(batch);
+          if (batch.length < pageSize) break;
+          from += pageSize;
+          if (from > 100000) break;
+        } catch (e) {
+          clearTimeout(timer);
+          if (all.length) return all; // частичный успех лучше, чем полный провал
+          throw e;
         }
-        const data = await res.json();
-        return Array.isArray(data) ? data : [];
-      } catch (e) {
-        clearTimeout(timer);
-        throw e;
       }
+      return all;
     }
 
     async function fetchBlacklistViaRest() {
@@ -1925,15 +1943,31 @@
             error = { message: 'Клиент Supabase не инициализирован' };
           }
 
-          // --- Способ 2: REST API (обход, если JS-клиент не сработал) ---
-          if (error || (!items.length && error)) {
-            try {
-              console.warn('loadData: fallback REST', error && error.message);
-              items = await fetchItemsViaRest();
-              error = null;
-              usedRest = true;
-            } catch (e2) {
-              error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+          // --- Способ 2: REST API (обход при ошибке или пустом ответе клиента) ---
+          if (error || (supabaseClient && items.length === 0 && loadDataAttempts === 0)) {
+            // если клиент вернул пусто без ошибки — один раз пробуем REST (на случай сбоя клиента)
+            const shouldTryRest = !!error || items.length === 0;
+            if (shouldTryRest) {
+              try {
+                console.warn('loadData: fallback REST', error && error.message);
+                const restItems = await fetchItemsViaRest();
+                if (restItems && restItems.length) {
+                  items = restItems;
+                  error = null;
+                  usedRest = true;
+                } else if (!error && restItems) {
+                  // реально пустой каталог
+                  items = restItems;
+                  error = null;
+                  usedRest = true;
+                } else if (error) {
+                  // REST тоже не помог — оставляем error
+                }
+              } catch (e2) {
+                if (!items.length) {
+                  error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+                }
+              }
             }
           }
 
@@ -1968,6 +2002,7 @@
           }
 
           loadDataAttempts = 0;
+          listVisibleCount = listPageSize;
 
           const nowIso = Date.now();
           allItems = (items || []).map(it => {
@@ -2012,6 +2047,9 @@
 
           if (usedRest) {
             console.info('Каталог загружен через REST API, записей:', allItems.length);
+          }
+          if (allItems.length) {
+            showStatus('Загружено записей: ' + allItems.length, 4000);
           }
         } catch (e) {
           console.error('loadData fatal:', e);
@@ -3336,12 +3374,19 @@
       document.querySelectorAll('.filter-btn').forEach(btn => {
         btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
       });
+      listVisibleCount = listPageSize;
       applyFilters();
     }
 
     function setCategoryFilter(cat) {
       currentCategory = cat || '';
+      listVisibleCount = listPageSize;
       applyFilters();
+    }
+
+    function showMoreItems() {
+      listVisibleCount += listPageSize;
+      applyFilters({ keepScroll: true });
     }
 
     function isRecentUserAdd(item) {
@@ -3358,7 +3403,7 @@
       return arr.slice(offset).concat(arr.slice(0, offset));
     }
 
-    function applyFilters() {
+    function applyFilters(opts) {
       // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
       listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
 
@@ -3460,13 +3505,17 @@
       }
       }
 
-      // Рендер списка (с ротацией)
+      // Рендер списка (с ротацией + пагинация — не рисуем все тысячи строк сразу)
+      lastFilteredList = rotated;
       const listEl = document.getElementById('items-list');
       if (listEl) {
       if (!rotated.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
-        listEl.innerHTML = rotated.map(item => {
+        const limit = Math.min(listVisibleCount, rotated.length);
+        const page = rotated.slice(0, limit);
+        const rest = rotated.length - limit;
+        let html = page.map(item => {
           const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
@@ -3492,6 +3541,10 @@
               </div>
             </div>`;
         }).join('');
+        if (rest > 0) {
+          html += `<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">Показать ещё ${Math.min(listPageSize, rest)} из ${rest}</button>`;
+        }
+        listEl.innerHTML = html;
       }
       }
 
@@ -3511,7 +3564,15 @@
     }
 
     function render() {
-      applyFilters();
+      // не блокируем UI на длинной отрисовке
+      requestAnimationFrame(() => {
+        try {
+          applyFilters();
+        } catch (re) {
+          console.error('render error', re);
+          setListsMessage('Данные получены, но ошибка отрисовки: ' + escapeHtml(re.message || ''));
+        }
+      });
     }
 
     function openModal(type) {
@@ -3651,6 +3712,7 @@
       window.launchConfetti = launchConfetti;
       window.closePrivateNameModal = closePrivateNameModal;
       window.confirmPrivateName = confirmPrivateName;
+      window.showMoreItems = showMoreItems;
       window.loadDataAttempts = 0;
     } catch (e) {
       console.error('window export failed', e);
