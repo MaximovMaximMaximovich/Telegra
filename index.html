@@ -1975,6 +1975,7 @@
 
     let loadDataInFlight = null;
     let loadDataAttempts = 0;
+    let welcomeShown = false;
 
     async function loadData(isRetry) {
       // не гоняем параллельные полные загрузки
@@ -2143,8 +2144,9 @@
           if (usedRest) {
             console.info('Каталог загружен через REST API, записей:', allItems.length);
           }
-          if (allItems.length) {
-            showStatus('Загружено записей: ' + allItems.length, 4000);
+          if (!welcomeShown) {
+            welcomeShown = true;
+            showStatus('Добро пожаловать', 3500);
           }
         } catch (e) {
           console.error('loadData fatal:', e);
