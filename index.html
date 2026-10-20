@@ -62,75 +62,79 @@
       position: relative;
     }
 
-    /* Фон: сетка сигналов / волны связи */
+    /* Фон: тёплая бумага / крафт + зерно */
     .bg-planets {
       position: fixed;
       inset: 0;
       z-index: -1;
       pointer-events: none;
       overflow: hidden;
-      background:
-        radial-gradient(ellipse 100% 70% at 50% -10%, #eef2ee 0%, transparent 50%),
-        linear-gradient(165deg, #f7f5f0 0%, #f3f0ea 50%, #eef1ec 100%);
+      background-color: #f7f5f0;
+      background-image:
+        /* мягкий вертикальный тон бумаги */
+        linear-gradient(
+          180deg,
+          #faf8f4 0%,
+          #f7f5f0 40%,
+          #f3f0ea 78%,
+          #efebe3 100%
+        );
     }
-    .bg-planets .signal-svg {
+    /* Слой волокна бумаги (крупная мягкая структура) */
+    .bg-planets .paper-fiber {
       position: absolute;
-      inset: -5%;
-      width: 110%;
-      height: 110%;
-      opacity: 0.9;
+      inset: 0;
+      opacity: 0.45;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 2px,
+          rgba(44, 95, 78, 0.015) 2px,
+          rgba(44, 95, 78, 0.015) 3px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 3px,
+          rgba(90, 70, 40, 0.012) 3px,
+          rgba(90, 70, 40, 0.012) 4px
+        );
       will-change: transform;
     }
-    .bg-planets .signal-svg path,
-    .bg-planets .signal-svg circle {
-      fill: none;
-      stroke: var(--accent);
-      vector-effect: non-scaling-stroke;
+    /* Зерно через SVG feTurbulence */
+    .bg-planets .paper-grain {
+      position: absolute;
+      inset: -10%;
+      width: 120%;
+      height: 120%;
+      opacity: 0.35;
+      mix-blend-mode: multiply;
+      will-change: transform;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.2 0 0 0 0 0.16 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 180px 180px;
     }
-    .bg-planets .sig-arc {
-      stroke-width: 1.2;
-      stroke-opacity: 0.14;
+    /* Второе зерно — мельче, теплее */
+    .bg-planets .paper-grain-fine {
+      position: absolute;
+      inset: 0;
+      opacity: 0.22;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.18 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 96px 96px;
+      will-change: transform;
     }
-    .bg-planets .sig-arc.dim {
-      stroke-opacity: 0.08;
-      stroke-width: 1;
-    }
-    .bg-planets .sig-arc.soft {
-      stroke-opacity: 0.06;
-      stroke-width: 1.5;
-    }
-    .bg-planets .sig-line {
-      stroke-width: 1;
-      stroke-opacity: 0.1;
-      stroke-dasharray: 4 10;
-    }
-    .bg-planets .sig-node {
-      fill: var(--accent);
-      stroke: none;
-      fill-opacity: 0.18;
-    }
-    .bg-planets .sig-node.core {
-      fill-opacity: 0.28;
-    }
-    .bg-planets .sig-node.tiny {
-      fill-opacity: 0.12;
-    }
-    .bg-planets .sig-pulse {
-      fill: none;
-      stroke: var(--accent);
-      stroke-width: 1;
-      stroke-opacity: 0.12;
-      animation: signalPulse 8s ease-out infinite;
-    }
-    .bg-planets .sig-pulse.d2 { animation-delay: 2.5s; }
-    .bg-planets .sig-pulse.d3 { animation-delay: 5s; }
-    @keyframes signalPulse {
-      0%   { stroke-opacity: 0.18; r: 8; }
-      70%  { stroke-opacity: 0.04; }
-      100% { stroke-opacity: 0; r: 48; }
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .bg-planets .sig-pulse { animation: none; stroke-opacity: 0.08; }
+    /* Лёгкие «пятна» крафта по углам */
+    .bg-planets .paper-wash {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 10% 20%, rgba(44, 95, 78, 0.04) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 45% at 90% 80%, rgba(184, 149, 74, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 40% at 70% 15%, rgba(90, 70, 40, 0.03) 0%, transparent 45%);
+      will-change: transform;
     }
 
     .page {
@@ -910,44 +914,10 @@
 <body>
 
   <div class="bg-planets" id="bg-planets" aria-hidden="true">
-    <svg class="signal-svg" id="signal-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <!-- Волны / дуги сигналов -->
-      <path class="sig-arc soft" d="M -20 120 Q 200 40 420 130 T 860 90 T 1220 140" />
-      <path class="sig-arc" d="M -40 280 Q 180 200 400 290 T 820 250 T 1240 300" />
-      <path class="sig-arc dim" d="M -30 450 Q 220 380 440 460 T 880 420 T 1230 470" />
-      <path class="sig-arc soft" d="M -20 620 Q 250 540 480 630 T 900 580 T 1220 640" />
-      <path class="sig-arc dim" d="M 100 -20 Q 180 160 120 320 T 200 620 T 80 820" />
-      <path class="sig-arc soft" d="M 1100 -10 Q 1020 180 1080 360 T 1000 680 T 1140 820" />
-      <!-- Связи между узлами -->
-      <path class="sig-line" d="M 180 160 L 340 220 L 520 180 L 700 260" />
-      <path class="sig-line" d="M 320 400 L 480 360 L 640 420 L 820 380" />
-      <path class="sig-line" d="M 200 560 L 380 520 L 560 580 L 760 540" />
-      <path class="sig-line" d="M 420 120 L 460 280 L 500 440" />
-      <path class="sig-line" d="M 780 140 L 740 300 L 800 480" />
-      <!-- Узлы сети -->
-      <circle class="sig-node core" cx="180" cy="160" r="5" />
-      <circle class="sig-node" cx="340" cy="220" r="4" />
-      <circle class="sig-node core" cx="520" cy="180" r="6" />
-      <circle class="sig-node" cx="700" cy="260" r="4" />
-      <circle class="sig-node" cx="320" cy="400" r="3.5" />
-      <circle class="sig-node core" cx="480" cy="360" r="5" />
-      <circle class="sig-node" cx="640" cy="420" r="4" />
-      <circle class="sig-node" cx="820" cy="380" r="3.5" />
-      <circle class="sig-node" cx="200" cy="560" r="4" />
-      <circle class="sig-node core" cx="380" cy="520" r="5" />
-      <circle class="sig-node" cx="560" cy="580" r="3.5" />
-      <circle class="sig-node" cx="760" cy="540" r="4" />
-      <circle class="sig-node tiny" cx="460" cy="280" r="2.5" />
-      <circle class="sig-node tiny" cx="740" cy="300" r="2.5" />
-      <circle class="sig-node tiny" cx="900" cy="200" r="3" />
-      <circle class="sig-node tiny" cx="100" cy="350" r="2.5" />
-      <circle class="sig-node tiny" cx="1050" cy="480" r="3" />
-      <circle class="sig-node tiny" cx="250" cy="100" r="2" />
-      <!-- Импульсы от ключевых узлов -->
-      <circle class="sig-pulse" cx="520" cy="180" r="8" />
-      <circle class="sig-pulse d2" cx="480" cy="360" r="8" />
-      <circle class="sig-pulse d3" cx="380" cy="520" r="8" />
-    </svg>
+    <div class="paper-wash" data-speed="0.04"></div>
+    <div class="paper-fiber" data-speed="0.06"></div>
+    <div class="paper-grain" data-speed="0.08"></div>
+    <div class="paper-grain-fine" data-speed="0.03"></div>
   </div>
 
   <!-- Очень маленькая кнопка Login -->
@@ -3840,19 +3810,21 @@
       window.showMoreItems = showMoreItems;
       window.loadDataAttempts = 0;
 
-    // Параллакс сетки сигналов при прокрутке
-    (function initSignalParallax() {
+    // Лёгкий параллакс бумажной текстуры
+    (function initPaperParallax() {
       const layer = document.getElementById('bg-planets');
-      const svg = document.getElementById('signal-svg');
-      if (!layer || !svg) return;
+      if (!layer) return;
+      const parts = layer.querySelectorAll('[data-speed]');
       let ticking = false;
       function onScroll() {
         if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
           const y = window.scrollY || window.pageYOffset || 0;
-          // медленнее контента — «остаётся на месте», чуть уходит вверх
-          svg.style.transform = 'translate3d(0, ' + (-y * 0.12) + 'px, 0)';
+          parts.forEach(el => {
+            const speed = parseFloat(el.getAttribute('data-speed') || '0.05');
+            el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
+          });
           ticking = false;
         });
       }
