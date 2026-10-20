@@ -62,7 +62,7 @@
       position: relative;
     }
 
-    /* Фон с крупными полупрозрачными «планетами» (палитра сайта) */
+    /* Фон: сетка сигналов / волны связи */
     .bg-planets {
       position: fixed;
       inset: 0;
@@ -70,212 +70,67 @@
       pointer-events: none;
       overflow: hidden;
       background:
-        radial-gradient(ellipse 120% 80% at 50% -20%, #eef2ee 0%, transparent 55%),
-        linear-gradient(165deg, #f7f5f0 0%, #f3f0ea 45%, #eef1ec 100%);
+        radial-gradient(ellipse 100% 70% at 50% -10%, #eef2ee 0%, transparent 50%),
+        linear-gradient(165deg, #f7f5f0 0%, #f3f0ea 50%, #eef1ec 100%);
     }
-    .bg-planets .planet {
+    .bg-planets .signal-svg {
       position: absolute;
-      border-radius: 50%;
+      inset: -5%;
+      width: 110%;
+      height: 110%;
+      opacity: 0.9;
       will-change: transform;
-      transition: transform 0.1s linear;
-      /* 3D-сфера: глубина + мягкая проекция на фон */
-      box-shadow:
-        inset -28px -24px 50px rgba(20, 32, 28, 0.28),
-        inset -8px -6px 16px rgba(20, 32, 28, 0.12),
-        inset 16px 14px 36px rgba(255, 255, 255, 0.45),
-        inset 4px 4px 10px rgba(255, 255, 255, 0.25),
-        0 12px 40px rgba(44, 95, 78, 0.1),
-        0 4px 12px rgba(26, 40, 34, 0.08);
-      isolation: isolate;
     }
-    /* Слой освещения: блик + терминатор */
-    .bg-planets .planet::before {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 50%;
-      pointer-events: none;
-      z-index: 2;
-      background:
-        radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.25) 8%, transparent 22%),
-        radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
-        linear-gradient(
-          128deg,
-          transparent 28%,
-          rgba(20, 32, 28, 0.02) 48%,
-          rgba(20, 32, 28, 0.12) 62%,
-          rgba(20, 32, 28, 0.28) 78%,
-          rgba(12, 20, 16, 0.42) 100%
-        );
-      mix-blend-mode: soft-light;
-      opacity: 1;
+    .bg-planets .signal-svg path,
+    .bg-planets .signal-svg circle {
+      fill: none;
+      stroke: var(--accent);
+      vector-effect: non-scaling-stroke;
     }
-    .bg-planets .planet::after {
-      content: '';
-      position: absolute;
-      pointer-events: none;
-      z-index: 1;
+    .bg-planets .sig-arc {
+      stroke-width: 1.2;
+      stroke-opacity: 0.14;
     }
-
-    /* Большая зелёная планета — 3D + «материки» */
-    .bg-planets .p1 {
-      width: min(72vw, 640px);
-      height: min(72vw, 640px);
-      top: -8%;
-      right: -12%;
-      background:
-        radial-gradient(circle at 32% 30%, #eef5f1 0%, transparent 25%),
-        radial-gradient(ellipse 38% 26% at 34% 44%, rgba(44, 95, 78, 0.35) 0%, transparent 68%),
-        radial-gradient(ellipse 30% 22% at 60% 52%, rgba(44, 95, 78, 0.28) 0%, transparent 65%),
-        radial-gradient(ellipse 20% 16% at 48% 66%, rgba(60, 110, 90, 0.22) 0%, transparent 60%),
-        radial-gradient(ellipse 16% 12% at 68% 36%, rgba(44, 95, 78, 0.2) 0%, transparent 55%),
-        radial-gradient(circle at 38% 36%, #d5e6de 0%, #b4cfc3 32%, #8fad9f 58%, #6d9080 82%, #4a6b5c 100%);
-      opacity: 0.95;
+    .bg-planets .sig-arc.dim {
+      stroke-opacity: 0.08;
+      stroke-width: 1;
     }
-    .bg-planets .p1::after {
-      /* атмосфера / ореол */
-      inset: -10px;
-      border-radius: 50%;
-      background: radial-gradient(
-        circle,
-        transparent 62%,
-        rgba(120, 170, 150, 0.12) 72%,
-        rgba(44, 95, 78, 0.06) 82%,
-        transparent 92%
-      );
-      box-shadow: 0 0 40px rgba(44, 95, 78, 0.08);
-      z-index: 0;
+    .bg-planets .sig-arc.soft {
+      stroke-opacity: 0.06;
+      stroke-width: 1.5;
     }
-
-    /* Песочно-золотая — сильный 3D-шарик */
-    .bg-planets .p2 {
-      width: min(55vw, 480px);
-      height: min(55vw, 480px);
-      bottom: 5%;
-      left: -10%;
-      background:
-        radial-gradient(circle at 34% 28%, #fffaf0 0%, transparent 18%),
-        radial-gradient(circle at 52% 48%, rgba(140, 110, 50, 0.12) 0%, transparent 14%),
-        radial-gradient(circle at 40% 60%, rgba(100, 75, 30, 0.1) 0%, transparent 12%),
-        radial-gradient(circle at 65% 42%, rgba(120, 90, 40, 0.09) 0%, transparent 11%),
-        radial-gradient(circle at 40% 36%, #f3ebd4 0%, #e0d0a8 28%, #c9b480 52%, #a89060 75%, #8a7348 100%);
-      opacity: 0.93;
+    .bg-planets .sig-line {
+      stroke-width: 1;
+      stroke-opacity: 0.1;
+      stroke-dasharray: 4 10;
     }
-    .bg-planets .p2::after {
-      inset: -8px;
-      border-radius: 50%;
-      background: radial-gradient(
-        circle,
-        transparent 64%,
-        rgba(200, 170, 100, 0.14) 74%,
-        rgba(184, 149, 74, 0.06) 84%,
-        transparent 94%
-      );
-      z-index: 0;
+    .bg-planets .sig-node {
+      fill: var(--accent);
+      stroke: none;
+      fill-opacity: 0.18;
     }
-
-    /* Планета с кольцом — объём + наклонённый диск */
-    .bg-planets .p3 {
-      width: min(36vw, 320px);
-      height: min(36vw, 320px);
-      top: 36%;
-      left: 44%;
-      background:
-        radial-gradient(circle at 32% 28%, #f5f2f8 0%, transparent 16%),
-        radial-gradient(ellipse 48% 28% at 55% 58%, rgba(90, 80, 120, 0.12) 0%, transparent 65%),
-        radial-gradient(circle at 42% 38%, #e4dfe8 0%, #c8c0d4 30%, #a89eb8 58%, #8a80a0 82%, #6e6480 100%);
-      opacity: 0.9;
-      overflow: visible;
+    .bg-planets .sig-node.core {
+      fill-opacity: 0.28;
     }
-    .bg-planets .p3::after {
-      width: 175%;
-      height: 32%;
-      left: -37.5%;
-      top: 34%;
-      border-radius: 50%;
-      background:
-        linear-gradient(
-          90deg,
-          transparent 5%,
-          rgba(160, 150, 180, 0.15) 18%,
-          rgba(200, 190, 220, 0.35) 35%,
-          rgba(220, 210, 235, 0.45) 50%,
-          rgba(200, 190, 220, 0.35) 65%,
-          rgba(160, 150, 180, 0.15) 82%,
-          transparent 95%
-        );
-      box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.2),
-        0 0 0 3px rgba(120, 110, 150, 0.12),
-        0 2px 8px rgba(60, 50, 80, 0.1);
-      transform: rotate(-20deg) perspective(200px) rotateX(68deg);
-      filter: blur(0.2px);
-      z-index: 3;
-      opacity: 0.9;
+    .bg-planets .sig-node.tiny {
+      fill-opacity: 0.12;
     }
-
-    /* Ледяная / луна */
-    .bg-planets .p4 {
-      width: min(28vw, 260px);
-      height: min(28vw, 260px);
-      top: 12%;
-      left: 8%;
-      background:
-        radial-gradient(circle at 32% 28%, #ffffff 0%, transparent 16%),
-        radial-gradient(circle at 55% 50%, rgba(44, 95, 78, 0.08) 0%, transparent 12%),
-        radial-gradient(circle at 42% 62%, rgba(44, 95, 78, 0.07) 0%, transparent 10%),
-        radial-gradient(circle at 45% 38%, #f0f6f3 0%, #d0e0d8 30%, #a8c0b4 58%, #849e92 80%, #5e7a6e 100%);
-      opacity: 0.88;
+    .bg-planets .sig-pulse {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 1;
+      stroke-opacity: 0.12;
+      animation: signalPulse 8s ease-out infinite;
     }
-    .bg-planets .p4::after {
-      inset: -7px;
-      border-radius: 50%;
-      background: radial-gradient(
-        circle,
-        transparent 64%,
-        rgba(160, 190, 175, 0.12) 74%,
-        rgba(44, 95, 78, 0.05) 86%,
-        transparent 95%
-      );
-      z-index: 0;
+    .bg-planets .sig-pulse.d2 { animation-delay: 2.5s; }
+    .bg-planets .sig-pulse.d3 { animation-delay: 5s; }
+    @keyframes signalPulse {
+      0%   { stroke-opacity: 0.18; r: 8; }
+      70%  { stroke-opacity: 0.04; }
+      100% { stroke-opacity: 0; r: 48; }
     }
-
-    /* Дальняя */
-    .bg-planets .p5 {
-      width: min(22vw, 200px);
-      height: min(22vw, 200px);
-      bottom: 22%;
-      right: 18%;
-      background:
-        radial-gradient(circle at 30% 26%, #ffffff 0%, transparent 14%),
-        radial-gradient(ellipse 55% 40% at 58% 68%, rgba(44, 95, 78, 0.14) 0%, transparent 55%),
-        radial-gradient(circle at 42% 38%, #e0eae4 0%, #b8ccc2 32%, #8fad9f 62%, #6a8a7a 88%, #4a6658 100%);
-      opacity: 0.86;
-    }
-    .bg-planets .p5::after {
-      inset: -5px;
-      border-radius: 50%;
-      background: radial-gradient(
-        circle,
-        transparent 65%,
-        rgba(120, 160, 140, 0.1) 76%,
-        transparent 90%
-      );
-      z-index: 0;
-    }
-
-    .bg-planets .stars {
-      position: absolute;
-      inset: 0;
-      background-image:
-        radial-gradient(1.5px 1.5px at 12% 18%, rgba(44, 95, 78, 0.14) 50%, transparent 50%),
-        radial-gradient(1.5px 1.5px at 78% 22%, rgba(44, 95, 78, 0.12) 50%, transparent 50%),
-        radial-gradient(1px 1px at 55% 48%, rgba(184, 149, 74, 0.16) 50%, transparent 50%),
-        radial-gradient(1.5px 1.5px at 30% 72%, rgba(44, 95, 78, 0.1) 50%, transparent 50%),
-        radial-gradient(1px 1px at 88% 65%, rgba(44, 95, 78, 0.1) 50%, transparent 50%),
-        radial-gradient(1px 1px at 45% 12%, rgba(107, 91, 140, 0.1) 50%, transparent 50%),
-        radial-gradient(1.5px 1.5px at 65% 85%, rgba(44, 95, 78, 0.09) 50%, transparent 50%);
-      opacity: 0.75;
+    @media (prefers-reduced-motion: reduce) {
+      .bg-planets .sig-pulse { animation: none; stroke-opacity: 0.08; }
     }
 
     .page {
@@ -1033,9 +888,6 @@
       .modal { padding: 16px; border-radius: 14px; max-width: 100%; }
     }
 
-    @media (prefers-reduced-motion: reduce) {
-      .bg-planets .planet { transition: none !important; }
-    }
   </style>
 
   <script type="application/ld+json">
@@ -1058,12 +910,44 @@
 <body>
 
   <div class="bg-planets" id="bg-planets" aria-hidden="true">
-    <div class="stars"></div>
-    <div class="planet p1" data-speed="0.12"></div>
-    <div class="planet p2" data-speed="0.08"></div>
-    <div class="planet p3" data-speed="0.18"></div>
-    <div class="planet p4" data-speed="0.06"></div>
-    <div class="planet p5" data-speed="0.15"></div>
+    <svg class="signal-svg" id="signal-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+      <!-- Волны / дуги сигналов -->
+      <path class="sig-arc soft" d="M -20 120 Q 200 40 420 130 T 860 90 T 1220 140" />
+      <path class="sig-arc" d="M -40 280 Q 180 200 400 290 T 820 250 T 1240 300" />
+      <path class="sig-arc dim" d="M -30 450 Q 220 380 440 460 T 880 420 T 1230 470" />
+      <path class="sig-arc soft" d="M -20 620 Q 250 540 480 630 T 900 580 T 1220 640" />
+      <path class="sig-arc dim" d="M 100 -20 Q 180 160 120 320 T 200 620 T 80 820" />
+      <path class="sig-arc soft" d="M 1100 -10 Q 1020 180 1080 360 T 1000 680 T 1140 820" />
+      <!-- Связи между узлами -->
+      <path class="sig-line" d="M 180 160 L 340 220 L 520 180 L 700 260" />
+      <path class="sig-line" d="M 320 400 L 480 360 L 640 420 L 820 380" />
+      <path class="sig-line" d="M 200 560 L 380 520 L 560 580 L 760 540" />
+      <path class="sig-line" d="M 420 120 L 460 280 L 500 440" />
+      <path class="sig-line" d="M 780 140 L 740 300 L 800 480" />
+      <!-- Узлы сети -->
+      <circle class="sig-node core" cx="180" cy="160" r="5" />
+      <circle class="sig-node" cx="340" cy="220" r="4" />
+      <circle class="sig-node core" cx="520" cy="180" r="6" />
+      <circle class="sig-node" cx="700" cy="260" r="4" />
+      <circle class="sig-node" cx="320" cy="400" r="3.5" />
+      <circle class="sig-node core" cx="480" cy="360" r="5" />
+      <circle class="sig-node" cx="640" cy="420" r="4" />
+      <circle class="sig-node" cx="820" cy="380" r="3.5" />
+      <circle class="sig-node" cx="200" cy="560" r="4" />
+      <circle class="sig-node core" cx="380" cy="520" r="5" />
+      <circle class="sig-node" cx="560" cy="580" r="3.5" />
+      <circle class="sig-node" cx="760" cy="540" r="4" />
+      <circle class="sig-node tiny" cx="460" cy="280" r="2.5" />
+      <circle class="sig-node tiny" cx="740" cy="300" r="2.5" />
+      <circle class="sig-node tiny" cx="900" cy="200" r="3" />
+      <circle class="sig-node tiny" cx="100" cy="350" r="2.5" />
+      <circle class="sig-node tiny" cx="1050" cy="480" r="3" />
+      <circle class="sig-node tiny" cx="250" cy="100" r="2" />
+      <!-- Импульсы от ключевых узлов -->
+      <circle class="sig-pulse" cx="520" cy="180" r="8" />
+      <circle class="sig-pulse d2" cx="480" cy="360" r="8" />
+      <circle class="sig-pulse d3" cx="380" cy="520" r="8" />
+    </svg>
   </div>
 
   <!-- Очень маленькая кнопка Login -->
@@ -3956,22 +3840,19 @@
       window.showMoreItems = showMoreItems;
       window.loadDataAttempts = 0;
 
-    // Лёгкий параллакс планет при прокрутке (остаются «на месте», чуть уходят вверх)
-    (function initPlanetParallax() {
+    // Параллакс сетки сигналов при прокрутке
+    (function initSignalParallax() {
       const layer = document.getElementById('bg-planets');
-      if (!layer) return;
-      const planets = layer.querySelectorAll('.planet');
+      const svg = document.getElementById('signal-svg');
+      if (!layer || !svg) return;
       let ticking = false;
       function onScroll() {
         if (ticking) return;
         ticking = true;
         requestAnimationFrame(() => {
           const y = window.scrollY || window.pageYOffset || 0;
-          planets.forEach(el => {
-            const speed = parseFloat(el.getAttribute('data-speed') || '0.1');
-            // отрицательный сдвиг: при скролле вниз планеты чуть поднимаются относительно контента
-            el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
-          });
+          // медленнее контента — «остаётся на месте», чуть уходит вверх
+          svg.style.transform = 'translate3d(0, ' + (-y * 0.12) + 'px, 0)';
           ticking = false;
         });
       }
