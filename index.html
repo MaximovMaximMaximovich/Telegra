@@ -78,153 +78,190 @@
       border-radius: 50%;
       will-change: transform;
       transition: transform 0.1s linear;
-      /* объём: лёгкая тень и обводка атмосферы */
+      /* 3D-сфера: глубина + мягкая проекция на фон */
       box-shadow:
-        inset -18px -14px 36px rgba(26, 40, 34, 0.12),
-        inset 12px 10px 28px rgba(255, 255, 255, 0.35),
-        0 0 0 1px rgba(44, 95, 78, 0.06),
-        0 8px 32px rgba(44, 95, 78, 0.06);
+        inset -28px -24px 50px rgba(20, 32, 28, 0.28),
+        inset -8px -6px 16px rgba(20, 32, 28, 0.12),
+        inset 16px 14px 36px rgba(255, 255, 255, 0.45),
+        inset 4px 4px 10px rgba(255, 255, 255, 0.25),
+        0 12px 40px rgba(44, 95, 78, 0.1),
+        0 4px 12px rgba(26, 40, 34, 0.08);
+      isolation: isolate;
     }
+    /* Слой освещения: блик + терминатор */
     .bg-planets .planet::before {
       content: '';
       position: absolute;
       inset: 0;
       border-radius: 50%;
       pointer-events: none;
-      /* терминатор — тёмная сторона планеты */
-      background: linear-gradient(
-        125deg,
-        transparent 35%,
-        rgba(26, 40, 34, 0.04) 55%,
-        rgba(26, 40, 34, 0.14) 78%,
-        rgba(26, 40, 34, 0.22) 100%
-      );
+      z-index: 2;
+      background:
+        radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.25) 8%, transparent 22%),
+        radial-gradient(circle at 28% 24%, rgba(255, 255, 255, 0.15) 0%, transparent 40%),
+        linear-gradient(
+          128deg,
+          transparent 28%,
+          rgba(20, 32, 28, 0.02) 48%,
+          rgba(20, 32, 28, 0.12) 62%,
+          rgba(20, 32, 28, 0.28) 78%,
+          rgba(12, 20, 16, 0.42) 100%
+        );
+      mix-blend-mode: soft-light;
+      opacity: 1;
     }
     .bg-planets .planet::after {
       content: '';
       position: absolute;
-      border-radius: 50%;
       pointer-events: none;
+      z-index: 1;
     }
 
-    /* Большая «Земля» — зелёно-бежевые материки */
+    /* Большая зелёная планета — 3D + «материки» */
     .bg-planets .p1 {
       width: min(72vw, 640px);
       height: min(72vw, 640px);
       top: -8%;
       right: -12%;
       background:
-        radial-gradient(circle at 28% 26%, rgba(255, 255, 255, 0.55) 0%, transparent 18%),
-        radial-gradient(ellipse 40% 28% at 35% 42%, rgba(44, 95, 78, 0.22) 0%, transparent 70%),
-        radial-gradient(ellipse 32% 24% at 62% 55%, rgba(44, 95, 78, 0.16) 0%, transparent 65%),
-        radial-gradient(ellipse 22% 18% at 48% 68%, rgba(90, 120, 100, 0.14) 0%, transparent 60%),
-        radial-gradient(ellipse 18% 14% at 70% 38%, rgba(44, 95, 78, 0.12) 0%, transparent 55%),
-        radial-gradient(circle at 40% 40%, #dce8e2 0%, #c5d9d0 38%, #a8c4b8 62%, #8fad9f 100%);
-      opacity: 0.92;
+        radial-gradient(circle at 32% 30%, #eef5f1 0%, transparent 25%),
+        radial-gradient(ellipse 38% 26% at 34% 44%, rgba(44, 95, 78, 0.35) 0%, transparent 68%),
+        radial-gradient(ellipse 30% 22% at 60% 52%, rgba(44, 95, 78, 0.28) 0%, transparent 65%),
+        radial-gradient(ellipse 20% 16% at 48% 66%, rgba(60, 110, 90, 0.22) 0%, transparent 60%),
+        radial-gradient(ellipse 16% 12% at 68% 36%, rgba(44, 95, 78, 0.2) 0%, transparent 55%),
+        radial-gradient(circle at 38% 36%, #d5e6de 0%, #b4cfc3 32%, #8fad9f 58%, #6d9080 82%, #4a6b5c 100%);
+      opacity: 0.95;
     }
     .bg-planets .p1::after {
-      /* тонкое кольцо атмосферы */
-      inset: -6px;
-      border: 2px solid rgba(44, 95, 78, 0.08);
-      box-shadow:
-        0 0 24px rgba(44, 95, 78, 0.1),
-        inset 0 0 20px rgba(255, 255, 255, 0.15);
-      background: transparent;
+      /* атмосфера / ореол */
+      inset: -10px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        transparent 62%,
+        rgba(120, 170, 150, 0.12) 72%,
+        rgba(44, 95, 78, 0.06) 82%,
+        transparent 92%
+      );
+      box-shadow: 0 0 40px rgba(44, 95, 78, 0.08);
+      z-index: 0;
     }
 
-    /* Песочно-золотая планета */
+    /* Песочно-золотая — сильный 3D-шарик */
     .bg-planets .p2 {
       width: min(55vw, 480px);
       height: min(55vw, 480px);
       bottom: 5%;
       left: -10%;
       background:
-        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.5) 0%, transparent 16%),
-        radial-gradient(circle at 55% 48%, rgba(184, 149, 74, 0.08) 0%, transparent 12%),
-        radial-gradient(circle at 38% 62%, rgba(122, 92, 32, 0.07) 0%, transparent 10%),
-        radial-gradient(circle at 68% 40%, rgba(122, 92, 32, 0.06) 0%, transparent 9%),
-        radial-gradient(ellipse 70% 50% at 50% 100%, rgba(122, 92, 32, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 42% 38%, #f5efe0 0%, #e8dcc0 35%, #d4c4a0 65%, #c4b088 100%);
-      opacity: 0.88;
+        radial-gradient(circle at 34% 28%, #fffaf0 0%, transparent 18%),
+        radial-gradient(circle at 52% 48%, rgba(140, 110, 50, 0.12) 0%, transparent 14%),
+        radial-gradient(circle at 40% 60%, rgba(100, 75, 30, 0.1) 0%, transparent 12%),
+        radial-gradient(circle at 65% 42%, rgba(120, 90, 40, 0.09) 0%, transparent 11%),
+        radial-gradient(circle at 40% 36%, #f3ebd4 0%, #e0d0a8 28%, #c9b480 52%, #a89060 75%, #8a7348 100%);
+      opacity: 0.93;
     }
     .bg-planets .p2::after {
-      inset: -4px;
-      border: 1px solid rgba(184, 149, 74, 0.12);
-      box-shadow: 0 0 20px rgba(184, 149, 74, 0.08);
-      background: transparent;
+      inset: -8px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        transparent 64%,
+        rgba(200, 170, 100, 0.14) 74%,
+        rgba(184, 149, 74, 0.06) 84%,
+        transparent 94%
+      );
+      z-index: 0;
     }
 
-    /* Планета с кольцом (Сатурн-like) */
+    /* Планета с кольцом — объём + наклонённый диск */
     .bg-planets .p3 {
       width: min(36vw, 320px);
       height: min(36vw, 320px);
       top: 36%;
       left: 44%;
       background:
-        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.45) 0%, transparent 14%),
-        radial-gradient(ellipse 50% 30% at 50% 55%, rgba(107, 91, 140, 0.08) 0%, transparent 70%),
-        radial-gradient(circle at 45% 42%, #ebe6f0 0%, #d8d2e0 40%, #c4bdd0 70%, #b0a8c0 100%);
-      opacity: 0.82;
+        radial-gradient(circle at 32% 28%, #f5f2f8 0%, transparent 16%),
+        radial-gradient(ellipse 48% 28% at 55% 58%, rgba(90, 80, 120, 0.12) 0%, transparent 65%),
+        radial-gradient(circle at 42% 38%, #e4dfe8 0%, #c8c0d4 30%, #a89eb8 58%, #8a80a0 82%, #6e6480 100%);
+      opacity: 0.9;
       overflow: visible;
     }
     .bg-planets .p3::after {
-      /* кольцо */
-      width: 160%;
-      height: 28%;
-      left: -30%;
-      top: 36%;
+      width: 175%;
+      height: 32%;
+      left: -37.5%;
+      top: 34%;
       border-radius: 50%;
-      border: 3px solid rgba(140, 130, 160, 0.22);
+      background:
+        linear-gradient(
+          90deg,
+          transparent 5%,
+          rgba(160, 150, 180, 0.15) 18%,
+          rgba(200, 190, 220, 0.35) 35%,
+          rgba(220, 210, 235, 0.45) 50%,
+          rgba(200, 190, 220, 0.35) 65%,
+          rgba(160, 150, 180, 0.15) 82%,
+          transparent 95%
+        );
       box-shadow:
-        0 0 0 1px rgba(255, 255, 255, 0.15),
-        inset 0 0 8px rgba(107, 91, 140, 0.08);
-      background: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(180, 170, 200, 0.12) 20%,
-        rgba(180, 170, 200, 0.2) 50%,
-        rgba(180, 170, 200, 0.12) 80%,
-        transparent 100%
-      );
-      transform: rotate(-18deg);
-      filter: blur(0.3px);
+        0 0 0 1px rgba(255, 255, 255, 0.2),
+        0 0 0 3px rgba(120, 110, 150, 0.12),
+        0 2px 8px rgba(60, 50, 80, 0.1);
+      transform: rotate(-20deg) perspective(200px) rotateX(68deg);
+      filter: blur(0.2px);
+      z-index: 3;
+      opacity: 0.9;
     }
 
-    /* Маленькая «луна» / ледяная */
+    /* Ледяная / луна */
     .bg-planets .p4 {
       width: min(28vw, 260px);
       height: min(28vw, 260px);
       top: 12%;
       left: 8%;
       background:
-        radial-gradient(circle at 34% 30%, rgba(255, 255, 255, 0.65) 0%, transparent 18%),
-        radial-gradient(circle at 58% 52%, rgba(44, 95, 78, 0.06) 0%, transparent 14%),
-        radial-gradient(circle at 42% 64%, rgba(44, 95, 78, 0.05) 0%, transparent 11%),
-        radial-gradient(circle at 48% 40%, #eef4f1 0%, #d5e3dc 40%, #b8ccc2 75%, #9eb8ac 100%);
-      opacity: 0.8;
+        radial-gradient(circle at 32% 28%, #ffffff 0%, transparent 16%),
+        radial-gradient(circle at 55% 50%, rgba(44, 95, 78, 0.08) 0%, transparent 12%),
+        radial-gradient(circle at 42% 62%, rgba(44, 95, 78, 0.07) 0%, transparent 10%),
+        radial-gradient(circle at 45% 38%, #f0f6f3 0%, #d0e0d8 30%, #a8c0b4 58%, #849e92 80%, #5e7a6e 100%);
+      opacity: 0.88;
     }
     .bg-planets .p4::after {
-      inset: -3px;
-      border: 1px solid rgba(44, 95, 78, 0.07);
-      background: transparent;
+      inset: -7px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        transparent 64%,
+        rgba(160, 190, 175, 0.12) 74%,
+        rgba(44, 95, 78, 0.05) 86%,
+        transparent 95%
+      );
+      z-index: 0;
     }
 
-    /* Дальняя тёплая планета */
+    /* Дальняя */
     .bg-planets .p5 {
       width: min(22vw, 200px);
       height: min(22vw, 200px);
       bottom: 22%;
       right: 18%;
       background:
-        radial-gradient(circle at 30% 28%, rgba(255, 255, 255, 0.4) 0%, transparent 15%),
-        radial-gradient(ellipse 60% 40% at 60% 70%, rgba(44, 95, 78, 0.1) 0%, transparent 55%),
-        radial-gradient(circle at 45% 40%, #e4ebe6 0%, #c8d6ce 45%, #a8bdb2 100%);
-      opacity: 0.78;
+        radial-gradient(circle at 30% 26%, #ffffff 0%, transparent 14%),
+        radial-gradient(ellipse 55% 40% at 58% 68%, rgba(44, 95, 78, 0.14) 0%, transparent 55%),
+        radial-gradient(circle at 42% 38%, #e0eae4 0%, #b8ccc2 32%, #8fad9f 62%, #6a8a7a 88%, #4a6658 100%);
+      opacity: 0.86;
     }
     .bg-planets .p5::after {
-      inset: -2px;
-      border: 1px solid rgba(44, 95, 78, 0.06);
-      background: transparent;
+      inset: -5px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        transparent 65%,
+        rgba(120, 160, 140, 0.1) 76%,
+        transparent 90%
+      );
+      z-index: 0;
     }
 
     .bg-planets .stars {
