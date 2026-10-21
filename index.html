@@ -2898,24 +2898,59 @@
 
     function isDeadTelegramHtml(html) {
       // true  = точно мёртвая
-      // false = живая или неизвестно (не удаляем при сомнении)
-      if (!html || html.length < 80) return false; // слишком мало данных — не удаляем
+      // false = живая
+      // логика стала строже: мёртвые страницы Telegram часто содержат og:title="Telegram"
+      if (!html || html.length < 80) return false;
+
       const h = html;
-      // явные признаки мёртвой страницы
+
+      // ——— Явные признаки мёртвой страницы ———
       if (/tgme_page_error|icon-error/i.test(h)) return true;
       if (/Sorry,? this (channel|group|bot|user|page)/i.test(h)) return true;
       if (/doesn.?t seem to exist/i.test(h)) return true;
-      if (/If you have.?Telegram,? you can contact/i.test(h) && /tgme_page_error/i.test(h)) return true;
       if (/page is unavailable/i.test(h)) return true;
       if (/Invite link is invalid or has expired/i.test(h)) return true;
       if (/This invite link is invalid/i.test(h)) return true;
       if (/нет такой|не существует|ссылка недействительна|ссылка устарела/i.test(h)) return true;
-      // если есть явные признаки живой страницы — точно живая
-      const hasTitle = /tgme_page_title/i.test(h) || /tgme_channel_info_header_title/i.test(h) || /property=["']og:title["']/i.test(h);
-      const hasPhoto = /tgme_page_photo/i.test(h) || /telesco\.pe/i.test(h);
-      if (hasTitle || hasPhoto) return false;
-      // нет ни ошибки, ни title — неизвестно → не удаляем
-      return false;
+
+      // Классический текст «канала не существует»
+      // "If you have Telegram, you can contact @username right away."
+      if (/If you have.?Telegram,? you can contact/i.test(h)) return true;
+      if (/you can contact .+ right away/i.test(h)) return true;
+
+      // ——— Признаки живой страницы ———
+      // Настоящий заголовок канала (не просто "Telegram")
+      let title = null;
+      const titleMatch =
+        h.match(/class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i) ||
+        h.match(/tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i) ||
+        h.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i) ||
+        h.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
+
+      if (titleMatch && titleMatch[1]) {
+        title = titleMatch[1].trim()
+          .replace(/\s*[—|–-]\s*Telegram$/i, '')
+          .replace(/^Telegram:\s*/i, '')
+          .trim();
+      }
+
+      const isGenericTitle = !title || /^Telegram$/i.test(title) || title.length < 2;
+
+      // Есть реальная аватарка с CDN Telegram
+      const hasRealPhoto = /telesco\.pe\/file\//i.test(h) || /cdn\d*\.telesco\.pe/i.test(h);
+
+      // Есть нормальное описание канала
+      const hasDescription =
+        /tgme_page_description/i.test(h) ||
+        /tgme_channel_info_description/i.test(h);
+
+      // Живая только если есть нормальный title ИЛИ реальная аватарка
+      if (!isGenericTitle || hasRealPhoto) {
+        return false; // считаем живой
+      }
+
+      // Во всех остальных случаях — скорее мёртвая
+      return true;
     }
 
     async function checkTelegramLinkAlive(item) {
