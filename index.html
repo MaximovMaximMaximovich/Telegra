@@ -2693,8 +2693,8 @@
 
       showStatus('Импорт… 0/' + total + (queue.length ? ' (в очереди ' + queue.length + ')' : ''), 120000);
 
-      // Параллельно 3 канала: мета + запись. Пауза между стартами, чтобы не забить прокси.
-      const CONCURRENCY = 3;
+      // Свой прокси — можно держать выше параллелизм
+      const CONCURRENCY = 8;
       let qIndex = 0;
 
       async function processOne(u) {
@@ -2707,7 +2707,7 @@
             || /unavatar\.io/i.test(meta.avatar || '');
           // Одна быстрая повторная попытка только если совсем пусто
           if (weak) {
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 150));
             const meta2 = await fetchTgMeta(u, null, type, { fast: true });
             if (meta2) {
               meta = {
@@ -2779,8 +2779,8 @@
           const my = qIndex++;
           const u = queue[my];
           await processOne(u);
-          // короткая пауза на воркер — не долбить прокси
-          await new Promise(r => setTimeout(r, 350));
+          // небольшая пауза, чтобы не упираться в лимиты Vercel/Telegram
+          await new Promise(r => setTimeout(r, 80));
         }
       }
 
@@ -3155,7 +3155,7 @@
         else if (r.status === 'dead' && r.deleted) dead++;
         else if (r.status === 'network') skip++;
         else err++;
-        await new Promise(r => setTimeout(r, 700));
+        await new Promise(r => setTimeout(r, 120));
       }
 
       checkLinksRunning = false;
@@ -3211,16 +3211,19 @@
       refreshMetaRunning = true;
       closeRefreshMetaModal();
       let ok = 0, fail = 0, skip = 0;
+      let done = 0;
+      const total = list.length;
 
-      for (let i = 0; i < list.length; i++) {
-        const item = list[i];
-        showStatus('Мета ' + (i + 1) + '/' + list.length + ': @' + item.username, 120000);
+      // Свой прокси — параллелим
+      const CONCURRENCY = 8;
+      let qIndex = 0;
+
+      async function processOne(item) {
         try {
-          const meta = await fetchTgMeta(item.username, null, item.type);
+          const meta = await fetchTgMeta(item.username, null, item.type, { fast: true });
           if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
             skip++;
-            await new Promise(r => setTimeout(r, 400));
-            continue;
+            return;
           }
           const patch = {};
           if (meta.avatar) patch.avatar_url = meta.avatar;
@@ -3244,9 +3247,25 @@
         } catch (e) {
           console.warn('refresh meta', item.username, e);
           fail++;
+        } finally {
+          done++;
+          showStatus('Мета ' + done + '/' + total + ' · +' + ok + (fail ? ' · ошибок ' + fail : ''), 120000);
         }
-        await new Promise(r => setTimeout(r, 800));
       }
+
+      async function worker() {
+        while (qIndex < list.length) {
+          const my = qIndex++;
+          await processOne(list[my]);
+          await new Promise(r => setTimeout(r, 60));
+        }
+      }
+
+      const workers = [];
+      for (let w = 0; w < Math.min(CONCURRENCY, list.length || 1); w++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
 
       refreshMetaRunning = false;
       showStatus('Мета готово: +' + ok + (skip ? ', пропуск ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
