@@ -998,7 +998,6 @@
           <li>Удобный поиск и фильтры</li>
           <li>Мы добавим вашему каналу подписчиков</li>
         </ul>
-        <p>Если вы нашли свой канал в нашем каталоге и видите, что он не загрузился (без аватарки и информации), вы можете его перезалить. Для этого обратитесь к администратору сайта, чтобы удалить старую запись.</p>
         <p><strong>Важно.</strong> Telegra — открытый справочный каталог. Администрация сайта не создаёт материалы каналов, чатов и ботов, заранее их не проверяет и не несёт ответственности за их содержание. Все ссылки ведут на сторонние ресурсы Telegram; выбор подписки и просмотра контента остаётся за посетителем.</p>
         <p>Заметили запись, которая может навредить людям, нарушает закон или распространяет опасный контент — напишите нам: укажите название или ссылку и кратко опишите причину. Мы рассмотрим обращение и при необходимости удалим материал из каталога. Жалобы и вопросы: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
       </div>
@@ -1325,7 +1324,7 @@
     let lastFilteredList = [];
 
     // Единый список категорий — больше не дублируем в 6 местах HTML
-    const CATEGORIES = [
+    var CATEGORIES = [
       'Авто, мото, техника', 'Аниме', 'Знакомства', 'Бизнес и стартапы',
       'Для взрослых 18+', 'Для мужчин', 'Для женщин', 'Для родителей',
       'Блоги', 'Еда и напитки', 'Здоровье и спорт', 'Игры и приложения',
@@ -1337,67 +1336,12 @@
       'Фото, искусство', 'Фриланс', 'Чаты', 'Юриспруденция', 'Разное'
     ];
 
-    // Простой кэш метаданных Telegram на время сессии (снижает нагрузку на прокси)
-    const tgMetaCache = new Map();
-    const TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
-
-    function fillCategorySelect(selectEl, opts = {}) {
-      if (!selectEl) return;
-      const {
-        includeEmpty = true,
-        emptyLabel = 'Все категории',
-        emptyValue = '',
-        selected = ''
-      } = opts;
-      const parts = [];
-      if (includeEmpty) {
-        parts.push(`<option value="${escapeHtml(emptyValue)}">${escapeHtml(emptyLabel)}</option>`);
-      }
-      for (const cat of CATEGORIES) {
-        const sel = (cat === selected) ? ' selected' : '';
-        parts.push(`<option value="${escapeHtml(cat)}"${sel}>${escapeHtml(cat)}</option>`);
-      }
-      selectEl.innerHTML = parts.join('');
-    }
-
-    function initCategorySelects() {
-      fillCategorySelect(document.getElementById('category-filter'), {
-        includeEmpty: true,
-        emptyLabel: 'Все категории',
-        emptyValue: ''
-      });
-      fillCategorySelect(document.getElementById('item-category'), {
-        includeEmpty: true,
-        emptyLabel: 'Выберите категорию',
-        emptyValue: ''
-      });
-      fillCategorySelect(document.getElementById('bulk-category'), {
-        includeEmpty: false,
-        selected: 'Разное'
-      });
-      // Для bulk если нет selected по умолчанию — ставим Разное вручную
-      const bulkCat = document.getElementById('bulk-category');
-      if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
-
-      fillCategorySelect(document.getElementById('delete-category-select'), {
-        includeEmpty: true,
-        emptyLabel: '— выберите —',
-        emptyValue: ''
-      });
-      fillCategorySelect(document.getElementById('check-links-category'), {
-        includeEmpty: true,
-        emptyLabel: 'Все категории',
-        emptyValue: ''
-      });
-      fillCategorySelect(document.getElementById('refresh-meta-category'), {
-        includeEmpty: true,
-        emptyLabel: 'Все категории',
-        emptyValue: ''
-      });
-    }
+    // Простой кэш метаданных Telegram на время сессии
+    var tgMetaCache = typeof Map !== 'undefined' ? new Map() : null;
+    var TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
 
     function escapeHtml(s) {
-      return String(s ?? '')
+      return String(s == null ? '' : s)
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -1405,8 +1349,7 @@
         .replace(/'/g, '&#39;');
     }
     function escapeJsAttr(s) {
-      // для вставки в одинарные кавычки onclick="fn('...')"
-      return String(s ?? '')
+      return String(s == null ? '' : s)
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
         .replace(/"/g, '&quot;')
@@ -1416,6 +1359,64 @@
         .replace(/\n/g, '\\n')
         .replace(/\u2028/g, '')
         .replace(/\u2029/g, '');
+    }
+
+    function fillCategorySelect(selectEl, opts) {
+      if (!selectEl) return;
+      opts = opts || {};
+      var includeEmpty = opts.includeEmpty !== false;
+      var emptyLabel = opts.emptyLabel != null ? opts.emptyLabel : 'Все категории';
+      var emptyValue = opts.emptyValue != null ? opts.emptyValue : '';
+      var selected = opts.selected || '';
+      var parts = [];
+      if (includeEmpty) {
+        parts.push('<option value="' + escapeHtml(emptyValue) + '">' + escapeHtml(emptyLabel) + '</option>');
+      }
+      for (var i = 0; i < CATEGORIES.length; i++) {
+        var cat = CATEGORIES[i];
+        var sel = (cat === selected) ? ' selected' : '';
+        parts.push('<option value="' + escapeHtml(cat) + '"' + sel + '>' + escapeHtml(cat) + '</option>');
+      }
+      selectEl.innerHTML = parts.join('');
+    }
+
+    function initCategorySelects() {
+      try {
+        fillCategorySelect(document.getElementById('category-filter'), {
+          includeEmpty: true,
+          emptyLabel: 'Все категории',
+          emptyValue: ''
+        });
+        fillCategorySelect(document.getElementById('item-category'), {
+          includeEmpty: true,
+          emptyLabel: 'Выберите категорию',
+          emptyValue: ''
+        });
+        fillCategorySelect(document.getElementById('bulk-category'), {
+          includeEmpty: false,
+          selected: 'Разное'
+        });
+        var bulkCat = document.getElementById('bulk-category');
+        if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
+
+        fillCategorySelect(document.getElementById('delete-category-select'), {
+          includeEmpty: true,
+          emptyLabel: '— выберите —',
+          emptyValue: ''
+        });
+        fillCategorySelect(document.getElementById('check-links-category'), {
+          includeEmpty: true,
+          emptyLabel: 'Все категории',
+          emptyValue: ''
+        });
+        fillCategorySelect(document.getElementById('refresh-meta-category'), {
+          includeEmpty: true,
+          emptyLabel: 'Все категории',
+          emptyValue: ''
+        });
+      } catch (e) {
+        console.warn('initCategorySelects', e);
+      }
     }
  // ротация каждые 5 мин
 
@@ -2110,11 +2111,15 @@
 
       // Кэш на сессию — не дёргаем прокси повторно для того же username
       const cacheKey = uname + '|' + (entityType || '');
-      const cached = tgMetaCache.get(cacheKey);
-      if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
-        if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
-        return { ...cached.meta };
-      }
+      try {
+        if (tgMetaCache && tgMetaCache.get) {
+          const cached = tgMetaCache.get(cacheKey);
+          if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
+            if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
+            return Object.assign({}, cached.meta);
+          }
+        }
+      } catch (e) {}
 
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
       const isBot = entityType === 'bot' || /bot$/i.test(uname);
@@ -2357,7 +2362,9 @@
       setP(96, 'Почти готово…');
       // Сохраняем в кэш сессии
       try {
-        tgMetaCache.set(cacheKey, { ts: Date.now(), meta: { ...meta } });
+        if (tgMetaCache && tgMetaCache.set) {
+          tgMetaCache.set(cacheKey, { ts: Date.now(), meta: Object.assign({}, meta) });
+        }
       } catch (e) {}
       return meta;
     }
@@ -3460,9 +3467,12 @@
 
     function setFilter(f) {
       currentFilter = f;
-      document.querySelectorAll('.filter-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
-      });
+      var btns = document.querySelectorAll('.filter-btn');
+      for (var bi = 0; bi < btns.length; bi++) {
+        var btn = btns[bi];
+        if (btn.getAttribute('data-filter') === f) btn.classList.add('active');
+        else btn.classList.remove('active');
+      }
       listVisibleCount = listPageSize;
       applyFilters();
     }
@@ -3745,13 +3755,19 @@
       document.getElementById('legal-modal').classList.remove('active');
     }
 
-    // Закрытие модалок по клику на фон
-    document.querySelectorAll('.modal-overlay').forEach(el => {
-      el.addEventListener('click', e => {
-        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
-      });
-    });
-
+    // Закрытие модалок по клику на фон (без forEach — старые WebView его не умеют)
+    try {
+      var overlays = document.querySelectorAll('.modal-overlay');
+      for (var oi = 0; oi < overlays.length; oi++) {
+        overlays[oi].addEventListener('click', function (e) {
+          if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
+            e.target.classList.remove('active');
+          }
+        });
+      }
+    } catch (eOv) {
+      console.warn('modal overlay bind', eOv);
+    }
 
     // Явно в window — чтобы onclick="..." всегда видел функции
     try {
@@ -3804,26 +3820,31 @@
       window.showMoreItems = showMoreItems;
       window.loadDataAttempts = 0;
 
-    // Лёгкий параллакс бумажной текстуры
+    // Лёгкий параллакс бумажной текстуры (без forEach — совместимость со старыми телефонами)
     (function initPaperParallax() {
-      const layer = document.getElementById('bg-planets');
-      if (!layer) return;
-      const parts = layer.querySelectorAll('[data-speed]');
-      let ticking = false;
-      function onScroll() {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(() => {
-          const y = window.scrollY || window.pageYOffset || 0;
-          parts.forEach(el => {
-            const speed = parseFloat(el.getAttribute('data-speed') || '0.05');
-            el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
+      try {
+        var layer = document.getElementById('bg-planets');
+        if (!layer) return;
+        var parts = layer.querySelectorAll('[data-speed]');
+        var ticking = false;
+        function onScroll() {
+          if (ticking) return;
+          ticking = true;
+          requestAnimationFrame(function () {
+            var y = window.scrollY || window.pageYOffset || 0;
+            for (var pi = 0; pi < parts.length; pi++) {
+              var el = parts[pi];
+              var speed = parseFloat(el.getAttribute('data-speed') || '0.05');
+              el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
+            }
+            ticking = false;
           });
-          ticking = false;
-        });
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        onScroll();
+      } catch (ePar) {
+        console.warn('parallax', ePar);
       }
-      window.addEventListener('scroll', onScroll, { passive: true });
-      onScroll();
     })();
 
 
