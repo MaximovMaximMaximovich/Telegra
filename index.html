@@ -2266,17 +2266,12 @@
 
       setP(8, 'Подключение к Telegram…');
 
-      const proxies = fast
-        ? [
-            (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-            (u) => 'https://corsproxy.io/?' + encodeURIComponent(u)
-          ]
-        : [
-            (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-            (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-            (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u),
-            (u) => 'https://thingproxy.freeboard.io/fetch/' + u
-          ];
+      // Свой прокси на Vercel + один запасной
+      const MY_PROXY = '/api/tg-proxy';
+      const proxies = [
+        (u) => MY_PROXY + '?url=' + encodeURIComponent(u),
+        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+      ];
 
       // В fast: сначала только t.me/username; /s/ — только если мета слабая
       const primaryTargets = isBot
@@ -2927,10 +2922,10 @@
       const url = buildTelegramCheckUrl(item);
       if (!url) return { ok: false, reason: 'no_url' };
 
+      const MY_PROXY = '/api/tg-proxy';
       const proxies = [
+        (u) => MY_PROXY + '?url=' + encodeURIComponent(u),
         (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
-        (u) => 'https://corsproxy.io/?' + encodeURIComponent(u),
-        (u) => 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(u)
       ];
 
       let gotHtml = false;
