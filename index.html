@@ -1324,7 +1324,7 @@
     let lastFilteredList = [];
 
     // Единый список категорий — больше не дублируем в 6 местах HTML
-    var CATEGORIES = [
+    const CATEGORIES = [
       'Авто, мото, техника', 'Аниме', 'Знакомства', 'Бизнес и стартапы',
       'Для взрослых 18+', 'Для мужчин', 'Для женщин', 'Для родителей',
       'Блоги', 'Еда и напитки', 'Здоровье и спорт', 'Игры и приложения',
@@ -1336,42 +1336,67 @@
       'Фото, искусство', 'Фриланс', 'Чаты', 'Юриспруденция', 'Разное'
     ];
 
-    // Простой кэш метаданных Telegram на время сессии
-    var tgMetaCache = typeof Map !== 'undefined' ? new Map() : null;
-    var TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
+    // Простой кэш метаданных Telegram на время сессии (снижает нагрузку на прокси)
+    const tgMetaCache = new Map();
+    const TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
 
-    // Совместимость со старыми WebView (TECNO / Android Go)
-    function safeAbortController() {
-      if (typeof AbortController !== 'undefined') {
-        try { return new AbortController(); } catch (e) {}
+    function fillCategorySelect(selectEl, opts = {}) {
+      if (!selectEl) return;
+      const {
+        includeEmpty = true,
+        emptyLabel = 'Все категории',
+        emptyValue = '',
+        selected = ''
+      } = opts;
+      const parts = [];
+      if (includeEmpty) {
+        parts.push(`<option value="${escapeHtml(emptyValue)}">${escapeHtml(emptyLabel)}</option>`);
       }
-      return { signal: undefined, abort: function () {} };
+      for (const cat of CATEGORIES) {
+        const sel = (cat === selected) ? ' selected' : '';
+        parts.push(`<option value="${escapeHtml(cat)}"${sel}>${escapeHtml(cat)}</option>`);
+      }
+      selectEl.innerHTML = parts.join('');
     }
-    function assignObj(target) {
-      target = target || {};
-      for (var i = 1; i < arguments.length; i++) {
-        var src = arguments[i];
-        if (!src) continue;
-        for (var k in src) {
-          if (Object.prototype.hasOwnProperty.call(src, k)) target[k] = src[k];
-        }
-      }
-      return target;
-    }
-    function uniqueStrings(arr) {
-      var seen = {};
-      var out = [];
-      for (var i = 0; i < arr.length; i++) {
-        var v = arr[i];
-        if (!v || seen[v]) continue;
-        seen[v] = true;
-        out.push(v);
-      }
-      return out;
+
+    function initCategorySelects() {
+      fillCategorySelect(document.getElementById('category-filter'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('item-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Выберите категорию',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('bulk-category'), {
+        includeEmpty: false,
+        selected: 'Разное'
+      });
+      // Для bulk если нет selected по умолчанию — ставим Разное вручную
+      const bulkCat = document.getElementById('bulk-category');
+      if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
+
+      fillCategorySelect(document.getElementById('delete-category-select'), {
+        includeEmpty: true,
+        emptyLabel: '— выберите —',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('check-links-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('refresh-meta-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
     }
 
     function escapeHtml(s) {
-      return String(s == null ? '' : s)
+      return String(s ?? '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
@@ -1379,7 +1404,8 @@
         .replace(/'/g, '&#39;');
     }
     function escapeJsAttr(s) {
-      return String(s == null ? '' : s)
+      // для вставки в одинарные кавычки onclick="fn('...')"
+      return String(s ?? '')
         .replace(/\\/g, '\\\\')
         .replace(/'/g, "\\'")
         .replace(/"/g, '&quot;')
@@ -1389,64 +1415,6 @@
         .replace(/\n/g, '\\n')
         .replace(/\u2028/g, '')
         .replace(/\u2029/g, '');
-    }
-
-    function fillCategorySelect(selectEl, opts) {
-      if (!selectEl) return;
-      opts = opts || {};
-      var includeEmpty = opts.includeEmpty !== false;
-      var emptyLabel = opts.emptyLabel != null ? opts.emptyLabel : 'Все категории';
-      var emptyValue = opts.emptyValue != null ? opts.emptyValue : '';
-      var selected = opts.selected || '';
-      var parts = [];
-      if (includeEmpty) {
-        parts.push('<option value="' + escapeHtml(emptyValue) + '">' + escapeHtml(emptyLabel) + '</option>');
-      }
-      for (var i = 0; i < CATEGORIES.length; i++) {
-        var cat = CATEGORIES[i];
-        var sel = (cat === selected) ? ' selected' : '';
-        parts.push('<option value="' + escapeHtml(cat) + '"' + sel + '>' + escapeHtml(cat) + '</option>');
-      }
-      selectEl.innerHTML = parts.join('');
-    }
-
-    function initCategorySelects() {
-      try {
-        fillCategorySelect(document.getElementById('category-filter'), {
-          includeEmpty: true,
-          emptyLabel: 'Все категории',
-          emptyValue: ''
-        });
-        fillCategorySelect(document.getElementById('item-category'), {
-          includeEmpty: true,
-          emptyLabel: 'Выберите категорию',
-          emptyValue: ''
-        });
-        fillCategorySelect(document.getElementById('bulk-category'), {
-          includeEmpty: false,
-          selected: 'Разное'
-        });
-        var bulkCat = document.getElementById('bulk-category');
-        if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
-
-        fillCategorySelect(document.getElementById('delete-category-select'), {
-          includeEmpty: true,
-          emptyLabel: '— выберите —',
-          emptyValue: ''
-        });
-        fillCategorySelect(document.getElementById('check-links-category'), {
-          includeEmpty: true,
-          emptyLabel: 'Все категории',
-          emptyValue: ''
-        });
-        fillCategorySelect(document.getElementById('refresh-meta-category'), {
-          includeEmpty: true,
-          emptyLabel: 'Все категории',
-          emptyValue: ''
-        });
-      } catch (e) {
-        console.warn('initCategorySelects', e);
-      }
     }
  // ротация каждые 5 мин
 
@@ -1615,8 +1583,7 @@
         applyFilters();
       }, 180);
 
-      const _si = document.getElementById('search-input');
-      const q = ((_si && _si.value) || '').trim();
+      const q = (document.getElementById('search-input')?.value || '').trim();
       if (searchTrackTimer) clearTimeout(searchTrackTimer);
       if (q.length < 2) return;
       searchTrackTimer = setTimeout(() => {
@@ -1820,11 +1787,11 @@
       let from = 0;
       let all = [];
       while (true) {
-        const ctrl = safeAbortController();
-        const timer = setTimeout(function () { ctrl.abort(); }, 25000);
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 25000);
         try {
           const res = await fetch(url, {
-            headers: assignObj({}, baseHeaders, { 'Range': from + '-' + (from + pageSize - 1) }),
+            headers: { ...baseHeaders, 'Range': from + '-' + (from + pageSize - 1) },
             signal: ctrl.signal
           });
           clearTimeout(timer);
@@ -1997,7 +1964,7 @@
           const nowIso = Date.now();
           allItems = (items || []).map(it => {
             if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
-              return assignObj({}, it, { is_top: false, top_until: null });
+              return { ...it, is_top: false, top_until: null };
             }
             return it;
           });
@@ -2116,7 +2083,7 @@
             variants.push(inv.replace('https://t.me/', 'https://telegram.me/'));
             variants.push(inv.replace(/^https:\/\//, 'http://'));
           }
-          for (const v of uniqueStrings(variants)) {
+          for (const v of [...new Set(variants)]) {
             const { data: d2 } = await supabaseClient
               .from('items')
               .select('id')
@@ -2142,15 +2109,11 @@
 
       // Кэш на сессию — не дёргаем прокси повторно для того же username
       const cacheKey = uname + '|' + (entityType || '');
-      try {
-        if (tgMetaCache && tgMetaCache.get) {
-          const cached = tgMetaCache.get(cacheKey);
-          if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
-            if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
-            return Object.assign({}, cached.meta);
-          }
-        }
-      } catch (e) {}
+      const cached = tgMetaCache.get(cacheKey);
+      if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
+        if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
+        return { ...cached.meta };
+      }
 
       const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
       const isBot = entityType === 'bot' || /bot$/i.test(uname);
@@ -2283,7 +2246,7 @@
 
       function mergeMeta(into, from) {
         if (!from) return into;
-        if (!into) return assignObj({}, from);
+        if (!into) return { ...from };
         if (isGoodTitle(from.title) && (!isGoodTitle(into.title) || from.title.length > (into.title || '').length)) {
           into.title = from.title;
         }
@@ -2320,8 +2283,8 @@
       const fetchTimeout = fast ? 9000 : 14000;
 
       async function fetchOneHtml(target, proxyFn) {
-        const ctrl = safeAbortController();
-        const timer = setTimeout(function () { ctrl.abort(); }, fetchTimeout);
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), fetchTimeout);
         try {
           const res = await fetch(proxyFn(target), {
             signal: ctrl.signal,
@@ -2393,9 +2356,7 @@
       setP(96, 'Почти готово…');
       // Сохраняем в кэш сессии
       try {
-        if (tgMetaCache && tgMetaCache.set) {
-          tgMetaCache.set(cacheKey, { ts: Date.now(), meta: Object.assign({}, meta) });
-        }
+        tgMetaCache.set(cacheKey, { ts: Date.now(), meta: { ...meta } });
       } catch (e) {}
       return meta;
     }
@@ -2416,12 +2377,12 @@
       let { error } = await supabaseClient.from('items').insert(row);
       // колонка source может ещё не быть в БД
       if (error && row.source && /source|column/i.test(error.message || '')) {
-        const copy = assignObj({}, row);
+        const copy = { ...row };
         delete copy.source;
         ({ error } = await supabaseClient.from('items').insert(copy));
       }
       if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
-        const copy = assignObj({}, row);
+        const copy = { ...row };
         delete copy.avatar_url;
         if (row.username && await existsInDb(row.username, null)) {
           return { message: 'duplicate', code: 'DUPLICATE' };
@@ -2496,12 +2457,9 @@
         alert('База данных недоступна. Обновите страницу.');
         return;
       }
-      const _n = document.getElementById('item-name');
-      const _l = document.getElementById('item-link');
-      const _d = document.getElementById('item-desc');
-      const name = ((_n && _n.value) || '').trim();
-      const linkRaw = ((_l && _l.value) || '').trim();
-      const userDesc = ((_d && _d.value) || '').trim();
+      const name = (document.getElementById('item-name')?.value || '').trim();
+      const linkRaw = (document.getElementById('item-link')?.value || '').trim();
+      const userDesc = (document.getElementById('item-desc')?.value || '').trim();
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
 
@@ -2695,7 +2653,7 @@
       const category = document.getElementById('bulk-category').value || 'Разное';
       const raw = document.getElementById('bulk-list').value || '';
       const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
-      const usernames = uniqueStrings(parts.map(function (p) { return normalizeUsername(p); }).filter(function (u) { return u && u.indexOf('+') !== 0; }));
+      const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
 
       if (!usernames.length) {
         bulkRunning = false;
@@ -3007,8 +2965,8 @@
       let gotHtml = false;
       for (let i = 0; i < proxies.length; i++) {
         try {
-          const ctrl = safeAbortController();
-          const timer = setTimeout(function () { ctrl.abort(); }, 12000);
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 12000);
           const res = await fetch(proxies[i](url), { signal: ctrl.signal });
           clearTimeout(timer);
           if (!res.ok) continue;
@@ -3074,10 +3032,8 @@
 
     async function runDeleteCategory() {
       if (!isAdmin || !supabaseClient) return;
-      const _dc = document.getElementById('delete-category-select');
-      const _dt = document.getElementById('delete-category-type');
-      const cat = ((_dc && _dc.value) || '').trim();
-      const type = ((_dt && _dt.value) || '').trim();
+      const cat = (document.getElementById('delete-category-select')?.value || '').trim();
+      const type = (document.getElementById('delete-category-type')?.value || '').trim();
       if (!cat) {
         alert('Выберите категорию');
         return;
@@ -3160,10 +3116,8 @@
         alert('Проверка уже идёт, подождите…');
         return;
       }
-      const _clc = document.getElementById('check-links-category');
-      const _clt = document.getElementById('check-links-type');
-      const cat = ((_clc && _clc.value) || '').trim();
-      const type = ((_clt && _clt.value) || '').trim();
+      const cat = (document.getElementById('check-links-category')?.value || '').trim();
+      const type = (document.getElementById('check-links-type')?.value || '').trim();
 
       const list = allItems.filter(it => {
         if (type && it.type !== type) return false;
@@ -3226,12 +3180,9 @@
         alert('Обновление уже идёт, подождите…');
         return;
       }
-      const _rmc = document.getElementById('refresh-meta-category');
-      const _rmt = document.getElementById('refresh-meta-type');
-      const _rme = document.getElementById('refresh-meta-only-empty');
-      const cat = ((_rmc && _rmc.value) || '').trim();
-      const type = ((_rmt && _rmt.value) || '').trim();
-      const onlyEmpty = !!( _rme && _rme.checked );
+      const cat = (document.getElementById('refresh-meta-category')?.value || '').trim();
+      const type = (document.getElementById('refresh-meta-type')?.value || '').trim();
+      const onlyEmpty = !!document.getElementById('refresh-meta-only-empty')?.checked;
 
       const list = allItems.filter(it => {
         if (it.is_private || !it.username) return false;
@@ -3289,7 +3240,7 @@
             else {
               ok++;
               const idx = allItems.findIndex(x => String(x.id) === String(item.id));
-              if (idx >= 0) allItems[idx] = assignObj({}, allItems[idx], patch);
+              if (idx >= 0) allItems[idx] = { ...allItems[idx], ...patch };
             }
           }
         } catch (e) {
@@ -3508,12 +3459,9 @@
 
     function setFilter(f) {
       currentFilter = f;
-      var btns = document.querySelectorAll('.filter-btn');
-      for (var bi = 0; bi < btns.length; bi++) {
-        var btn = btns[bi];
-        if (btn.getAttribute('data-filter') === f) btn.classList.add('active');
-        else btn.classList.remove('active');
-      }
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
+      });
       listVisibleCount = listPageSize;
       applyFilters();
     }
@@ -3547,8 +3495,7 @@
       // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
       listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
 
-      const _s2 = document.getElementById('search-input');
-      const q = (((_s2 && _s2.value) || '') + '').toLowerCase().trim();
+      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
       const filtered = allItems.filter(item => {
         if (currentFilter !== 'all' && item.type !== currentFilter) return false;
         if (currentCategory) {
@@ -3797,19 +3744,13 @@
       document.getElementById('legal-modal').classList.remove('active');
     }
 
-    // Закрытие модалок по клику на фон (без forEach — старые WebView его не умеют)
-    try {
-      var overlays = document.querySelectorAll('.modal-overlay');
-      for (var oi = 0; oi < overlays.length; oi++) {
-        overlays[oi].addEventListener('click', function (e) {
-          if (e.target && e.target.classList && e.target.classList.contains('modal-overlay')) {
-            e.target.classList.remove('active');
-          }
-        });
-      }
-    } catch (eOv) {
-      console.warn('modal overlay bind', eOv);
-    }
+    // Закрытие модалок по клику на фон
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
+      });
+    });
+
 
     // Явно в window — чтобы onclick="..." всегда видел функции
     try {
@@ -3862,31 +3803,26 @@
       window.showMoreItems = showMoreItems;
       window.loadDataAttempts = 0;
 
-    // Лёгкий параллакс бумажной текстуры (без forEach — совместимость со старыми телефонами)
+    // Лёгкий параллакс бумажной текстуры
     (function initPaperParallax() {
-      try {
-        var layer = document.getElementById('bg-planets');
-        if (!layer) return;
-        var parts = layer.querySelectorAll('[data-speed]');
-        var ticking = false;
-        function onScroll() {
-          if (ticking) return;
-          ticking = true;
-          requestAnimationFrame(function () {
-            var y = window.scrollY || window.pageYOffset || 0;
-            for (var pi = 0; pi < parts.length; pi++) {
-              var el = parts[pi];
-              var speed = parseFloat(el.getAttribute('data-speed') || '0.05');
-              el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
-            }
-            ticking = false;
+      const layer = document.getElementById('bg-planets');
+      if (!layer) return;
+      const parts = layer.querySelectorAll('[data-speed]');
+      let ticking = false;
+      function onScroll() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const y = window.scrollY || window.pageYOffset || 0;
+          parts.forEach(el => {
+            const speed = parseFloat(el.getAttribute('data-speed') || '0.05');
+            el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
           });
-        }
-        window.addEventListener('scroll', onScroll, { passive: true });
-        onScroll();
-      } catch (ePar) {
-        console.warn('parallax', ePar);
+          ticking = false;
+        });
       }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
     })();
 
 
@@ -3942,7 +3878,7 @@
         allItems = allItems.map(it => {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
             changed = true;
-            return assignObj({}, it, { is_top: false, top_until: null });
+            return { ...it, is_top: false, top_until: null };
           }
           return it;
         });
