@@ -1,18 +1,12 @@
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const CRON_SECRET = process.env.CRON_SECRET;
-
-const BATCH_LIMIT = 80;
-
-function unauthorized(res) {
-  return res.status(401).json({ ok: false, error: 'Unauthorized' });
-}
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const SUPABASE_SERVICE_ROLE_KEY = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim();
+const CRON_SECRET = (process.env.CRON_SECRET || '').trim();
+const BATCH_LIMIT = 40;
 
 function isAuthorized(req) {
   const auth = req.headers.authorization || '';
   const headerSecret = req.headers['x-cron-secret'] || '';
   const querySecret = (req.query && req.query.secret) || '';
-
   if (!CRON_SECRET) return false;
   if (auth === 'Bearer ' + CRON_SECRET) return true;
   if (headerSecret === CRON_SECRET) return true;
@@ -38,24 +32,18 @@ function decodeEntities(s) {
     .replace(/&#039;/g, "'")
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&#(\d+);/g, function (_, n) {
-      return String.fromCharCode(parseInt(n, 10));
-    })
-    .replace(/&#x([0-9a-f]+);/gi, function (_, n) {
-      return String.fromCharCode(parseInt(n, 16));
-    });
+    .replace(/&gt;/g, '>');
 }
 
 function isBadAvatar(url) {
   if (!url) return true;
-  return /telegram\.org|t_logo|favicon|img\/Telegram|\/img\/t_logo|telegram_logo/i.test(url);
+  return /telegram\.org|t_logo|favicon|telegram_logo/i.test(url);
 }
 
 function isGoodTitle(t, uname) {
   if (!t) return false;
   const s = String(t).trim();
-  if (!s || s.length < 1) return false;
+  if (!s) return false;
   if (/^Telegram$/i.test(s)) return false;
   if (s === '@' + uname || s.toLowerCase() === uname.toLowerCase()) return false;
   return true;
@@ -63,98 +51,62 @@ function isGoodTitle(t, uname) {
 
 function parseMeta(html, uname) {
   if (!html || html.length < 80) return null;
-  if (/tgme_page_error|icon-error|doesn.?t seem to exist|page is unavailable/i.test(html)) {
-    return null;
-  }
+  if (/tgme_page_error|doesn.?t seem to exist|page is unavailable/i.test(html)) return null;
 
   var title = null;
-  var titlePatterns = [
-    /class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
-    /tgme_page_title[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{1,200})/i,
-    /property=["']og:title["']\s+content=["']([^"']+)["']/i,
-    /content=["']([^"']+)["']\s+property=["']og:title["']/i,
-    /<title>\s*([^<]{1,200}?)\s*<\/title>/i
-  ];
-  for (var i = 0; i < titlePatterns.length; i++) {
-    var m = html.match(titlePatterns[i]);
-    if (m && m[1]) {
-      title = decodeEntities(m[1].trim())
-        .replace(/\s*[—|–-]\s*Telegram$/i, '')
-        .replace(/^Telegram:\s*/i, '')
-        .trim();
-      if (isGoodTitle(title, uname)) break;
-      title = null;
-    }
+  var tm =
+    html.match(/class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i) ||
+    html.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i) ||
+    html.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
+  if (tm && tm[1]) {
+    title = decodeEntities(tm[1].trim())
+      .replace(/\s*[—|–-]\s*Telegram$/i, '')
+      .replace(/^Telegram:\s*/i, '')
+      .trim();
+    if (!isGoodTitle(title, uname)) title = null;
   }
 
   var description = null;
-  var descPatterns = [
-    /class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i,
-    /property=["']og:description["']\s+content=["']([^"']+)["']/i,
-    /content=["']([^"']+)["']\s+property=["']og:description["']/i
-  ];
-  for (var j = 0; j < descPatterns.length; j++) {
-    var dm = html.match(descPatterns[j]);
-    if (dm && dm[1]) {
-      var d = dm[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      d = decodeEntities(d);
-      if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d)) {
-        description = d.slice(0, 500);
-        break;
-      }
+  var dm =
+    html.match(/class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i) ||
+    html.match(/property=["']og:description["']\s+content=["']([^"']+)["']/i);
+  if (dm && dm[1]) {
+    var d = decodeEntities(dm[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
+    if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d)) {
+      description = d.slice(0, 500);
     }
   }
 
   var avatar = null;
-  var avatarPatterns = [
-    /<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i,
-    /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*tgme_page_photo_image[^"']*["']/i,
-    /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
-    /property=["']og:image["']\s+content=["']([^"']+)["']/i,
-    /content=["']([^"']+)["']\s+property=["']og:image["']/i,
-    /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
-  ];
-  for (var k = 0; k < avatarPatterns.length; k++) {
-    var am = html.match(avatarPatterns[k]);
-    if (am && am[1]) {
-      var a = decodeEntities(am[1].trim());
-      if (a.indexOf('//') === 0) a = 'https:' + a;
-      if (!isBadAvatar(a) && /^https?:\/\//i.test(a)) {
-        avatar = a;
-        break;
-      }
-    }
+  var am =
+    html.match(/<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i) ||
+    html.match(/property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+    html.match(/(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+)/i);
+  if (am && am[1]) {
+    var a = decodeEntities(am[1].trim());
+    if (a.indexOf('//') === 0) a = 'https:' + a;
+    if (!isBadAvatar(a)) avatar = a;
   }
 
   if (!title && !avatar && !description) return null;
-  return {
-    title: title || null,
-    description: description || null,
-    avatar: avatar || null
-  };
+  return { title: title, description: description, avatar: avatar };
 }
 
 async function fetchTgMetaServer(username) {
   var uname = normalizeUsername(username);
   if (!uname) return null;
+  var targets = ['https://t.me/' + uname, 'https://t.me/s/' + uname];
 
-  var targets = [
-    'https://t.me/' + uname,
-    'https://t.me/s/' + uname
-  ];
-
-  for (var t = 0; t < targets.length; t++) {
+  for (var i = 0; i < targets.length; i++) {
     try {
       var ctrl = new AbortController();
-      var timer = setTimeout(function () { ctrl.abort(); }, 12000);
-      var res = await fetch(targets[t], {
+      var timer = setTimeout(function () { ctrl.abort(); }, 10000);
+      var res = await fetch(targets[i], {
         signal: ctrl.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; TelegraCron/1.0)',
-          'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8'
-        },
-        redirect: 'follow'
+          Accept: 'text/html'
+        }
       });
       clearTimeout(timer);
       if (!res.ok) continue;
@@ -163,9 +115,6 @@ async function fetchTgMetaServer(username) {
       if (meta && (meta.avatar || meta.title || meta.description)) {
         if (!meta.avatar || isBadAvatar(meta.avatar)) {
           meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
-        }
-        if (!isGoodTitle(meta.title, uname)) {
-          meta.title = null;
         }
         return meta;
       }
@@ -182,43 +131,9 @@ async function fetchTgMetaServer(username) {
 function isWeakAvatar(url) {
   if (!url) return true;
   if (/unavatar\.io/i.test(url)) return true;
-  if (/telesco\.pe|cdn\d*\.telegram/i.test(url)) return true;
-  if (/t_logo|favicon|telegram\.org\/img/i.test(url)) return true;
+  if (/telesco\.pe/i.test(url)) return true;
+  if (/t_logo|favicon|telegram\.org/i.test(url)) return true;
   return false;
-}
-
-async function supabaseRequest(path, options) {
-  options = options || {};
-  var headers = {
-    apikey: SUPABASE_SERVICE_ROLE_KEY,
-    Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
-    'Content-Type': 'application/json',
-    Prefer: options.prefer || 'return=representation'
-  };
-  if (options.headers) {
-    for (var key in options.headers) {
-      headers[key] = options.headers[key];
-    }
-  }
-
-  var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
-    method: options.method || 'GET',
-    headers: headers,
-    body: options.body || undefined
-  });
-
-  var text = await res.text();
-  var data = null;
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch (e) {
-    data = text;
-  }
-  if (!res.ok) {
-    var msg = typeof data === 'object' ? JSON.stringify(data) : String(data);
-    throw new Error('Supabase ' + res.status + ': ' + msg);
-  }
-  return data;
 }
 
 export default async function handler(req, res) {
@@ -227,29 +142,63 @@ export default async function handler(req, res) {
   }
 
   if (!isAuthorized(req)) {
-    return unauthorized(res);
+    return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({
       ok: false,
-      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+      error: 'Missing env',
+      hasUrl: !!SUPABASE_URL,
+      hasKey: !!SUPABASE_SERVICE_ROLE_KEY,
+      urlPreview: SUPABASE_URL ? SUPABASE_URL.slice(0, 40) : null
+    });
+  }
+
+  if (SUPABASE_URL.indexOf('https://') !== 0 || SUPABASE_URL.indexOf('supabase.co') === -1) {
+    return res.status(500).json({
+      ok: false,
+      error: 'SUPABASE_URL looks invalid',
+      urlPreview: SUPABASE_URL.slice(0, 80)
     });
   }
 
   try {
-    var rows = await supabaseRequest(
-      'items?select=id,username,type,display_name,description,avatar_url,is_private' +
-      '&is_private=eq.false' +
-      '&username=not.is.null' +
-      '&order=created_at.desc' +
-      '&limit=400'
-    );
+    var listUrl =
+      SUPABASE_URL +
+      '/rest/v1/items?select=id,username,display_name,description,avatar_url,is_private' +
+      '&is_private=eq.false&username=not.is.null&order=created_at.desc&limit=300';
 
-    var all = Array.isArray(rows) ? rows : [];
+    var listRes = await fetch(listUrl, {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
+        Accept: 'application/json'
+      }
+    });
+
+    var listText = await listRes.text();
+    if (!listRes.ok) {
+      return res.status(500).json({
+        ok: false,
+        error: 'Supabase list failed',
+        status: listRes.status,
+        body: listText.slice(0, 300),
+        urlPreview: SUPABASE_URL
+      });
+    }
+
+    var rows = [];
+    try {
+      rows = JSON.parse(listText);
+    } catch (e) {
+      return res.status(500).json({ ok: false, error: 'Bad JSON from Supabase', body: listText.slice(0, 200) });
+    }
+    if (!Array.isArray(rows)) rows = [];
+
     var list = [];
-    for (var i = 0; i < all.length; i++) {
-      var it = all[i];
+    for (var i = 0; i < rows.length; i++) {
+      var it = rows[i];
       if (!it.username || it.is_private) continue;
       if (isWeakAvatar(it.avatar_url) || !it.display_name || !it.description) {
         list.push(it);
@@ -275,28 +224,37 @@ export default async function handler(req, res) {
         if (meta.avatar) patch.avatar_url = meta.avatar;
         if (meta.title) patch.display_name = meta.title;
         if (meta.description) patch.description = meta.description;
-
         if (!patch.avatar_url && !patch.display_name && !patch.description) {
           skipped++;
           continue;
         }
 
-        await supabaseRequest('items?id=eq.' + encodeURIComponent(item.id), {
-          method: 'PATCH',
-          body: JSON.stringify(patch),
-          prefer: 'return=minimal'
-        });
+        var patchRes = await fetch(
+          SUPABASE_URL + '/rest/v1/items?id=eq.' + encodeURIComponent(item.id),
+          {
+            method: 'PATCH',
+            headers: {
+              apikey: SUPABASE_SERVICE_ROLE_KEY,
+              Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
+              'Content-Type': 'application/json',
+              Prefer: 'return=minimal'
+            },
+            body: JSON.stringify(patch)
+          }
+        );
+
+        if (!patchRes.ok) {
+          var errText = await patchRes.text();
+          throw new Error('PATCH ' + patchRes.status + ': ' + errText.slice(0, 120));
+        }
         updated++;
       } catch (e) {
         failed++;
-        if (errors.length < 8) {
-          errors.push({
-            username: item.username,
-            error: e.message || String(e)
-          });
+        if (errors.length < 5) {
+          errors.push({ username: item.username, error: e.message || String(e) });
         }
       }
-      await new Promise(function (r) { setTimeout(r, 250); });
+      await new Promise(function (r) { setTimeout(r, 200); });
     }
 
     return res.status(200).json({
@@ -311,7 +269,8 @@ export default async function handler(req, res) {
   } catch (e) {
     return res.status(500).json({
       ok: false,
-      error: e.message || String(e)
+      error: e.message || String(e),
+      urlPreview: SUPABASE_URL
     });
   }
 }
