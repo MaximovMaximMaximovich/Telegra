@@ -2,7 +2,6 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 
-// За одну ночь обновляем ограниченную пачку (чтобы не поймать timeout)
 const BATCH_LIMIT = 80;
 
 function unauthorized(res) {
@@ -40,8 +39,12 @@ function decodeEntities(s) {
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
-    .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+    .replace(/&#(\d+);/g, function (_, n) {
+      return String.fromCharCode(parseInt(n, 10));
+    })
+    .replace(/&#x([0-9a-f]+);/gi, function (_, n) {
+      return String.fromCharCode(parseInt(n, 16));
+    });
 }
 
 function isBadAvatar(url) {
@@ -64,16 +67,16 @@ function parseMeta(html, uname) {
     return null;
   }
 
-  let title = null;
-  const titlePatterns = [
+  var title = null;
+  var titlePatterns = [
     /class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
     /tgme_page_title[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{1,200})/i,
     /property=["']og:title["']\s+content=["']([^"']+)["']/i,
     /content=["']([^"']+)["']\s+property=["']og:title["']/i,
-    /<title>\s*([^<]{1,200}?)\s*<\/title>/i,
+    /<title>\s*([^<]{1,200}?)\s*<\/title>/i
   ];
-  for (const re of titlePatterns) {
-    const m = html.match(re);
+  for (var i = 0; i < titlePatterns.length; i++) {
+    var m = html.match(titlePatterns[i]);
     if (m && m[1]) {
       title = decodeEntities(m[1].trim())
         .replace(/\s*[—|–-]\s*Telegram$/i, '')
@@ -84,16 +87,16 @@ function parseMeta(html, uname) {
     }
   }
 
-  let description = null;
-  const descPatterns = [
+  var description = null;
+  var descPatterns = [
     /class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i,
     /property=["']og:description["']\s+content=["']([^"']+)["']/i,
-    /content=["']([^"']+)["']\s+property=["']og:description["']/i,
+    /content=["']([^"']+)["']\s+property=["']og:description["']/i
   ];
-  for (const re of descPatterns) {
-    const m = html.match(re);
-    if (m && m[1]) {
-      let d = m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  for (var j = 0; j < descPatterns.length; j++) {
+    var dm = html.match(descPatterns[j]);
+    if (dm && dm[1]) {
+      var d = dm[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       d = decodeEntities(d);
       if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d)) {
         description = d.slice(0, 500);
@@ -102,20 +105,20 @@ function parseMeta(html, uname) {
     }
   }
 
-  let avatar = null;
-  const avatarPatterns = [
+  var avatar = null;
+  var avatarPatterns = [
     /<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i,
     /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*tgme_page_photo_image[^"']*["']/i,
     /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
     /property=["']og:image["']\s+content=["']([^"']+)["']/i,
     /content=["']([^"']+)["']\s+property=["']og:image["']/i,
-    /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i,
+    /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
   ];
-  for (const re of avatarPatterns) {
-    const m = html.match(re);
-    if (m && m[1]) {
-      let a = decodeEntities(m[1].trim());
-      if (a.startsWith('//')) a = 'https:' + a;
+  for (var k = 0; k < avatarPatterns.length; k++) {
+    var am = html.match(avatarPatterns[k]);
+    if (am && am[1]) {
+      var a = decodeEntities(am[1].trim());
+      if (a.indexOf('//') === 0) a = 'https:' + a;
       if (!isBadAvatar(a) && /^https?:\/\//i.test(a)) {
         avatar = a;
         break;
@@ -127,38 +130,37 @@ function parseMeta(html, uname) {
   return {
     title: title || null,
     description: description || null,
-    avatar: avatar || null,
+    avatar: avatar || null
   };
 }
 
 async function fetchTgMetaServer(username) {
-  const uname = normalizeUsername(username);
+  var uname = normalizeUsername(username);
   if (!uname) return null;
 
-  const targets = [
+  var targets = [
     'https://t.me/' + uname,
-    'https://t.me/s/' + uname,
+    'https://t.me/s/' + uname
   ];
 
-  for (const target of targets) {
+  for (var t = 0; t < targets.length; t++) {
     try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
-      const res = await fetch(target, {
+      var ctrl = new AbortController();
+      var timer = setTimeout(function () { ctrl.abort(); }, 12000);
+      var res = await fetch(targets[t], {
         signal: ctrl.signal,
         headers: {
           'User-Agent': 'Mozilla/5.0 (compatible; TelegraCron/1.0)',
           'Accept': 'text/html,application/xhtml+xml',
-          'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8',
+          'Accept-Language': 'ru-RU,ru;q=0.9,en;q=0.8'
         },
-        redirect: 'follow',
+        redirect: 'follow'
       });
       clearTimeout(timer);
       if (!res.ok) continue;
-      const html = await res.text();
-      const meta = parseMeta(html, uname);
-      if (meta && (meta.avatar  meta.title  meta.description)) {
-        // Если с CDN не вышло — стабильный запасной вариант для публичных
+      var html = await res.text();
+      var meta = parseMeta(html, uname);
+      if (meta && (meta.avatar || meta.title || meta.description)) {
         if (!meta.avatar || isBadAvatar(meta.avatar)) {
           meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
         }
@@ -167,16 +169,13 @@ async function fetchTgMetaServer(username) {
         }
         return meta;
       }
-    } catch (e) {
-      // пробуем следующий URL
-    }
+    } catch (e) {}
   }
 
-  // совсем пусто — хотя бы unavatar
   return {
     title: null,
     description: null,
-    avatar: 'https://unavatar.io/telegram/' + encodeURIComponent(uname),
+    avatar: 'https://unavatar.io/telegram/' + encodeURIComponent(uname)
   };
 }
 
@@ -188,26 +187,35 @@ function isWeakAvatar(url) {
   return false;
 }
 
-async function supabaseRequest(path, options = {}) {
-  const res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
-    ...options,
-    headers: {
-      apikey: SUPABASE_SERVICE_ROLE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
-      'Content-Type': 'application/json',
-      Prefer: options.prefer || 'return=representation',
-      ...(options.headers || {}),
-    },
+async function supabaseRequest(path, options) {
+  options = options || {};
+  var headers = {
+    apikey: SUPABASE_SERVICE_ROLE_KEY,
+    Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
+    'Content-Type': 'application/json',
+    Prefer: options.prefer || 'return=representation'
+  };
+  if (options.headers) {
+    for (var key in options.headers) {
+      headers[key] = options.headers[key];
+    }
+  }
+
+  var res = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+    method: options.method || 'GET',
+    headers: headers,
+    body: options.body || undefined
   });
-  const text = await res.text();
-  let data = null;
+
+  var text = await res.text();
+  var data = null;
   try {
     data = text ? JSON.parse(text) : null;
   } catch (e) {
     data = text;
   }
   if (!res.ok) {
-    const msg = typeof data === 'object' ? JSON.stringify(data) : String(data);
+    var msg = typeof data === 'object' ? JSON.stringify(data) : String(data);
     throw new Error('Supabase ' + res.status + ': ' + msg);
   }
   return data;
@@ -225,36 +233,85 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({
       ok: false,
-      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY',
+      error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
     });
   }
 
   try {
-    // Берём публичные записи; приоритет — слабые/протухающие аватарки
-    // (простая выборка последних + фильтр на стороне кода)
-    const rows = await supabaseRequest(
+    var rows = await supabaseRequest(
       'items?select=id,username,type,display_name,description,avatar_url,is_private' +
-        '&is_private=eq.false' +
-        '&username=not.is.null' +
-        '&order=created_at.desc' +
-        '&limit=400'
+      '&is_private=eq.false' +
+      '&username=not.is.null' +
+      '&order=created_at.desc' +
+      '&limit=400'
     );
 
-    const list = (Array.isArray(rows) ? rows : [])
-      .filter((it) => it.username && !it.is_private)
-      .filter((it) => isWeakAvatar(it.avatar_url)  !it.display_name  !it.description)
-      .slice(0, BATCH_LIMIT);
+    var all = Array.isArray(rows) ? rows : [];
+    var list = [];
+    for (var i = 0; i < all.length; i++) {
+      var it = all[i];
+      if (!it.username || it.is_private) continue;
+      if (isWeakAvatar(it.avatar_url) || !it.display_name || !it.description) {
+        list.push(it);
+      }
+      if (list.length >= BATCH_LIMIT) break;
+    }
 
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
-    const errors = [];
+    var updated = 0;
+    var skipped = 0;
+    var failed = 0;
+    var errors = [];
 
-    for (let i = 0; i < list.length; i++) {
-      const item = list[i];
+    for (var n = 0; n < list.length; n++) {
+      var item = list[n];
       try {
-        const meta = await fetchTgMetaServer(item.username);
+        var meta = await fetchTgMetaServer(item.username);
         if (!meta) {
           skipped++;
           continue;
         }
+
+        var patch = {};
+        if (meta.avatar) patch.avatar_url = meta.avatar;
+        if (meta.title) patch.display_name = meta.title;
+        if (meta.description) patch.description = meta.description;
+
+        if (!patch.avatar_url && !patch.display_name && !patch.description) {
+          skipped++;
+          continue;
+        }
+
+        await supabaseRequest('items?id=eq.' + encodeURIComponent(item.id), {
+          method: 'PATCH',
+          body: JSON.stringify(patch),
+          prefer: 'return=minimal'
+        });
+        updated++;
+      } catch (e) {
+        failed++;
+        if (errors.length < 8) {
+          errors.push({
+            username: item.username,
+            error: e.message || String(e)
+          });
+        }
+      }
+      await new Promise(function (r) { setTimeout(r, 250); });
+    }
+
+    return res.status(200).json({
+      ok: true,
+      checked: list.length,
+      updated: updated,
+      skipped: skipped,
+      failed: failed,
+      errors: errors,
+      at: new Date().toISOString()
+    });
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      error: e.message || String(e)
+    });
+  }
+}
