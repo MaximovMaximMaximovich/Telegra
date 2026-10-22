@@ -12,10 +12,10 @@ function unauthorized(res) {
 function isAuthorized(req) {
   const auth = req.headers.authorization || '';
   const headerSecret = req.headers['x-cron-secret'] || '';
-  const querySecret = req.query && req.query.secret;
+  const querySecret = (req.query && req.query.secret) || '';
 
   if (!CRON_SECRET) return false;
-  if (auth === Bearer ${CRON_SECRET}) return true;
+  if (auth === 'Bearer ' + CRON_SECRET) return true;
   if (headerSecret === CRON_SECRET) return true;
   if (querySecret === CRON_SECRET) return true;
   return false;
