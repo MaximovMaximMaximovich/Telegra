@@ -2452,6 +2452,25 @@
       });
     }
 
+    // Скачать/сжать аватар и сохранить в Supabase Storage (постоянный URL)
+    async function cacheAvatarToSupabase(imageUrl, username) {
+      if (!imageUrl || !username) return imageUrl;
+      if (/supabase\.co\/storage\//i.test(imageUrl)) return imageUrl;
+      try {
+        var secret = 'telegra_night_7f3k9x2m';
+        var api =
+          '/api/cache-avatar?secret=' + encodeURIComponent(secret) +
+          '&url=' + encodeURIComponent(imageUrl) +
+          '&username=' + encodeURIComponent(username);
+        var r = await fetch(api);
+        var j = await r.json();
+        if (j && j.ok && j.url) return j.url;
+      } catch (e) {
+        console.warn('cache avatar', e);
+      }
+      return imageUrl;
+    }
+
     async function addItem() {
       if (!supabaseClient) {
         alert('База данных недоступна. Обновите страницу.');
@@ -2547,6 +2566,12 @@
           }
         } else if (!avatarUrl) {
           avatarUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(username);
+        }
+
+        // Постоянное хранение аватарки в Supabase Storage
+        if (avatarUrl) {
+          setAddProgress(85, 'Сохранение аватарки…');
+          avatarUrl = await cacheAvatarToSupabase(avatarUrl, username);
         }
 
         const row = {
@@ -2846,7 +2871,14 @@
     function isWeakMeta(item) {
       if (!item.avatar_url) return true;
       if (isDefaultTgLogo(item.avatar_url)) return true;
+      // Свои аватарки в Storage — уже постоянные, не считаем слабыми
+      if (/supabase\.co\/storage\//i.test(item.avatar_url)) {
+        if (!item.description) return true;
+        if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
+        return false;
+      }
       if (/unavatar\.io/i.test(item.avatar_url)) return true;
+      if (/telesco\.pe/i.test(item.avatar_url)) return true;
       if (!item.description) return true;
       if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
       return false;
@@ -2862,8 +2894,12 @@
       showStatus('Обновление метаданных…', 15000);
       try {
         const meta = await fetchTgMeta(item.username, null, item.type);
+        var newAvatar = meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username));
+        if (newAvatar) {
+          newAvatar = await cacheAvatarToSupabase(newAvatar, item.username);
+        }
         const patch = {
-          avatar_url: meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username))
+          avatar_url: newAvatar
         };
         if (meta.title) patch.display_name = meta.title;
         if (meta.description) patch.description = meta.description;
