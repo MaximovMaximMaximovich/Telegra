@@ -2748,6 +2748,16 @@
           const displayName = (meta && meta.title && meta.title !== ('@' + u))
             ? meta.title
             : ('@' + u);
+          var bulkAvatar = (function() {
+            const a = (meta && meta.avatar) ? meta.avatar : null;
+            if (type === 'bot' || /bot$/i.test(u)) {
+              if (!a || /unavatar\.io/i.test(a) || /telegram\.org|t_logo/i.test(a)) return null;
+            }
+            return a || ('https://unavatar.io/telegram/' + encodeURIComponent(u));
+          })();
+          if (bulkAvatar) {
+            bulkAvatar = await cacheAvatarToSupabase(bulkAvatar, u);
+          }
           const row = {
             type,
             username: u,
@@ -2759,13 +2769,7 @@
             is_top: false,
             top_until: null,
             source: 'bulk',
-            avatar_url: (function() {
-              const a = (meta && meta.avatar) ? meta.avatar : null;
-              if (type === 'bot' || /bot$/i.test(u)) {
-                if (!a || /unavatar\.io/i.test(a) || /telegram\.org|t_logo/i.test(a)) return null;
-              }
-              return a || ('https://unavatar.io/telegram/' + encodeURIComponent(u));
-            })()
+            avatar_url: bulkAvatar
           };
 
           const error = await insertItemRow(row);
@@ -3249,8 +3253,8 @@
       let done = 0;
       const total = list.length;
 
-      // Свой прокси — параллелим
-      const CONCURRENCY = 8;
+      // Параллель ниже: каждый канал ещё и заливает аватар в Storage
+      const CONCURRENCY = 3;
       let qIndex = 0;
 
       async function processOne(item) {
@@ -3261,9 +3265,14 @@
             return;
           }
           const patch = {};
-          if (meta.avatar) patch.avatar_url = meta.avatar;
+          var avatarCandidate = null;
+          if (meta.avatar) avatarCandidate = meta.avatar;
           else if (!item.avatar_url) {
-            patch.avatar_url = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
+            avatarCandidate = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
+          }
+          // Постоянное сохранение в Storage (как при одиночном «Мета»)
+          if (avatarCandidate) {
+            patch.avatar_url = await cacheAvatarToSupabase(avatarCandidate, item.username);
           }
           if (meta.title) patch.display_name = meta.title;
           if (meta.description) patch.description = meta.description;
