@@ -2471,6 +2471,20 @@
       return imageUrl;
     }
 
+    // Удалить файл аватара из Storage (если это наша ссылка)
+    async function deleteStoredAvatar(imageUrl) {
+      if (!imageUrl || !/supabase\.co\/storage\//i.test(imageUrl)) return;
+      try {
+        var secret = 'telegra_night_7f3k9x2m';
+        var api =
+          '/api/delete-avatar?secret=' + encodeURIComponent(secret) +
+          '&url=' + encodeURIComponent(imageUrl);
+        await fetch(api);
+      } catch (e) {
+        console.warn('delete avatar', e);
+      }
+    }
+
     async function addItem() {
       if (!supabaseClient) {
         alert('База данных недоступна. Обновите страницу.');
@@ -2840,6 +2854,8 @@
       if (!supabaseClient || !isAdmin) return;
       if (!confirm('Удалить запись?')) return;
       try {
+        const item = allItems.find(x => String(x.id) === String(id));
+        if (item && item.avatar_url) await deleteStoredAvatar(item.avatar_url);
         const { error } = await supabaseClient.from('items').delete().eq('id', id);
         if (error) alert(error.message);
         else { showStatus('Удалено'); await loadData(); }
@@ -2850,6 +2866,8 @@
       if (!supabaseClient || !isAdmin) return;
       if (!confirm('Добавить в чёрный список и удалить?')) return;
       try {
+        const item = allItems.find(x => String(x.id) === String(id));
+        if (item && item.avatar_url) await deleteStoredAvatar(item.avatar_url);
         await supabaseClient.from('blacklist').insert({ value });
         await supabaseClient.from('items').delete().eq('id', id);
         showStatus('В чёрный список');
@@ -3043,6 +3061,7 @@
       }
       // мёртвая
       try {
+        if (item.avatar_url) await deleteStoredAvatar(item.avatar_url);
         const { error } = await supabaseClient.from('items').delete().eq('id', id);
         if (error) {
           if (!silent) alert(error.message);
@@ -3108,6 +3127,15 @@
 
       showStatus('Удаление… 0/' + matches.length, 120000);
       let ok = 0, fail = 0;
+      // Сначала картинки из Storage
+      for (var ai = 0; ai < matches.length; ai++) {
+        if (matches[ai].avatar_url) {
+          await deleteStoredAvatar(matches[ai].avatar_url);
+        }
+        if (ai % 10 === 0) {
+          showStatus('Удаление аватарок… ' + (ai + 1) + '/' + matches.length, 120000);
+        }
+      }
       // удаляем пачками по id через filter — supabase .in()
       const ids = matches.map(m => m.id).filter(Boolean);
       const chunkSize = 50;
