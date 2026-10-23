@@ -36,62 +36,74 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({
       ok: false,
+      step: 'env',
       error: 'Missing Supabase env',
-      hasUrl: !!SUPABASE_URL,
-      hasKey: !!SUPABASE_SERVICE_ROLE_KEY
+      urlPreview: SUPABASE_URL ? SUPABASE_URL.slice(0, 60) : null
     });
   }
 
-  const src =
-    (req.query && req.query.url) ||
-    (req.body && req.body.url) ||
-    '';
-  const username =
-    (req.query && req.query.username) ||
-    (req.body && req.body.username) ||
-    'unknown';
+  const src = (req.query && req.query.url) || '';
+  const username = (req.query && req.query.username) || 'unknown';
 
   if (!src || !/^https?:\/\//i.test(src)) {
-    return res.status(400).json({ ok: false, error: 'Bad url' });
+    return res.status(400).json({ ok: false, step: 'input', error: 'Bad url', src: src });
   }
 
   if (src.indexOf(SUPABASE_URL) === 0) {
     return res.status(200).json({ ok: true, url: src, skipped: true });
   }
 
+  // --- 1) скачать картинку ---
+  let input;
   try {
     const imgRes = await fetch(src, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; TelegraAvatar/1.0)',
-        Accept: 'image/*,*/*;q=0.8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8'
       },
       redirect: 'follow'
     });
-
     if (!imgRes.ok) {
       return res.status(502).json({
         ok: false,
-        error: 'Download failed ' + imgRes.status
+        step: 'download',
+        error: 'HTTP ' + imgRes.status,
+        src: src
       });
     }
-
-    const input = Buffer.from(await imgRes.arrayBuffer());
+    input = Buffer.from(await imgRes.arrayBuffer());
     if (!input.length || input.length > 8 * 1024 * 1024) {
-      return res.status(400).json({ ok: false, error: 'Bad image size' });
+      return res.status(400).json({ ok: false, step: 'download', error: 'Bad image size' });
     }
+  } catch (e) {
+    return res.status(502).json({
+      ok: false,
+      step: 'download',
+      error: e.message || String(e),
+      src: src
+    });
+  }
 
-    const out = await sharp(input)
+  // --- 2) сжать ---
+  let out;
+  try {
+    out = await sharp(input)
       .rotate()
-      .resize(MAX_SIDE, MAX_SIDE, {
-        fit: 'cover',
-        withoutEnlargement: true
-      })
+      .resize(MAX_SIDE, MAX_SIDE, { fit: 'cover', withoutEnlargement: true })
       .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
       .toBuffer();
+  } catch (e) {
+    return res.status(500).json({
+      ok: false,
+      step: 'sharp',
+      error: e.message || String(e)
+    });
+  }
 
-    const path = safeName(username) + '_' + Date.now() + '.jpg';
+  // --- 3) залить в Storage ---
+  const path = safeName(username) + '_' + Date.now() + '.jpg';
+  try {
     const uploadUrl = SUPABASE_URL + '/storage/v1/object/avatars/' + path;
-
     const up = await fetch(uploadUrl, {
       method: 'POST',
       headers: {
@@ -102,28 +114,29 @@ export default async function handler(req, res) {
       },
       body: out
     });
-
+    const upText = await up.text();
     if (!up.ok) {
-      const t = await up.text();
       return res.status(502).json({
         ok: false,
-        error: 'Upload failed',
-        detail: t.slice(0, 250)
+        step: 'upload',
+        error: 'HTTP ' + up.status,
+        detail: upText.slice(0, 250),
+        urlPreview: SUPABASE_URL
       });
     }
-
-    const publicUrl =
-      SUPABASE_URL + '/storage/v1/object/public/avatars/' + path;
-
-    return res.status(200).json({
-      ok: true,
-      url: publicUrl,
-      bytes: out.length
-    });
   } catch (e) {
-    return res.status(500).json({
+    return res.status(502).json({
       ok: false,
-      error: e.message || String(e)
+      step: 'upload',
+      error: e.message || String(e),
+      urlPreview: SUPABASE_URL
     });
   }
+
+  const publicUrl = SUPABASE_URL + '/storage/v1/object/public/avatars/' + path;
+  return res.status(200).json({
+    ok: true,
+    url: publicUrl,
+    bytes: out.length
+  });
 }
