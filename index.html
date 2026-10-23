@@ -2452,10 +2452,17 @@
       });
     }
 
-    // Скачать/сжать аватар и сохранить в Supabase Storage (постоянный URL)
-    async function cacheAvatarToSupabase(imageUrl, username) {
+    // Скачать/сжать аватар и сохранить в Supabase Storage (постоянный URL).
+    // oldUrl — предыдущая аватарка: если она в нашем Storage и URL сменился, старый файл удалится.
+    async function cacheAvatarToSupabase(imageUrl, username, oldUrl) {
       if (!imageUrl || !username) return imageUrl;
-      if (/supabase\.co\/storage\//i.test(imageUrl)) return imageUrl;
+      // Уже наш storage — при смене файла удаляем старый
+      if (/supabase\.co\/storage\//i.test(imageUrl)) {
+        if (oldUrl && oldUrl !== imageUrl && /supabase\.co\/storage\//i.test(oldUrl)) {
+          await deleteStoredAvatar(oldUrl);
+        }
+        return imageUrl;
+      }
       try {
         var secret = 'telegra_night_7f3k9x2m';
         var api =
@@ -2464,7 +2471,12 @@
           '&username=' + encodeURIComponent(username);
         var r = await fetch(api);
         var j = await r.json();
-        if (j && j.ok && j.url) return j.url;
+        if (j && j.ok && j.url) {
+          if (oldUrl && oldUrl !== j.url && /supabase\.co\/storage\//i.test(oldUrl)) {
+            await deleteStoredAvatar(oldUrl);
+          }
+          return j.url;
+        }
       } catch (e) {
         console.warn('cache avatar', e);
       }
@@ -2918,7 +2930,7 @@
         const meta = await fetchTgMeta(item.username, null, item.type);
         var newAvatar = meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username));
         if (newAvatar) {
-          newAvatar = await cacheAvatarToSupabase(newAvatar, item.username);
+          newAvatar = await cacheAvatarToSupabase(newAvatar, item.username, item.avatar_url);
         }
         const patch = {
           avatar_url: newAvatar
@@ -3298,9 +3310,9 @@
           else if (!item.avatar_url) {
             avatarCandidate = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
           }
-          // Постоянное сохранение в Storage (как при одиночном «Мета»)
+          // Постоянное сохранение в Storage; старый файл из Storage удалится
           if (avatarCandidate) {
-            patch.avatar_url = await cacheAvatarToSupabase(avatarCandidate, item.username);
+            patch.avatar_url = await cacheAvatarToSupabase(avatarCandidate, item.username, item.avatar_url);
           }
           if (meta.title) patch.display_name = meta.title;
           if (meta.description) patch.description = meta.description;
