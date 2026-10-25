@@ -3,6 +3,10 @@
     {
       "src": "^/c/([^/]+)$",
       "dest": "/api/channel-page?username=$1"
+    },
+    {
+      "src": "^/sitemap\\.xml$",
+      "dest": "/api/sitemap"
     }
   ],
   "crons": [
