@@ -3453,6 +3453,26 @@
       }
     }
 
+    // Ссылка на карточку в каталоге (SEO) или invite для приватных
+    function catalogItemHref(item) {
+      if (!item) return '#';
+      if (item.is_private) {
+        return item.invite_link || '#';
+      }
+      var u = item.username ? String(item.username) : '';
+      u = u.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
+      if (!u) return '#';
+      return '/c/' + encodeURIComponent(u);
+    }
+
+    // Публичные — на нашу страницу; приватные — во внешний Telegram
+    function catalogItemLinkAttrs(item) {
+      if (item && item.is_private) {
+        return ' target="_blank" rel="noopener"';
+      }
+      return '';
+    }
+
     function getAvatar(item, size, confetti) {
       size = size || 54;
       const confettiAttr = confetti
@@ -3627,7 +3647,8 @@
           recentEl.innerHTML = '<div class="loading">Пока пусто</div>';
         } else {
           recentEl.innerHTML = recentItems.map(item => {
-            const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+            const link = catalogItemHref(item);
+            const linkAttrs = catalogItemLinkAttrs(item);
             const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
             const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
             const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
@@ -3635,7 +3656,7 @@
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
+                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
                 <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
                 ${desc ? `<div class="item-desc">${desc}</div>` : ''}
               </div>
@@ -3652,7 +3673,8 @@
       } else {
         topEl.innerHTML = topItems.map(item => {
           const days = getDaysLeft(item.top_until);
-          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const link = catalogItemHref(item);
+          const linkAttrs = catalogItemLinkAttrs(item);
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
           const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
@@ -3662,7 +3684,7 @@
               ${getAvatar(item, 54, true)}
               <div class="card-content">
                 <div class="type">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
-                <div class="username"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                <div class="username"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
                 ${desc ? `<div class="desc">${desc}</div>` : ''}
                 <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
@@ -3689,7 +3711,8 @@
         const page = rotated.slice(0, limit);
         const rest = rotated.length - limit;
         let html = page.map(item => {
-          const link = item.is_private ? (item.invite_link || '#') : ('https://t.me/' + (item.username || ''));
+          const link = catalogItemHref(item);
+          const linkAttrs = catalogItemLinkAttrs(item);
           const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
           const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
           const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
@@ -3699,7 +3722,7 @@
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${escapeHtml(link)}" target="_blank" rel="noopener">${escapeHtml(name)}</a></div>
+                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
                 <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
                 ${desc ? `<div class="item-desc">${desc}</div>` : ''}
                 <div class="actions">
