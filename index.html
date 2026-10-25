@@ -2452,11 +2452,22 @@
       });
     }
 
-    // Скачать/сжать аватар и сохранить в Supabase Storage (постоянный URL).
-    // oldUrl — предыдущая аватарка: если она в нашем Storage и URL сменился, старый файл удалится.
+    // Токен сессии админа — секрет в код страницы не пишем
+    async function getAdminAccessToken() {
+      try {
+        if (!supabaseClient) return null;
+        var sess = await supabaseClient.auth.getSession();
+        var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        return token || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Скачать/сжать аватар → Storage. Нужен вход админа.
+    // oldUrl — старый файл в Storage, удалится после замены.
     async function cacheAvatarToSupabase(imageUrl, username, oldUrl) {
       if (!imageUrl || !username) return imageUrl;
-      // Уже наш storage — при смене файла удаляем старый
       if (/supabase\.co\/storage\//i.test(imageUrl)) {
         if (oldUrl && oldUrl !== imageUrl && /supabase\.co\/storage\//i.test(oldUrl)) {
           await deleteStoredAvatar(oldUrl);
@@ -2464,12 +2475,14 @@
         return imageUrl;
       }
       try {
-        var secret = 'telegra_night_7f3k9x2m';
+        var token = await getAdminAccessToken();
+        if (!token) return imageUrl;
         var api =
-          '/api/cache-avatar?secret=' + encodeURIComponent(secret) +
-          '&url=' + encodeURIComponent(imageUrl) +
+          '/api/cache-avatar?url=' + encodeURIComponent(imageUrl) +
           '&username=' + encodeURIComponent(username);
-        var r = await fetch(api);
+        var r = await fetch(api, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
         var j = await r.json();
         if (j && j.ok && j.url) {
           if (oldUrl && oldUrl !== j.url && /supabase\.co\/storage\//i.test(oldUrl)) {
@@ -2483,15 +2496,16 @@
       return imageUrl;
     }
 
-    // Удалить файл аватара из Storage (если это наша ссылка)
+    // Удалить файл аватара из Storage (только под сессией админа)
     async function deleteStoredAvatar(imageUrl) {
       if (!imageUrl || !/supabase\.co\/storage\//i.test(imageUrl)) return;
       try {
-        var secret = 'telegra_night_7f3k9x2m';
-        var api =
-          '/api/delete-avatar?secret=' + encodeURIComponent(secret) +
-          '&url=' + encodeURIComponent(imageUrl);
-        await fetch(api);
+        var token = await getAdminAccessToken();
+        if (!token) return;
+        var api = '/api/delete-avatar?url=' + encodeURIComponent(imageUrl);
+        await fetch(api, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
       } catch (e) {
         console.warn('delete avatar', e);
       }
