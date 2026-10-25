@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
+Allow: /c/
 
-Host: https://телегра.site
+Disallow: /api/
+
 Sitemap: https://телегра.site/sitemap.xml
