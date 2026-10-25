@@ -7,12 +7,81 @@ const CRON_SECRET = (process.env.CRON_SECRET || '').trim();
 const MAX_SIDE = 256;
 const JPEG_QUALITY = 82;
 
-function isAuthorized(req) {
+function getBearer(req) {
   const auth = req.headers.authorization || '';
+  if (auth.indexOf('Bearer ') === 0) return auth.slice(7).trim();
+  return '';
+}
+
+function isCronAuthorized(req) {
+  const bearer = getBearer(req);
   const q = (req.query && req.query.secret) || '';
+  const headerSecret = req.headers['x-cron-secret'] || '';
   if (!CRON_SECRET) return false;
-  if (auth === 'Bearer ' + CRON_SECRET) return true;
-  if (q === CRON_SECRET) return true;
+  if (bearer && bearer === CRON_SECRET) return true;
+  if (q && q === CRON_SECRET) return true;
+  if (headerSecret && headerSecret === CRON_SECRET) return true;
+  return false;
+}
+
+/** Проверка: JWT пользователя есть в таблице admins */
+async function isAdminUser(accessToken) {
+  if (!accessToken || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return false;
+  try {
+    const userRes = await fetch(SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        apikey: SUPABASE_SERVICE_ROLE_KEY,
+        Authorization: 'Bearer ' + accessToken
+      }
+    });
+    if (!userRes.ok) return false;
+    const user = await userRes.json();
+    const uid = user && user.id;
+    if (!uid) return false;
+
+    const adm = await fetch(
+      SUPABASE_URL + '/rest/v1/admins?select=user_id&user_id=eq.' + encodeURIComponent(uid) + '&limit=1',
+      {
+        headers: {
+          apikey: SUPABASE_SERVICE_ROLE_KEY,
+          Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
+          Accept: 'application/json'
+        }
+      }
+    );
+    if (!adm.ok) {
+      // fallback: иногда в admins хранят email
+      const email = user.email || '';
+      if (!email) return false;
+      const adm2 = await fetch(
+        SUPABASE_URL + '/rest/v1/admins?select=id&email=eq.' + encodeURIComponent(email) + '&limit=1',
+        {
+          headers: {
+            apikey: SUPABASE_SERVICE_ROLE_KEY,
+            Authorization: 'Bearer ' + SUPABASE_SERVICE_ROLE_KEY,
+            Accept: 'application/json'
+          }
+        }
+      );
+      if (!adm2.ok) return false;
+      const rows2 = await adm2.json();
+      return Array.isArray(rows2) && rows2.length > 0;
+    }
+    const rows = await adm.json();
+    return Array.isArray(rows) && rows.length > 0;
+  } catch (e) {
+    return false;
+  }
+}
+
+async function isAuthorized(req) {
+  if (isCronAuthorized(req)) return true;
+  const bearer = getBearer(req);
+  // Не принимаем CRON_SECRET как единственный Bearer уже проверили;
+  // пользовательский JWT
+  if (bearer && bearer !== CRON_SECRET) {
+    return await isAdminUser(bearer);
+  }
   return false;
 }
 
@@ -29,7 +98,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  if (!isAuthorized(req)) {
+  if (!(await isAuthorized(req))) {
     return res.status(401).json({ ok: false, error: 'Unauthorized' });
   }
 
@@ -37,23 +106,27 @@ export default async function handler(req, res) {
     return res.status(500).json({
       ok: false,
       step: 'env',
-      error: 'Missing Supabase env',
-      urlPreview: SUPABASE_URL ? SUPABASE_URL.slice(0, 60) : null
+      error: 'Missing Supabase env'
     });
   }
 
-  const src = (req.query && req.query.url) || '';
-  const username = (req.query && req.query.username) || 'unknown';
+  const src =
+    (req.query && req.query.url) ||
+    (req.body && req.body.url) ||
+    '';
+  const username =
+    (req.query && req.query.username) ||
+    (req.body && req.body.username) ||
+    'unknown';
 
   if (!src || !/^https?:\/\//i.test(src)) {
-    return res.status(400).json({ ok: false, step: 'input', error: 'Bad url', src: src });
+    return res.status(400).json({ ok: false, step: 'input', error: 'Bad url' });
   }
 
   if (src.indexOf(SUPABASE_URL) === 0) {
     return res.status(200).json({ ok: true, url: src, skipped: true });
   }
 
-  // --- 1) скачать картинку ---
   let input;
   try {
     const imgRes = await fetch(src, {
@@ -67,8 +140,7 @@ export default async function handler(req, res) {
       return res.status(502).json({
         ok: false,
         step: 'download',
-        error: 'HTTP ' + imgRes.status,
-        src: src
+        error: 'HTTP ' + imgRes.status
       });
     }
     input = Buffer.from(await imgRes.arrayBuffer());
@@ -79,12 +151,10 @@ export default async function handler(req, res) {
     return res.status(502).json({
       ok: false,
       step: 'download',
-      error: e.message || String(e),
-      src: src
+      error: e.message || String(e)
     });
   }
 
-  // --- 2) сжать ---
   let out;
   try {
     out = await sharp(input)
@@ -100,7 +170,6 @@ export default async function handler(req, res) {
     });
   }
 
-  // --- 3) залить в Storage ---
   const path = safeName(username) + '_' + Date.now() + '.jpg';
   try {
     const uploadUrl = SUPABASE_URL + '/storage/v1/object/avatars/' + path;
@@ -120,16 +189,14 @@ export default async function handler(req, res) {
         ok: false,
         step: 'upload',
         error: 'HTTP ' + up.status,
-        detail: upText.slice(0, 250),
-        urlPreview: SUPABASE_URL
+        detail: upText.slice(0, 250)
       });
     }
   } catch (e) {
     return res.status(502).json({
       ok: false,
       step: 'upload',
-      error: e.message || String(e),
-      urlPreview: SUPABASE_URL
+      error: e.message || String(e)
     });
   }
 
