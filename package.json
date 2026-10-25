@@ -2,6 +2,7 @@
   "name": "telegra",
   "private": true,
   "dependencies": {
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "@vercel/edge": "^1.2.1"
   }
 }
