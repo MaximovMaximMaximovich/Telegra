@@ -1,8 +1,8 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/c/:username",
-      "destination": "/api/channel-page?username=:username"
+      "src": "^/c/([^/]+)$",
+      "dest": "/api/channel-page?username=$1"
     }
   ],
   "crons": [
