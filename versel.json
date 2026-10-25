@@ -1,4 +1,10 @@
 {
+  "rewrites": [
+    {
+      "source": "/c/:username",
+      "destination": "/api/channel-page?username=:username"
+    }
+  ],
   "crons": [
     {
       "path": "/api/cron-refresh-meta",
