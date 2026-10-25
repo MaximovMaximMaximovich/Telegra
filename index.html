@@ -3646,8 +3646,9 @@
 
       const topCountEl = document.getElementById('top-count');
       const itemsCountEl = document.getElementById('items-count');
-      if (topCountEl) topCountEl.textContent = topItems.length ? `(${topItems.length})` : '';
-      if (itemsCountEl) itemsCountEl.textContent = rotated.length ? `(${rotated.length})` : '';
+      // Числа записей — только для админа
+      if (topCountEl) topCountEl.textContent = isAdmin && topItems.length ? `(${topItems.length})` : '';
+      if (itemsCountEl) itemsCountEl.textContent = isAdmin && rotated.length ? `(${rotated.length})` : '';
 
       // Недавно добавленные (только source=user, до 3 суток)
       const recentItems = allItems
@@ -3655,7 +3656,7 @@
         .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       const recentEl = document.getElementById('recent-list');
       const recentCountEl = document.getElementById('recent-count');
-      if (recentCountEl) recentCountEl.textContent = recentItems.length ? `(${recentItems.length})` : '';
+      if (recentCountEl) recentCountEl.textContent = isAdmin && recentItems.length ? `(${recentItems.length})` : '';
       if (recentEl) {
         if (!recentItems.length) {
           recentEl.innerHTML = '<div class="loading">Пока пусто</div>';
