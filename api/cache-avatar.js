@@ -98,9 +98,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ ok: false, error: 'Method not allowed' });
   }
 
-  if (!(await isAuthorized(req))) {
-    return res.status(401).json({ ok: false, error: 'Unauthorized' });
-  }
+  // Загрузка аватара в Storage доступна без секрета (гости добавляют каналы).
+  // Удаление — только через /api/delete-avatar под админом.
+  // isAuthorized оставлен для совместимости, но не блокирует upload.
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     return res.status(500).json({
