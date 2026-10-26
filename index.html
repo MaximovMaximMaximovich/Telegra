@@ -34,9 +34,16 @@
   <link rel="icon" href="/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script>
+  <!-- Ускорение: ранние соединения -->
+  <link rel="preconnect" href="https://wrlolhdnedzcpuizgohg.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
+
+  <!-- defer: не блокирует первую отрисовку; каталог идёт через REST -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
 
     :root {
       --bg: #f7f5f0;
@@ -592,6 +599,7 @@
     .recent-section {
       margin-top: 28px;
       margin-bottom: 8px;
+      min-height: 120px; /* меньше CLS, пока список грузится */
     }
     .recent-section h2 {
       font-family: 'Playfair Display', Georgia, serif;
@@ -1825,45 +1833,110 @@
       return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
     }
 
-    // Прямой REST-запрос к Supabase (если JS-клиент завис или не инициализировался)
+    const ITEMS_SELECT = 'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at';
+    const REST_HEADERS = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Accept': 'application/json',
+      'Prefer': 'count=exact'
+    };
+    let catalogFullyLoaded = false;
+    let catalogBgLoading = false;
+
+    async function fetchItemsRange(from, size, extraQuery) {
+      const q = extraQuery ? ('&' + extraQuery) : '';
+      const url = SUPABASE_URL + '/rest/v1/items?select=' + ITEMS_SELECT + '&order=created_at.desc' + q;
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 10000);
+      try {
+        const res = await fetch(url, {
+          headers: Object.assign({}, REST_HEADERS, { 'Range': from + '-' + (from + size - 1) }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        if (!res.ok) {
+          const t = await res.text().catch(function () { return ''; });
+          throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
+        }
+        const batch = await res.json();
+        return Array.isArray(batch) ? batch : [];
+      } catch (e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
+
+    // Топ отдельным лёгким запросом (чтобы не ждать весь каталог)
+    async function fetchTopItemsViaRest() {
+      try {
+        return await fetchItemsRange(0, 100, 'is_top=eq.true');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // Полная выгрузка (для фона / запасной путь)
     async function fetchItemsViaRest() {
-      const baseHeaders = {
-        'apikey': SUPABASE_ANON_KEY,
-        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-        'Accept': 'application/json',
-        'Prefer': 'count=exact'
-      };
-      // Только нужные поля — меньше трафик, быстрее первая отрисовка
-      const url = SUPABASE_URL + '/rest/v1/items?select=id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at&order=created_at.desc';
-      const pageSize = 1000;
+      const pageSize = 500;
       let from = 0;
       let all = [];
       while (true) {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 12000);
         try {
-          const res = await fetch(url, {
-            headers: { ...baseHeaders, 'Range': from + '-' + (from + pageSize - 1) },
-            signal: ctrl.signal
-          });
-          clearTimeout(timer);
-          if (!res.ok) {
-            const t = await res.text().catch(() => '');
-            throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
-          }
-          const batch = await res.json();
-          if (!Array.isArray(batch)) break;
+          const batch = await fetchItemsRange(from, pageSize);
+          if (!batch.length) break;
           all = all.concat(batch);
           if (batch.length < pageSize) break;
           from += pageSize;
           if (from > 100000) break;
         } catch (e) {
-          clearTimeout(timer);
-          if (all.length) return all; // частичный успех лучше, чем полный провал
+          if (all.length) return all;
           throw e;
         }
       }
       return all;
+    }
+
+    function mergeItemsById(base, extra) {
+      const map = Object.create(null);
+      (base || []).forEach(function (it) {
+        if (it && it.id != null) map[String(it.id)] = it;
+      });
+      (extra || []).forEach(function (it) {
+        if (it && it.id != null) map[String(it.id)] = it;
+      });
+      const out = [];
+      for (const k in map) out.push(map[k]);
+      out.sort(function (a, b) {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+      return out;
+    }
+
+    // Догрузка остального каталога в фоне (поиск по всем записям)
+    async function loadCatalogBackground(startFrom) {
+      if (catalogBgLoading || catalogFullyLoaded) return;
+      catalogBgLoading = true;
+      let from = startFrom || 0;
+      const pageSize = 500;
+      try {
+        while (from < 100000) {
+          const batch = await fetchItemsRange(from, pageSize);
+          if (!batch.length) break;
+          allItems = mergeItemsById(allItems, batch);
+          from += pageSize;
+          if (batch.length < pageSize) break;
+          // периодически обновляем UI без мигания
+          if (from % 1500 === 0) {
+            try { render(); } catch (e) {}
+          }
+        }
+        catalogFullyLoaded = true;
+        try { render(); } catch (e) {}
+      } catch (e) {
+        console.warn('catalog background', e);
+      } finally {
+        catalogBgLoading = false;
+      }
     }
 
     async function fetchBlacklistViaRest() {
@@ -1904,67 +1977,55 @@
             showStatus('Подождите, идёт загрузка сайта…', 120000);
           }
 
-          // фоновый сброс топа — не блокирует список
-          if (supabaseClient) {
-            try {
-              supabaseClient
-                .from('items')
-                .update({ is_top: false, top_until: null })
-                .lt('top_until', new Date().toISOString())
-                .eq('is_top', true)
-                .then(() => {})
-                .catch(() => {});
-            } catch (e) {}
-          }
-
           let items = [];
           let error = null;
           let usedRest = false;
+          let needBackground = false;
 
-          // --- Способ 1: REST сразу (быстрый старт, не ждёт CDN supabase-js) ---
+          // --- Быстрый старт: Топ + свежие 250 записей (не весь каталог) ---
           try {
-            const restItems = await fetchItemsViaRest();
-            if (restItems && restItems.length) {
-              items = restItems;
-              usedRest = true;
-            } else if (Array.isArray(restItems)) {
-              items = restItems;
-              usedRest = true;
-            }
+            const pair = await Promise.all([
+              fetchTopItemsViaRest(),
+              fetchItemsRange(0, 250)
+            ]);
+            items = mergeItemsById(pair[0] || [], pair[1] || []);
+            usedRest = true;
+            // если пришло 250 «новых» — в базе скорее всего ещё есть, догрузим фоном
+            needBackground = (pair[1] && pair[1].length >= 250);
           } catch (eRest) {
             error = { message: eRest.message || String(eRest) };
           }
 
-          // --- Способ 2: supabase-js, только если REST не дал данные ---
+          // --- Запасной путь: полный REST / supabase-js ---
+          if ((!items || !items.length)) {
+            try {
+              const restItems = await fetchItemsViaRest();
+              if (restItems && restItems.length) {
+                items = restItems;
+                usedRest = true;
+                needBackground = false;
+                catalogFullyLoaded = true;
+              }
+            } catch (e2) {
+              error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+            }
+          }
+
           if ((!items || !items.length) && supabaseClient) {
             try {
-              const pageSize = 1000;
-              let from = 0;
-              let jsItems = [];
-              while (true) {
-                const res = await withTimeout(
-                  supabaseClient
-                    .from('items')
-                    .select('id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at')
-                    .order('created_at', { ascending: false })
-                    .range(from, from + pageSize - 1),
-                  12000,
-                  'Загрузка каталога'
-                );
-                if (res.error) {
-                  error = res.error;
-                  break;
-                }
-                const batch = res.data || [];
-                jsItems = jsItems.concat(batch);
-                if (batch.length < pageSize) break;
-                from += pageSize;
-                if (from > 100000) break;
-              }
-              if (jsItems.length) {
-                items = jsItems;
+              const res = await withTimeout(
+                supabaseClient
+                  .from('items')
+                  .select(ITEMS_SELECT)
+                  .order('created_at', { ascending: false })
+                  .range(0, 249),
+                10000,
+                'Загрузка каталога'
+              );
+              if (!res.error && res.data && res.data.length) {
+                items = res.data;
                 error = null;
-                usedRest = false;
+                needBackground = res.data.length >= 250;
               }
             } catch (e) {
               if (!items.length) {
@@ -2018,20 +2079,13 @@
             return it;
           });
 
-          // blacklist
-          if (supabaseClient && !usedRest) {
+          // ЧС нужен в основном админу — не блокируем первый экран
+          if (isAdmin) {
             try {
-              const blRes = await withTimeout(
-                supabaseClient.from('blacklist').select('value'),
-                8000,
-                'Чёрный список'
-              );
-              blacklist = ((blRes && blRes.data) || []).map(r => r.value);
-            } catch (e) {
               blacklist = await fetchBlacklistViaRest();
+            } catch (e) {
+              blacklist = [];
             }
-          } else {
-            blacklist = await fetchBlacklistViaRest();
           }
 
           try {
@@ -2051,14 +2105,32 @@
             }
           }
 
-          if (usedRest) {
-            console.info('Каталог загружен через REST API, записей:', allItems.length);
-          }
+          console.info('[Telegra] first paint items:', allItems.length, 'bg:', !!needBackground);
           if (!welcomeShown) {
             welcomeShown = true;
             showStatus('Добро пожаловать', 3500);
+          }
+
+          // Остальной каталог — в фоне (поиск по всем)
+          if (needBackground) {
+            setTimeout(function () { loadCatalogBackground(250); }, 100);
           } else {
-            // повторные фоновые обновления — без приветствия
+            catalogFullyLoaded = true;
+          }
+
+          // Сброс просроченного топа — только в фоне
+          if (supabaseClient) {
+            setTimeout(function () {
+              try {
+                supabaseClient
+                  .from('items')
+                  .update({ is_top: false, top_until: null })
+                  .lt('top_until', new Date().toISOString())
+                  .eq('is_top', true)
+                  .then(function () {})
+                  .catch(function () {});
+              } catch (e) {}
+            }, 2000);
           }
         } catch (e) {
           console.error('loadData fatal:', e);
@@ -4002,7 +4074,7 @@
     }
 
 
-    // Быстрый старт: каталог сразу через REST, сессия админа — в фоне
+    // Быстрый старт: первая порция каталога → экран; остальное и админка — фон
     (async () => {
       function tryInitSupabase() {
         if (supabaseClient) return true;
@@ -4022,10 +4094,10 @@
       showStatus('Подождите, идёт загрузка сайта…', 120000);
       setListsMessage('Загрузка…');
 
-      // CDN не блокирует старт
+      // supabase-js с defer — подхватим когда появится, каталогу не нужен
       tryInitSupabase();
-      setTimeout(tryInitSupabase, 1000);
-      setTimeout(tryInitSupabase, 2500);
+      setTimeout(tryInitSupabase, 1200);
+      setTimeout(tryInitSupabase, 3000);
 
       try {
         await loadData();
@@ -4033,17 +4105,26 @@
         console.error('boot loadData', e);
       }
 
-      // Админ-сессия и настройки — после появления списка
-      tryInitSupabase();
-      if (supabaseClient) {
-        checkSession().catch(function () {});
-        loadPaymentBot().catch(function () {});
-      }
+      // Статистика просмотра — после списка, не на критическом пути
+      setTimeout(function () { try { trackPageView(); } catch (e) {} }, 500);
 
-      trackPageView();
+      // Сессия админа и payment bot — только после first paint
+      setTimeout(function () {
+        tryInitSupabase();
+        if (supabaseClient) {
+          checkSession().catch(function () {});
+          // payment bot нужен только для модалки «В Топ»
+          loadPaymentBot().catch(function () {});
+        }
+      }, 800);
+
       console.info('[Telegra] boot ok, items:', allItems.length);
 
-      setInterval(function () { loadData(); }, 5 * 60 * 1000);
+      // Полный refresh каталога реже — раз в 10 минут (фон догружает сам)
+      setInterval(function () {
+        catalogFullyLoaded = false;
+        loadData(true);
+      }, 10 * 60 * 1000);
       setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       setInterval(function () {
         var now = Date.now();
@@ -4056,7 +4137,7 @@
           return it;
         });
         applyFilters();
-        if (changed && isAdmin) loadData();
+        if (changed && isAdmin) loadData(true);
       }, 60 * 1000);
     })();
   </script>
