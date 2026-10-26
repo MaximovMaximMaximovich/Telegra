@@ -1848,6 +1848,9 @@
         try {
           if (!allItems.length) {
             setListsMessage('Загрузка…');
+            if (!welcomeShown) {
+              showStatus('Подождите, идёт загрузка сайта…', 120000);
+            }
           }
 
           // фоновый сброс топа — только если клиент есть, не ждём
@@ -2008,6 +2011,8 @@
           if (!welcomeShown) {
             welcomeShown = true;
             showStatus('Добро пожаловать', 3500);
+          } else {
+            // повторные фоновые обновления — без приветствия
           }
         } catch (e) {
           console.error('loadData fatal:', e);
