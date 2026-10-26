@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Телегра — каталог Telegram-каналов, чатов и ботов</title>
-  <meta name="description" content="Телегра — удобный каталог Telegram-каналов, чатов и ботов. Бесплатно добавьте свой канал, найдите сообщества по категориям, размещение в Топ.">
-  <meta name="keywords" content="каталог телеграм каналов, telegram каналы, телеграм чаты, телеграм боты, каталог telegram, добавить канал в телеграм">
+  <title>Телегра — официальный сайт каталога Telegram-каналов, чатов и ботов</title>
+  <meta name="description" content="Официальный сайт Телегра (телегра.site) — каталог Telegram-каналов, чатов и ботов. Бесплатно добавьте свой канал, поиск по категориям, размещение в Топ.">
+  <meta name="keywords" content="телегра, официальный сайт телегра, каталог телеграм каналов, telegram каналы, телеграм чаты, телеграм боты, каталог telegram">
   <meta name="author" content="Телегра">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://телегра.site/">
@@ -17,14 +17,14 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
   <meta property="og:site_name" content="Телегра">
-  <meta property="og:title" content="Телегра — каталог Telegram-каналов, чатов и ботов">
-  <meta property="og:description" content="Каталог Telegram-каналов, чатов и ботов. Поиск по категориям, бесплатное добавление, размещение в Топ.">
+  <meta property="og:title" content="Телегра — официальный сайт каталога Telegram-каналов">
+  <meta property="og:description" content="Официальный сайт каталога Телегра. Каналы, чаты и боты Telegram: поиск, добавление, Топ.">
   <meta property="og:url" content="https://телегра.site/">
 
   <!-- Twitter -->
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="Телегра — каталог Telegram-каналов, чатов и ботов">
-  <meta name="twitter:description" content="Каталог Telegram-каналов, чатов и ботов. Поиск по категориям, бесплатное добавление.">
+  <meta name="twitter:title" content="Телегра — официальный сайт каталога Telegram-каналов">
+  <meta name="twitter:description" content="Официальный сайт Телегра: каталог каналов, чатов и ботов Telegram.">
 
   <!-- Theme -->
   <meta name="theme-color" content="#2c5f4e">
@@ -990,15 +990,15 @@
       </section>
 
       <div class="about">
-        <p><strong>Telegra</strong> — удобный каталог Telegram-каналов, чатов и ботов. Здесь вы можете найти интересные сообщества или добавить свои.</p>
+        <p><strong>Телегра</strong> — <strong>официальный сайт</strong> каталога Telegram-каналов, чатов и ботов (<a href="https://телегра.site/">телегра.site</a>). Здесь вы можете найти интересные сообщества или добавить свои.</p>
         <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
         <ul>
           <li>Бесплатное добавление каналов, чатов и ботов</li>
           <li>Размещение в Топ</li>
           <li>Удобный поиск и фильтры</li>
-          <li>Мы добавим вашему каналу подписчиков</li>
+          <li>Отдельные страницы каналов для удобного просмотра</li>
         </ul>
-        <p><strong>Важно.</strong> Telegra — открытый справочный каталог. Администрация сайта не создаёт материалы каналов, чатов и ботов, заранее их не проверяет и не несёт ответственности за их содержание. Все ссылки ведут на сторонние ресурсы Telegram; выбор подписки и просмотра контента остаётся за посетителем.</p>
+        <p><strong>Важно.</strong> Телегра — открытый справочный каталог. Мы не связаны с компанией Telegram. Администрация сайта не создаёт материалы каналов, чатов и ботов, заранее их не проверяет и не несёт ответственности за их содержание. Все ссылки ведут на сторонние ресурсы Telegram; выбор подписки и просмотра контента остаётся за посетителем.</p>
         <p>Заметили запись, которая может навредить людям, нарушает закон или распространяет опасный контент — напишите нам: укажите название или ссылку и кратко опишите причину. Мы рассмотрим обращение и при необходимости удалим материал из каталога. Жалобы и вопросы: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
       </div>
     </main>
@@ -1258,20 +1258,23 @@
   <div class="modal-overlay" id="analytics-modal">
     <div class="modal" style="max-width:480px;">
       <h3>Статистика</h3>
+      <p id="stat-period-label" style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;"></p>
       <div class="analytics-grid">
-        <div class="stat-card"><div class="num" id="stat-views-today">—</div><div class="lbl">Просмотры сегодня</div></div>
-        <div class="stat-card"><div class="num" id="stat-views-7d">—</div><div class="lbl">Просмотры за 7 дней</div></div>
-        <div class="stat-card"><div class="num" id="stat-views-30d">—</div><div class="lbl">Просмотры за 30 дней</div></div>
-        <div class="stat-card"><div class="num" id="stat-search-7d">—</div><div class="lbl">Поисков за 7 дней</div></div>
+        <div class="stat-card"><div class="num" id="stat-views-period">—</div><div class="lbl">Просмотры с сброса</div></div>
+        <div class="stat-card"><div class="num" id="stat-search-period">—</div><div class="lbl">Поиски с сброса</div></div>
+        <div class="stat-card"><div class="num" id="stat-views-total">—</div><div class="lbl">Просмотры всего</div></div>
+        <div class="stat-card"><div class="num" id="stat-search-total">—</div><div class="lbl">Поиски всего</div></div>
       </div>
-      <label style="margin-bottom:8px;">Топ поисковых запросов (7 дней)</label>
+      <label style="margin-bottom:8px;">Топ поисковых запросов (с момента сброса)</label>
       <ul class="top-queries" id="stat-top-queries">
         <li style="color:var(--muted);">Нет данных</li>
       </ul>
-      <div class="modal-actions" style="margin-top:16px;">
+      <div class="modal-actions" style="margin-top:16px;flex-wrap:wrap;gap:8px;">
         <button class="btn-cancel" onclick="closeAnalyticsModal()" style="flex:1;">Закрыть</button>
         <button class="btn-add" onclick="loadAnalytics()" style="flex:1;">Обновить</button>
+        <button type="button" onclick="resetStatsPeriod()" style="flex:1 1 100%;padding:10px;border-radius:10px;border:1px solid #c5d9d0;background:#e8f0ed;color:var(--accent);font-weight:600;cursor:pointer;">Сбросить статистику за период</button>
       </div>
+      <p style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4;">Сброс обнуляет только счётчики «с сброса». Общая статистика («всего») не затрагивается и продолжает расти.</p>
     </div>
   </div>
 
@@ -1602,6 +1605,26 @@
       document.getElementById('analytics-modal').classList.remove('active');
     }
 
+    function getStatsPeriodStart() {
+      try {
+        const v = localStorage.getItem('telegra_stats_period_start');
+        if (v) return v;
+      } catch (e) {}
+      // по умолчанию — начало сегодняшнего дня
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    }
+
+    function resetStatsPeriod() {
+      if (!isAdmin) return;
+      if (!confirm('Сбросить счётчики «с сброса»?\nОбщая статистика («всего») останется как была.')) return;
+      try {
+        localStorage.setItem('telegra_stats_period_start', new Date().toISOString());
+      } catch (e) {}
+      showStatus('Период статистики сброшен');
+      loadAnalytics();
+    }
+
     async function loadAnalytics() {
       if (!isAdmin || !supabaseClient) return;
       const el = document.getElementById('admin-stats');
@@ -1610,10 +1633,16 @@
         if (n) n.textContent = v;
       };
       try {
-        const now = new Date();
-        const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const start7 = new Date(now.getTime() - 7 * 86400000).toISOString();
-        const start30 = new Date(now.getTime() - 30 * 86400000).toISOString();
+        const periodStart = getStatsPeriodStart();
+        const periodLabel = document.getElementById('stat-period-label');
+        if (periodLabel) {
+          try {
+            const d = new Date(periodStart);
+            periodLabel.textContent = 'Период с: ' + d.toLocaleString('ru-RU');
+          } catch (e) {
+            periodLabel.textContent = '';
+          }
+        }
 
         const countType = async (type, since) => {
           let q = supabaseClient
@@ -1626,24 +1655,24 @@
           return count || 0;
         };
 
-        const [vToday, v7, v30, s7] = await Promise.all([
-          countType('page_view', startToday),
-          countType('page_view', start7),
-          countType('page_view', start30),
-          countType('search', start7)
+        const [vPeriod, sPeriod, vTotal, sTotal] = await Promise.all([
+          countType('page_view', periodStart),
+          countType('search', periodStart),
+          countType('page_view', null),
+          countType('search', null)
         ]);
 
-        set('stat-views-today', vToday);
-        set('stat-views-7d', v7);
-        set('stat-views-30d', v30);
-        set('stat-search-7d', s7);
-        if (el) el.textContent = 'Сегодня: ' + vToday + ' · 7д: ' + v7 + ' · Поиск: ' + s7;
+        set('stat-views-period', vPeriod);
+        set('stat-search-period', sPeriod);
+        set('stat-views-total', vTotal);
+        set('stat-search-total', sTotal);
+        if (el) el.textContent = 'С сброса: ' + vPeriod + ' · Всего: ' + vTotal + ' · Поиск: ' + sPeriod;
 
         const { data: searches, error: se } = await supabaseClient
           .from('analytics_events')
           .select('query')
           .eq('type', 'search')
-          .gte('created_at', start7)
+          .gte('created_at', periodStart)
           .not('query', 'is', null)
           .limit(500);
         if (se) throw se;
@@ -3897,6 +3926,7 @@
       window.openAnalyticsModal = openAnalyticsModal;
       window.closeAnalyticsModal = closeAnalyticsModal;
       window.loadAnalytics = loadAnalytics;
+      window.resetStatsPeriod = resetStatsPeriod;
       window.openBulkModal = openBulkModal;
       window.closeBulkModal = closeBulkModal;
       window.runBulkImport = runBulkImport;
