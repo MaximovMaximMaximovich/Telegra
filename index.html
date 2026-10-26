@@ -2464,8 +2464,8 @@
       }
     }
 
-    // Скачать/сжать аватар → Storage. Нужен вход админа.
-    // oldUrl — старый файл в Storage, удалится после замены.
+    // Скачать/сжать аватар → Storage (гости тоже; секрет в HTML не нужен).
+    // oldUrl — старый файл в Storage, удалится после замены (если есть сессия админа).
     async function cacheAvatarToSupabase(imageUrl, username, oldUrl) {
       if (!imageUrl || !username) return imageUrl;
       if (/supabase\.co\/storage\//i.test(imageUrl)) {
@@ -2475,14 +2475,10 @@
         return imageUrl;
       }
       try {
-        var token = await getAdminAccessToken();
-        if (!token) return imageUrl;
         var api =
           '/api/cache-avatar?url=' + encodeURIComponent(imageUrl) +
           '&username=' + encodeURIComponent(username);
-        var r = await fetch(api, {
-          headers: { Authorization: 'Bearer ' + token }
-        });
+        var r = await fetch(api);
         var j = await r.json();
         if (j && j.ok && j.url) {
           if (oldUrl && oldUrl !== j.url && /supabase\.co\/storage\//i.test(oldUrl)) {
