@@ -837,16 +837,22 @@
     }
     .status-bar {
       position: fixed;
-      bottom: 12px;
-      right: 12px;
-      background: #333;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      right: auto;
+      background: #1a1a1a;
       color: #fff;
-      padding: 6px 12px;
-      border-radius: 8px;
-      font-size: 0.75rem;
-      z-index: 50;
-      opacity: 0.85;
+      padding: 10px 18px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      z-index: 9999;
+      opacity: 0.95;
       display: none;
+      max-width: 90vw;
+      text-align: center;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     }
     .add-progress { display: none; margin: 14px 0 8px; }
     .add-progress.active { display: block; }
@@ -1926,11 +1932,27 @@
           let error = null;
           let usedRest = false;
 
-          // --- Способ 1: supabase-js ---
-          if (supabaseClient) {
+          // --- Способ 1: REST напрямую (надёжнее на ПК с блокировщиками CDN) ---
+          try {
+            const restItems = await fetchItemsViaRest();
+            if (restItems && restItems.length) {
+              items = restItems;
+              usedRest = true;
+            } else if (Array.isArray(restItems)) {
+              items = restItems;
+              usedRest = true;
+            }
+          } catch (eRest) {
+            error = { message: eRest.message || String(eRest) };
+            console.warn('loadData REST', error.message);
+          }
+
+          // --- Способ 2: supabase-js, если REST не дал данных ---
+          if ((!items || !items.length) && supabaseClient) {
             try {
               const pageSize = 1000;
               let from = 0;
+              let jsItems = [];
               while (true) {
                 const res = await withTimeout(
                   supabaseClient
@@ -1938,7 +1960,7 @@
                     .select('*')
                     .order('created_at', { ascending: false })
                     .range(from, from + pageSize - 1),
-                  18000,
+                  12000,
                   'Загрузка каталога'
                 );
                 if (res.error) {
@@ -1946,45 +1968,25 @@
                   break;
                 }
                 const batch = res.data || [];
-                items = items.concat(batch);
+                jsItems = jsItems.concat(batch);
                 if (batch.length < pageSize) break;
                 from += pageSize;
                 if (from > 100000) break;
               }
+              if (jsItems.length) {
+                items = jsItems;
+                error = null;
+                usedRest = false;
+              }
             } catch (e) {
-              error = { message: e.message || String(e) };
-              items = [];
-            }
-          } else {
-            error = { message: 'Клиент Supabase не инициализирован' };
-          }
-
-          // --- Способ 2: REST API (обход при ошибке или пустом ответе клиента) ---
-          if (error || (supabaseClient && items.length === 0 && loadDataAttempts === 0)) {
-            // если клиент вернул пусто без ошибки — один раз пробуем REST (на случай сбоя клиента)
-            const shouldTryRest = !!error || items.length === 0;
-            if (shouldTryRest) {
-              try {
-                console.warn('loadData: fallback REST', error && error.message);
-                const restItems = await fetchItemsViaRest();
-                if (restItems && restItems.length) {
-                  items = restItems;
-                  error = null;
-                  usedRest = true;
-                } else if (!error && restItems) {
-                  // реально пустой каталог
-                  items = restItems;
-                  error = null;
-                  usedRest = true;
-                } else if (error) {
-                  // REST тоже не помог — оставляем error
-                }
-              } catch (e2) {
-                if (!items.length) {
-                  error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
-                }
+              if (!items.length) {
+                error = { message: (error && error.message ? error.message + ' | ' : '') + (e.message || String(e)) };
               }
             }
+          }
+
+          if (!items.length && !error) {
+            error = { message: 'Не удалось загрузить каталог' };
           }
 
           // пустой каталог без ошибки — это нормально
@@ -4012,7 +4014,7 @@
     }
 
 
-    // Старт — каталог не ждёт сессию/настройки (иначе на F5 бывает «вечная Загрузка»)
+    // Старт: REST-каталог сразу (не зависит от CDN supabase-js — важно для ПК с блокировщиками)
     (async () => {
       function tryInitSupabase() {
         if (supabaseClient) return true;
@@ -4029,56 +4031,63 @@
 
       try { initCategorySelects(); } catch (e) { console.warn('initCategorySelects', e); }
 
-      // Сразу показываем статус (и при обновлении страницы)
       showStatus('Подождите, идёт загрузка сайта…', 120000);
       setListsMessage('Загрузка…');
 
+      // Не блокируем каталог ожиданием CDN — init в фоне
       tryInitSupabase();
-      // Короткое ожидание CDN (макс ~2 сек), дальше грузим через REST
-      for (let i = 0; i < 4 && !supabaseClient; i++) {
-        await new Promise(r => setTimeout(r, 500));
-        tryInitSupabase();
-      }
+      setTimeout(tryInitSupabase, 800);
+      setTimeout(tryInitSupabase, 2000);
 
-      if (!supabaseClient) {
-        console.warn('supabase-js не загрузился — REST fallback');
-      }
+      // Сторож: если через 15 сек всё ещё пусто — принудительный повтор
+      const watchdog = setTimeout(function () {
+        if (allItems.length) return;
+        console.warn('[Telegra] watchdog: каталог не загрузился, повтор');
+        loadDataInFlight = null;
+        loadDataAttempts = 0;
+        showStatus('Повтор загрузки каталога…', 15000);
+        setListsMessage('Загрузка… ещё попытка');
+        loadData(true);
+      }, 15000);
 
-      // Каталог — сразу, не ждём checkSession / payment bot
-      let catalogOk = false;
       try {
         await loadData();
-        catalogOk = true;
       } catch (e) {
         console.error('boot loadData', e);
+        setListsMessage(
+          'Не удалось загрузить каталог. <button type="button" onclick="loadDataAttempts=0;loadDataInFlight=null;loadData(true)" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+        );
       }
 
-      // Сессия и настройки — параллельно, после старта каталога (не блокируют список)
+      if (allItems.length) clearTimeout(watchdog);
+
+      // Сессия админа — после каталога, в фоне
+      tryInitSupabase();
       if (supabaseClient) {
-        try {
-          await withTimeout(checkSession(), 8000, 'Сессия');
-        } catch (e) { console.warn(e); }
-        try {
-          await withTimeout(loadPaymentBot(), 6000, 'Настройки');
-        } catch (e) { console.warn(e); }
-        // если каталог не встал с первого раза — ещё попытка уже с клиентом
-        if (!catalogOk || !allItems.length) {
-          try { await loadData(true); } catch (e2) { console.warn(e2); }
-        }
+        checkSession().catch(function () {});
+        loadPaymentBot().catch(function () {});
+      } else {
+        setTimeout(function () {
+          tryInitSupabase();
+          if (supabaseClient) {
+            checkSession().catch(function () {});
+            loadPaymentBot().catch(function () {});
+          }
+        }, 2500);
       }
 
       trackPageView();
       console.info('[Telegra] boot ok, items:', allItems.length);
 
-      setInterval(() => { loadData(); }, 5 * 60 * 1000);
-      setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
-      setInterval(() => {
-        const now = Date.now();
-        let changed = false;
-        allItems = allItems.map(it => {
+      setInterval(function () { loadData(); }, 5 * 60 * 1000);
+      setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
+      setInterval(function () {
+        var now = Date.now();
+        var changed = false;
+        allItems = allItems.map(function (it) {
           if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
             changed = true;
-            return { ...it, is_top: false, top_until: null };
+            return Object.assign({}, it, { is_top: false, top_until: null });
           }
           return it;
         });
@@ -4086,12 +4095,11 @@
         if (changed && isAdmin) loadData();
       }, 60 * 1000);
 
-      // Возврат из bfcache (назад/вперёд) — если снова «Загрузка», перезагружаем каталог
       window.addEventListener('pageshow', function (ev) {
         try {
           if (!ev.persisted) return;
-          const il = document.getElementById('items-list');
-          const stuck = il && /Загрузка/i.test(il.innerHTML || '');
+          var il = document.getElementById('items-list');
+          var stuck = il && /Загрузка/i.test(il.innerHTML || '');
           if (stuck || !allItems.length) {
             loadDataInFlight = null;
             loadDataAttempts = 0;
