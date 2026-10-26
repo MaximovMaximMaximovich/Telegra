@@ -1739,7 +1739,10 @@
             document.getElementById('admin-badge').classList.add('active');
             document.getElementById('login-toggle').classList.add('hidden');
             document.getElementById('blacklist-section').style.display = 'block';
-            loadAnalytics();
+            // Аналитику не блокируем при старте — чуть позже
+            setTimeout(function () {
+              try { loadAnalytics(); } catch (e) {}
+            }, 500);
           }
         }
       } catch (e) {
@@ -1894,14 +1897,16 @@
       if (loadDataInFlight && !isRetry) {
         return loadDataInFlight;
       }
+      // при принудительном retry сбрасываем «залипший» промис
+      if (isRetry) {
+        loadDataInFlight = null;
+      }
 
       const run = (async () => {
         try {
           if (!allItems.length) {
             setListsMessage('Загрузка…');
-            if (!welcomeShown) {
-              showStatus('Подождите, идёт загрузка сайта…', 120000);
-            }
+            showStatus('Подождите, идёт загрузка сайта…', 120000);
           }
 
           // фоновый сброс топа — только если клиент есть, не ждём
@@ -4007,7 +4012,7 @@
     }
 
 
-    // Старт — с повторной попыткой инициализации Supabase
+    // Старт — каталог не ждёт сессию/настройки (иначе на F5 бывает «вечная Загрузка»)
     (async () => {
       function tryInitSupabase() {
         if (supabaseClient) return true;
@@ -4022,32 +4027,51 @@
         return false;
       }
 
-      // Категории в селекты — один раз при старте
       try { initCategorySelects(); } catch (e) { console.warn('initCategorySelects', e); }
 
+      // Сразу показываем статус (и при обновлении страницы)
+      showStatus('Подождите, идёт загрузка сайта…', 120000);
+      setListsMessage('Загрузка…');
+
       tryInitSupabase();
-      // до 5 сек ждём CDN supabase-js
-      for (let i = 0; i < 10 && !supabaseClient; i++) {
+      // Короткое ожидание CDN (макс ~2 сек), дальше грузим через REST
+      for (let i = 0; i < 4 && !supabaseClient; i++) {
         await new Promise(r => setTimeout(r, 500));
         tryInitSupabase();
       }
 
       if (!supabaseClient) {
-        console.warn('supabase-js не загрузился — будет REST fallback');
-        showStatus('Загрузка через запасной канал…', 5000);
-      } else {
-        try { await withTimeout(checkSession(), 10000, 'Сессия'); } catch (e) { console.warn(e); }
-        try { await withTimeout(loadPaymentBot(), 8000, 'Настройки'); } catch (e) { console.warn(e); }
+        console.warn('supabase-js не загрузился — REST fallback');
       }
 
-      // грузим каталог всегда (js-клиент или REST)
-      await loadData();
-      trackPageView();
+      // Каталог — сразу, не ждём checkSession / payment bot
+      let catalogOk = false;
+      try {
+        await loadData();
+        catalogOk = true;
+      } catch (e) {
+        console.error('boot loadData', e);
+      }
 
-      console.info('[Telegra] boot ok, items will load');
+      // Сессия и настройки — параллельно, после старта каталога (не блокируют список)
+      if (supabaseClient) {
+        try {
+          await withTimeout(checkSession(), 8000, 'Сессия');
+        } catch (e) { console.warn(e); }
+        try {
+          await withTimeout(loadPaymentBot(), 6000, 'Настройки');
+        } catch (e) { console.warn(e); }
+        // если каталог не встал с первого раза — ещё попытка уже с клиентом
+        if (!catalogOk || !allItems.length) {
+          try { await loadData(true); } catch (e2) { console.warn(e2); }
+        }
+      }
+
+      trackPageView();
+      console.info('[Telegra] boot ok, items:', allItems.length);
+
       setInterval(() => { loadData(); }, 5 * 60 * 1000);
       setInterval(() => { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
-      // каждую минуту: снять просроченный Топ с экрана + ротация списка
       setInterval(() => {
         const now = Date.now();
         let changed = false;
@@ -4061,6 +4085,21 @@
         applyFilters();
         if (changed && isAdmin) loadData();
       }, 60 * 1000);
+
+      // Возврат из bfcache (назад/вперёд) — если снова «Загрузка», перезагружаем каталог
+      window.addEventListener('pageshow', function (ev) {
+        try {
+          if (!ev.persisted) return;
+          const il = document.getElementById('items-list');
+          const stuck = il && /Загрузка/i.test(il.innerHTML || '');
+          if (stuck || !allItems.length) {
+            loadDataInFlight = null;
+            loadDataAttempts = 0;
+            showStatus('Подождите, идёт загрузка сайта…', 120000);
+            loadData(true);
+          }
+        } catch (e) {}
+      });
     })();
   </script>
 </body>
