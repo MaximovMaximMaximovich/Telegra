@@ -1258,23 +1258,36 @@
   <div class="modal-overlay" id="analytics-modal">
     <div class="modal" style="max-width:480px;">
       <h3>Статистика</h3>
-      <p id="stat-period-label" style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;"></p>
+      <p style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;">Просмотры считают только гости (не админ). Топ‑10 запросов не сбрасывается.</p>
       <div class="analytics-grid">
-        <div class="stat-card"><div class="num" id="stat-views-period">—</div><div class="lbl">Просмотры с сброса</div></div>
-        <div class="stat-card"><div class="num" id="stat-search-period">—</div><div class="lbl">Поиски с сброса</div></div>
-        <div class="stat-card"><div class="num" id="stat-views-total">—</div><div class="lbl">Просмотры всего</div></div>
-        <div class="stat-card"><div class="num" id="stat-search-total">—</div><div class="lbl">Поиски всего</div></div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-day">—</div>
+          <div class="lbl">Просмотры за день</div>
+          <button type="button" onclick="resetStatsBucket('day')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить день</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-week">—</div>
+          <div class="lbl">Просмотры за неделю</div>
+          <button type="button" onclick="resetStatsBucket('week')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить неделю</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-month">—</div>
+          <div class="lbl">Просмотры за месяц</div>
+          <button type="button" onclick="resetStatsBucket('month')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить месяц</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-total">—</div>
+          <div class="lbl">Просмотры всего</div>
+        </div>
       </div>
-      <label style="margin-bottom:8px;">Топ поисковых запросов (с момента сброса)</label>
+      <label style="margin-bottom:8px;">Топ‑10 поисковых запросов (за всё время)</label>
       <ul class="top-queries" id="stat-top-queries">
         <li style="color:var(--muted);">Нет данных</li>
       </ul>
-      <div class="modal-actions" style="margin-top:16px;flex-wrap:wrap;gap:8px;">
+      <div class="modal-actions" style="margin-top:16px;">
         <button class="btn-cancel" onclick="closeAnalyticsModal()" style="flex:1;">Закрыть</button>
         <button class="btn-add" onclick="loadAnalytics()" style="flex:1;">Обновить</button>
-        <button type="button" onclick="resetStatsPeriod()" style="flex:1 1 100%;padding:10px;border-radius:10px;border:1px solid #c5d9d0;background:#e8f0ed;color:var(--accent);font-weight:600;cursor:pointer;">Сбросить статистику за период</button>
       </div>
-      <p style="font-size:0.75rem;color:var(--muted);margin-top:10px;line-height:1.4;">Сброс обнуляет только счётчики «с сброса». Общая статистика («всего») не затрагивается и продолжает расти.</p>
     </div>
   </div>
 
@@ -1569,6 +1582,8 @@
     }
 
     function trackPageView() {
+      // Админа в счётчик просмотров не пишем
+      if (isAdmin) return;
       try {
         const key = 'telegra_pv_' + new Date().toISOString().slice(0, 10);
         if (sessionStorage.getItem(key)) return;
@@ -1605,23 +1620,37 @@
       document.getElementById('analytics-modal').classList.remove('active');
     }
 
-    function getStatsPeriodStart() {
-      try {
-        const v = localStorage.getItem('telegra_stats_period_start');
-        if (v) return v;
-      } catch (e) {}
-      // по умолчанию — начало сегодняшнего дня
+    function defaultStatsBucketStart(bucket) {
       const now = new Date();
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      if (bucket === 'day') {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      }
+      if (bucket === 'week') {
+        return new Date(now.getTime() - 7 * 86400000).toISOString();
+      }
+      if (bucket === 'month') {
+        return new Date(now.getTime() - 30 * 86400000).toISOString();
+      }
+      return new Date(0).toISOString();
     }
 
-    function resetStatsPeriod() {
-      if (!isAdmin) return;
-      if (!confirm('Сбросить счётчики «с сброса»?\nОбщая статистика («всего») останется как была.')) return;
+    function getStatsBucketStart(bucket) {
       try {
-        localStorage.setItem('telegra_stats_period_start', new Date().toISOString());
+        const v = localStorage.getItem('telegra_stats_reset_' + bucket);
+        if (v) return v;
       } catch (e) {}
-      showStatus('Период статистики сброшен');
+      return defaultStatsBucketStart(bucket);
+    }
+
+    function resetStatsBucket(bucket) {
+      if (!isAdmin) return;
+      const labels = { day: 'день', week: 'неделю', month: 'месяц' };
+      const label = labels[bucket] || bucket;
+      if (!confirm('Сбросить счётчик просмотров за ' + label + '?\nТоп‑10 запросов и «всего» не изменятся.')) return;
+      try {
+        localStorage.setItem('telegra_stats_reset_' + bucket, new Date().toISOString());
+      } catch (e) {}
+      showStatus('Сброшено: ' + label);
       loadAnalytics();
     }
 
@@ -1633,16 +1662,9 @@
         if (n) n.textContent = v;
       };
       try {
-        const periodStart = getStatsPeriodStart();
-        const periodLabel = document.getElementById('stat-period-label');
-        if (periodLabel) {
-          try {
-            const d = new Date(periodStart);
-            periodLabel.textContent = 'Период с: ' + d.toLocaleString('ru-RU');
-          } catch (e) {
-            periodLabel.textContent = '';
-          }
-        }
+        const startDay = getStatsBucketStart('day');
+        const startWeek = getStatsBucketStart('week');
+        const startMonth = getStatsBucketStart('month');
 
         const countType = async (type, since) => {
           let q = supabaseClient
@@ -1655,26 +1677,26 @@
           return count || 0;
         };
 
-        const [vPeriod, sPeriod, vTotal, sTotal] = await Promise.all([
-          countType('page_view', periodStart),
-          countType('search', periodStart),
-          countType('page_view', null),
-          countType('search', null)
+        const [vDay, vWeek, vMonth, vTotal] = await Promise.all([
+          countType('page_view', startDay),
+          countType('page_view', startWeek),
+          countType('page_view', startMonth),
+          countType('page_view', null)
         ]);
 
-        set('stat-views-period', vPeriod);
-        set('stat-search-period', sPeriod);
+        set('stat-views-day', vDay);
+        set('stat-views-week', vWeek);
+        set('stat-views-month', vMonth);
         set('stat-views-total', vTotal);
-        set('stat-search-total', sTotal);
-        if (el) el.textContent = 'С сброса: ' + vPeriod + ' · Всего: ' + vTotal + ' · Поиск: ' + sPeriod;
+        if (el) el.textContent = 'День: ' + vDay + ' · Нед: ' + vWeek + ' · Мес: ' + vMonth + ' · Всего: ' + vTotal;
 
+        // Топ‑10 запросов за всё время — не сбрасывается
         const { data: searches, error: se } = await supabaseClient
           .from('analytics_events')
           .select('query')
           .eq('type', 'search')
-          .gte('created_at', periodStart)
           .not('query', 'is', null)
-          .limit(500);
+          .limit(2000);
         if (se) throw se;
 
         const freq = {};
@@ -1683,14 +1705,14 @@
           if (!k || k.length < 2) return;
           freq[k] = (freq[k] || 0) + 1;
         });
-        const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 15);
+        const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10);
         const list = document.getElementById('stat-top-queries');
         if (list) {
           if (!top.length) {
             list.innerHTML = '<li style="color:var(--muted);">Нет данных</li>';
           } else {
-            list.innerHTML = top.map(([q, c]) =>
-              '<li><span>' + escapeHtml(q) + '</span><strong>' + c + '</strong></li>'
+            list.innerHTML = top.map(([q, c], i) =>
+              '<li><span>' + (i + 1) + '. ' + escapeHtml(q) + '</span><strong>' + c + '</strong></li>'
             ).join('');
           }
         }
@@ -3926,7 +3948,7 @@
       window.openAnalyticsModal = openAnalyticsModal;
       window.closeAnalyticsModal = closeAnalyticsModal;
       window.loadAnalytics = loadAnalytics;
-      window.resetStatsPeriod = resetStatsPeriod;
+      window.resetStatsBucket = resetStatsBucket;
       window.openBulkModal = openBulkModal;
       window.closeBulkModal = closeBulkModal;
       window.runBulkImport = runBulkImport;
