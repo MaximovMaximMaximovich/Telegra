@@ -123,13 +123,26 @@ async function fetchItemByUsername(username) {
 }
 
 async function fetchItemById(id) {
+  id = String(id || '').trim();
+  if (!id) return null;
+  // UUID или любой id из primary key
   const qs =
     'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
     '&id=eq.' +
     encodeURIComponent(id) +
     '&limit=1';
-  const rows = await sbFetch(qs);
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+  let rows = await sbFetch(qs);
+  if (Array.isArray(rows) && rows[0]) return rows[0];
+  // запасной путь: иногда id приходит с лишними символами
+  const cleaned = id.replace(/[^a-zA-Z0-9-]/g, '');
+  if (cleaned && cleaned !== id) {
+    rows = await sbFetch(
+      'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+      '&id=eq.' + encodeURIComponent(cleaned) + '&limit=1'
+    );
+    if (Array.isArray(rows) && rows[0]) return rows[0];
+  }
+  return null;
 }
 
 async function fetchSimilar(category, excludeUsername, excludeId, limit) {
@@ -232,21 +245,46 @@ function renderNotFound(res, label) {
   return res.status(404).send(html);
 }
 
+function pickQuery(req) {
+  const q = req.query || {};
+  // Vercel иногда отдаёт массивы
+  function one(v) {
+    if (Array.isArray(v)) return String(v[0] || '').trim();
+    return String(v == null ? '' : v).trim();
+  }
+  let id = one(q.id);
+  let username = one(q.username) || one(q.u);
+  // запасной разбор URL, если query пустой
+  if (!id && !username && req.url) {
+    try {
+      const u = new URL(req.url, 'http://localhost');
+      id = one(u.searchParams.get('id'));
+      username = username || one(u.searchParams.get('username')) || one(u.searchParams.get('u'));
+    } catch (e) {}
+  }
+  return { id: id, username: username };
+}
+
 async function handler(req, res) {
   try {
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       return res.status(405).send('Method not allowed');
     }
 
-    const q = req.query || {};
-    const idParam = String(q.id || '').trim();
-    const username = normalizeUsername(q.username || q.u || '');
+    const q = pickQuery(req);
+    const idParam = q.id;
+    const username = normalizeUsername(q.username);
 
     let item = null;
     if (idParam) {
       item = await fetchItemById(idParam);
-    } else if (username && username.length >= 3) {
+    }
+    if (!item && username && username.length >= 3) {
       item = await fetchItemByUsername(username);
+    }
+    // если открыли /p/ с username по ошибке
+    if (!item && idParam && idParam.length >= 3 && !idParam.includes('-')) {
+      item = await fetchItemByUsername(normalizeUsername(idParam));
     }
 
     if (!item) {
