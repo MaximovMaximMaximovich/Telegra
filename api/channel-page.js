@@ -39,6 +39,16 @@ function truncate(s, n) {
   return s.slice(0, n - 1).trim() + '…';
 }
 
+function isActiveTop(row) {
+  if (!row || !row.is_top) return false;
+  if (!row.top_until) return true;
+  try {
+    return new Date(row.top_until).getTime() > Date.now();
+  } catch (e) {
+    return !!row.is_top;
+  }
+}
+
 async function fetchItem(username) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return null;
   const qs =
@@ -61,12 +71,12 @@ async function fetchItem(username) {
 async function fetchSimilar(category, username, limit) {
   if (!SUPABASE_URL || !SUPABASE_KEY || !category) return [];
   const qs =
-    'select=username,display_name,type,avatar_url,category' +
+    'select=username,display_name,type,avatar_url,category,is_top,top_until' +
     '&category=eq.' + encodeURIComponent(category) +
     '&username=neq.' + encodeURIComponent(username) +
     '&is_private=eq.false' +
     '&order=created_at.desc' +
-    '&limit=' + (limit || 6);
+    '&limit=' + (limit || 8);
   try {
     const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
       headers: {
@@ -81,6 +91,52 @@ async function fetchSimilar(category, username, limit) {
   } catch (e) {
     return [];
   }
+}
+
+/** Актуальные размещения в Топе (для блока на странице канала) */
+async function fetchTopItems(excludeUsername, limit) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return [];
+  const nowIso = new Date().toISOString();
+  const qs =
+    'select=username,display_name,type,avatar_url,category,is_top,top_until' +
+    '&is_top=eq.true' +
+    '&is_private=eq.false' +
+    '&or=(top_until.is.null,top_until.gt.' + encodeURIComponent(nowIso) + ')' +
+    (excludeUsername ? '&username=neq.' + encodeURIComponent(excludeUsername) : '') +
+    '&order=top_until.desc.nullslast' +
+    '&limit=' + (limit || 8);
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: 'Bearer ' + SUPABASE_KEY,
+        Accept: 'application/json'
+      }
+    });
+    if (!res.ok) return [];
+    const rows = await res.json();
+    return Array.isArray(rows) ? rows.filter(isActiveTop) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function cardHtml(s, opts) {
+  opts = opts || {};
+  const isTop = !!opts.isTop || isActiveTop(s);
+  const sn = escapeHtml(s.display_name || ('@' + s.username));
+  const su = encodeURIComponent(s.username || '');
+  const av = s.avatar_url
+    ? `<img src="${escapeHtml(s.avatar_url)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">`
+    : `<span class="ph">${escapeHtml((s.display_name || s.username || '?')[0] || '?')}</span>`;
+  const topBadge = isTop ? '<span class="sim-top-badge">Топ</span>' : '';
+  const cls = isTop ? 'sim-card sim-card-top' : 'sim-card';
+  return `<a class="${cls}" href="/c/${su}">
+    <div class="sim-av">${av}</div>
+    <div class="sim-name">${sn}</div>
+    <div class="sim-type">${escapeHtml(typeLabel(s.type))}${isTop ? ' · Топ' : ''}</div>
+    ${topBadge}
+  </a>`;
 }
 
 function renderNotFound(res, username) {
@@ -137,7 +193,10 @@ export default async function handler(req, res) {
     return renderNotFound(res, username);
   }
 
-  const similar = await fetchSimilar(item.category, item.username, 6);
+  const [similar, topItems] = await Promise.all([
+    fetchSimilar(item.category, item.username, 8),
+    fetchTopItems(item.username, 8)
+  ]);
 
   const name = item.display_name || ('@' + item.username);
   const desc = item.description || '';
@@ -151,6 +210,7 @@ export default async function handler(req, res) {
   const created = item.created_at
     ? new Date(item.created_at).toLocaleDateString('ru-RU')
     : '';
+  const itemIsTop = isActiveTop(item);
 
   const metaDesc = truncate(
     (desc || (type + ' «' + name + '» в каталоге ' + SITE_NAME + '. Категория: ' + cat + '.')) ,
@@ -163,16 +223,19 @@ export default async function handler(req, res) {
         <h2>Похожие в категории «${escapeHtml(cat)}»</h2>
         <div class="sim-grid">
           ${similar.map(function (s) {
-            const sn = escapeHtml(s.display_name || ('@' + s.username));
-            const su = encodeURIComponent(s.username || '');
-            const av = s.avatar_url
-              ? `<img src="${escapeHtml(s.avatar_url)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">`
-              : `<span class="ph">${escapeHtml((s.display_name || s.username || '?')[0] || '?')}</span>`;
-            return `<a class="sim-card" href="/c/${su}">
-              <div class="sim-av">${av}</div>
-              <div class="sim-name">${sn}</div>
-              <div class="sim-type">${escapeHtml(typeLabel(s.type))}</div>
-            </a>`;
+            return cardHtml(s, { isTop: isActiveTop(s) });
+          }).join('')}
+        </div>
+      </section>`
+    : '';
+
+  const topHtml = topItems.length
+    ? `<section class="similar top-section-page">
+        <h2>Топ в каталоге</h2>
+        <p class="top-hint">Выделенные размещения — сейчас в Топе на главной</p>
+        <div class="sim-grid">
+          ${topItems.map(function (s) {
+            return cardHtml(s, { isTop: true });
           }).join('')}
         </div>
       </section>`
@@ -229,6 +292,7 @@ export default async function handler(req, res) {
     :root {
       --bg: #f7f5f0; --card: #fff; --text: #1a1a1a; --muted: #6b6b6b;
       --border: #e8e4dc; --accent: #2c5f4e; --soft: #f3f0ea;
+      --top-bg: #fffcf5; --top-border: #e0d0a8; --top-text: #7a5c20;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -255,6 +319,11 @@ export default async function handler(req, res) {
       padding: 28px 24px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.04);
     }
+    .card.is-top {
+      border-color: var(--top-border);
+      background: linear-gradient(180deg, #fffcf5 0%, #fff 55%);
+      box-shadow: 0 6px 22px rgba(184,149,74,0.12);
+    }
     .hero {
       display: flex; gap: 20px; align-items: center; margin-bottom: 20px;
     }
@@ -278,6 +347,9 @@ export default async function handler(req, res) {
       background: var(--soft); color: var(--muted); border: 1px solid var(--border);
     }
     .badge.accent { background: #e8f0ed; color: var(--accent); border-color: #c5d9d0; }
+    .badge.top {
+      background: #f5efe0; color: var(--top-text); border-color: var(--top-border);
+    }
     .username { color: var(--muted); font-size: 0.95rem; margin-bottom: 16px; }
     .desc {
       font-size: 1.02rem; color: #333; margin-bottom: 22px;
@@ -302,20 +374,42 @@ export default async function handler(req, res) {
     .similar { margin-top: 32px; }
     .similar h2 {
       font-family: 'Playfair Display', Georgia, serif;
-      font-size: 1.25rem; margin-bottom: 14px;
+      font-size: 1.25rem; margin-bottom: 8px;
+    }
+    .top-hint {
+      font-size: 0.85rem; color: var(--top-text); margin: -2px 0 14px;
     }
     .sim-grid {
       display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;
     }
     .sim-card {
+      position: relative;
       background: var(--card); border: 1px solid var(--border); border-radius: 14px;
       padding: 14px 12px; text-decoration: none; color: var(--text);
       text-align: center; transition: box-shadow 0.15s, transform 0.15s;
     }
     .sim-card:hover { box-shadow: 0 6px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
+    /* Выделение топа — тёплый золотистый */
+    .sim-card-top {
+      background: var(--top-bg);
+      border-color: var(--top-border);
+      box-shadow: 0 4px 14px rgba(184,149,74,0.12);
+    }
+    .sim-card-top:hover {
+      box-shadow: 0 8px 20px rgba(184,149,74,0.18);
+    }
+    .sim-top-badge {
+      position: absolute; top: 8px; right: 8px;
+      font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.04em; padding: 2px 7px; border-radius: 6px;
+      background: #f5efe0; color: var(--top-text); border: 1px solid var(--top-border);
+    }
     .sim-av {
       width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 50%;
       overflow: hidden; background: var(--accent);
+    }
+    .sim-card-top .sim-av {
+      box-shadow: 0 0 0 2px #e8d5a8;
     }
     .sim-av img { width: 100%; height: 100%; object-fit: cover; }
     .sim-av .ph {
@@ -327,6 +421,7 @@ export default async function handler(req, res) {
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .sim-type { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .sim-card-top .sim-type { color: var(--top-text); }
     footer {
       margin-top: 40px; text-align: center; font-size: 0.8rem; color: var(--muted);
     }
@@ -351,14 +446,14 @@ export default async function handler(req, res) {
       <span>${escapeHtml(name)}</span>
     </nav>
 
-    <article class="card">
+    <article class="card${itemIsTop ? ' is-top' : ''}">
       <div class="hero">
         ${avatarBlock}
         <div>
           <div class="badges">
             <span class="badge accent">${escapeHtml(type)}</span>
             <span class="badge">${escapeHtml(cat)}</span>
-            ${item.is_top ? '<span class="badge">Топ</span>' : ''}
+            ${itemIsTop ? '<span class="badge top">Топ</span>' : ''}
           </div>
           <h1>${escapeHtml(name)}</h1>
           <div class="username">@${escapeHtml(item.username)}</div>
@@ -381,6 +476,7 @@ export default async function handler(req, res) {
       </div>
     </article>
 
+    ${topHtml}
     ${similarHtml}
 
     <footer>
