@@ -5,6 +5,10 @@
       "dest": "/api/channel-page?username=$1"
     },
     {
+      "src": "^/p/([^/]+)$",
+      "dest": "/api/channel-page?id=$1"
+    },
+    {
       "src": "^/sitemap\\.xml$",
       "dest": "/api/sitemap"
     }
