@@ -1343,8 +1343,8 @@
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
     let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
-    let listPageSize = 80;
-    let listVisibleCount = 80;
+    let listPageSize = 50;
+    let listVisibleCount = 50;
     let lastFilteredList = [];
 
     // Единый список категорий — больше не дублируем в 6 местах HTML
@@ -1879,6 +1879,16 @@
       }
     }
 
+    // «Недавно добавленные» — отдельный быстрый запрос (source=user, 3 суток)
+    async function fetchRecentUserViaRest() {
+      try {
+        const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+        return await fetchItemsRange(0, 40, 'source=eq.user&created_at=gte.' + encodeURIComponent(since));
+      } catch (e) {
+        return [];
+      }
+    }
+
     // Полная выгрузка (для фона / запасной путь)
     async function fetchItemsViaRest() {
       const pageSize = 500;
@@ -1986,16 +1996,17 @@
           let usedRest = false;
           let needBackground = false;
 
-          // --- Быстрый старт: Топ + свежие 250 записей (не весь каталог) ---
+          // --- Быстрый старт: Топ + свежие + «недавно от пользователей» (параллельно) ---
           try {
-            const pair = await Promise.all([
+            const triple = await Promise.all([
               fetchTopItemsViaRest(),
-              fetchItemsRange(0, 250)
+              fetchItemsRange(0, 250),
+              fetchRecentUserViaRest()
             ]);
-            items = mergeItemsById(pair[0] || [], pair[1] || []);
+            items = mergeItemsById(mergeItemsById(triple[0] || [], triple[1] || []), triple[2] || []);
             usedRest = true;
             // если пришло 250 «новых» — в базе скорее всего ещё есть, догрузим фоном
-            needBackground = (pair[1] && pair[1].length >= 250);
+            needBackground = (triple[1] && triple[1].length >= 250);
           } catch (eRest) {
             error = { message: eRest.message || String(eRest) };
           }
