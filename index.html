@@ -3601,6 +3601,120 @@
       }
     }
 
+    // Сжатие картинки на клиенте (для загрузки с телефона)
+    function compressImageFile(file, maxSide, quality) {
+      maxSide = maxSide || 400;
+      quality = quality == null ? 0.85 : quality;
+      return new Promise(function (resolve, reject) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function () {
+          try {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (!w || !h) {
+              URL.revokeObjectURL(url);
+              return reject(new Error('Не удалось прочитать изображение'));
+            }
+            const scale = Math.min(1, maxSide / Math.max(w, h));
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(
+              function (blob) {
+                if (!blob) return reject(new Error('Ошибка сжатия'));
+                resolve(blob);
+              },
+              'image/jpeg',
+              quality
+            );
+          } catch (e) {
+            URL.revokeObjectURL(url);
+            reject(e);
+          }
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          reject(new Error('Файл не является изображением'));
+        };
+        img.src = url;
+      });
+    }
+
+    // Админ: загрузка аватарки для приватного канала в Supabase Storage
+    async function uploadPrivateAvatar(itemId) {
+      if (!isAdmin) {
+        alert('Только для администратора');
+        return;
+      }
+      if (!supabaseClient) {
+        alert('Нет подключения к базе. Обновите страницу.');
+        return;
+      }
+      itemId = String(itemId || '').trim();
+      if (!itemId) return;
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async function () {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (!/^image\//i.test(file.type || '')) {
+          alert('Выберите изображение');
+          return;
+        }
+        if (file.size > 12 * 1024 * 1024) {
+          alert('Файл слишком большой (макс. 12 МБ)');
+          return;
+        }
+        showStatus('Загрузка аватарки…', 60000);
+        try {
+          const blob = await compressImageFile(file, 400, 0.85);
+          const path = 'private_' + itemId.replace(/[^a-zA-Z0-9-]/g, '') + '_' + Date.now() + '.jpg';
+
+          const up = await supabaseClient.storage
+            .from('avatars')
+            .upload(path, blob, {
+              contentType: 'image/jpeg',
+              upsert: true,
+              cacheControl: '31536000'
+            });
+          if (up.error) {
+            console.error(up.error);
+            throw new Error(up.error.message || 'Ошибка Storage. Проверьте политику upload для админа.');
+          }
+
+          const pub = supabaseClient.storage.from('avatars').getPublicUrl(path);
+          const publicUrl = pub && pub.data && pub.data.publicUrl;
+          if (!publicUrl) throw new Error('Не удалось получить URL');
+
+          const { error } = await supabaseClient
+            .from('items')
+            .update({ avatar_url: publicUrl })
+            .eq('id', itemId);
+          if (error) throw error;
+
+          allItems = allItems.map(function (it) {
+            if (String(it.id) === itemId) return Object.assign({}, it, { avatar_url: publicUrl });
+            return it;
+          });
+          render();
+          showStatus('Аватарка сохранена', 3000);
+        } catch (e) {
+          console.error(e);
+          alert('Не удалось загрузить: ' + (e.message || e));
+          showStatus('Ошибка загрузки аватарки', 4000);
+        }
+      };
+      input.click();
+    }
+
     // Ссылка на карточку в каталоге (SEO): публичные /c/, приватные /p/{id}
     function catalogItemHref(item) {
       if (!item) return '#';
@@ -3842,6 +3956,7 @@
                 <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
                     <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+                    ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷 Аватар</button>` : ''}
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить аватар и описание">Мета</button>` : ''}
                     <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку, удалить если мёртвая">Ссылка?</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
@@ -3882,6 +3997,7 @@
                   <button class="btn-top" onclick="openTopModal()">В Топ</button>
                   ${isAdmin ? `
                     <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
+                    ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷</button>` : ''}
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить метаданные">↻ Мета</button>` : ''}
                     <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку">Ссылка?</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
@@ -4059,6 +4175,7 @@
       window.removeFromBlacklist = removeFromBlacklist;
       window.refreshMeta = refreshMeta;
       window.checkAndDeleteItem = checkAndDeleteItem;
+      window.uploadPrivateAvatar = uploadPrivateAvatar;
       window.launchConfetti = launchConfetti;
       window.closePrivateNameModal = closePrivateNameModal;
       window.confirmPrivateName = confirmPrivateName;
