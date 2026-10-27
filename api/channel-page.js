@@ -49,13 +49,38 @@ function isActiveTop(row) {
   }
 }
 
-async function fetchItem(username) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
-  const qs =
-    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
-    '&username=eq.' + encodeURIComponent(username) +
-    '&is_private=eq.false' +
-    '&limit=1';
+function letterFallback(name) {
+  const s = String(name || '?').replace(/^@/, '').trim();
+  return (s[0] || '?').toUpperCase();
+}
+
+// Перечёркнутый глаз — заглушка для приватных без аватарки
+const EYE_SLASH_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+function avatarImgHtml(url, name, sizeClass, useEye) {
+  // Приватные: всегда иконка перечёркнутого глаза (как просили)
+  if (useEye) {
+    return '<div class="' + sizeClass + ' fallback eye-slash" title="Приватный">' + EYE_SLASH_SVG + '</div>';
+  }
+  const letter = escapeHtml(letterFallback(name));
+  if (url && /^https?:\/\//i.test(url)) {
+    return '<img class="' + sizeClass + '" src="' + escapeHtml(url) + '" alt="' + escapeHtml(name || '') + '" width="96" height="96" referrerpolicy="no-referrer" onerror="this.onerror=null;this.outerHTML=\'<div class=\\'' + sizeClass + ' fallback\\'>' + letter + '</div>\';">';
+  }
+  return '<div class="' + sizeClass + ' fallback">' + letter + '</div>';
+}
+
+function smallAvatarHtml(url, name, useEye) {
+  if (useEye) {
+    return '<span class="ph ph-eye" title="Приватный">' + EYE_SLASH_SVG + '</span>';
+  }
+  const letter = escapeHtml(letterFallback(name));
+  if (url && /^https?:\/\//i.test(url)) {
+    return '<img src="' + escapeHtml(url) + '" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.outerHTML=\'<span class=ph>' + letter + '</span>\';">';
+  }
+  return '<span class="ph">' + letter + '</span>';
+}
+
+async function sbFetch(qs) {
   const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
     headers: {
       apikey: SUPABASE_KEY,
@@ -64,102 +89,109 @@ async function fetchItem(username) {
     }
   });
   if (!res.ok) return null;
-  const rows = await res.json();
+  return res.json();
+}
+
+async function fetchItemByUsername(username) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
+  const qs =
+    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+    '&username=eq.' + encodeURIComponent(username) +
+    '&is_private=eq.false' +
+    '&limit=1';
+  const rows = await sbFetch(qs);
   return Array.isArray(rows) && rows[0] ? rows[0] : null;
 }
 
-async function fetchSimilar(category, username, limit) {
-  if (!SUPABASE_URL || !SUPABASE_KEY || !category) return [];
+/** Приватная (и любая) запись по id — для /p/{id} */
+async function fetchItemById(id) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !id) return null;
   const qs =
-    'select=username,display_name,type,avatar_url,category,is_top,top_until' +
+    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+    '&id=eq.' + encodeURIComponent(id) +
+    '&limit=1';
+  const rows = await sbFetch(qs);
+  return Array.isArray(rows) && rows[0] ? rows[0] : null;
+}
+
+async function fetchSimilar(category, excludeUsername, excludeId, limit) {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !category) return [];
+  let qs =
+    'select=id,username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
     '&category=eq.' + encodeURIComponent(category) +
-    '&username=neq.' + encodeURIComponent(username) +
     '&is_private=eq.false' +
     '&order=created_at.desc' +
     '&limit=' + (limit || 8);
+  if (excludeUsername) {
+    qs += '&username=neq.' + encodeURIComponent(excludeUsername);
+  }
   try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: 'Bearer ' + SUPABASE_KEY,
-        Accept: 'application/json'
-      }
-    });
-    if (!res.ok) return [];
-    const rows = await res.json();
-    return Array.isArray(rows) ? rows : [];
+    const rows = await sbFetch(qs);
+    if (!Array.isArray(rows)) return [];
+    if (excludeId) {
+      return rows.filter(function (r) { return String(r.id) !== String(excludeId); });
+    }
+    return rows;
   } catch (e) {
     return [];
   }
 }
 
-/** Актуальные размещения в Топе (публичные и приватные — как на главной) */
-async function fetchTopItems(excludeUsername, limit) {
+async function fetchTopItems(excludeUsername, excludeId, limit) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return [];
   limit = limit || 8;
-  // Простой запрос: только is_top. Срок и private фильтруем в JS
-  // (сложный or/nullslast в PostgREST часто даёт пустой ответ)
   const qs =
-    'select=username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
+    'select=id,username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
     '&is_top=eq.true' +
     '&order=created_at.desc' +
     '&limit=50';
   try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: 'Bearer ' + SUPABASE_KEY,
-        Accept: 'application/json'
-      }
-    });
-    if (!res.ok) {
-      console.warn('fetchTopItems HTTP', res.status, await res.text().catch(function () { return ''; }));
-      return [];
-    }
-    let rows = await res.json();
+    const rows = await sbFetch(qs);
     if (!Array.isArray(rows)) return [];
     const ex = String(excludeUsername || '').toLowerCase();
-    rows = rows.filter(function (r) {
-      if (!isActiveTop(r)) return false;
-      if (ex && r.username && String(r.username).toLowerCase() === ex) return false;
-      // приватные без ссылки не показываем (некуда вести)
-      if (r.is_private && !r.invite_link) return false;
-      return true;
-    });
-    return rows.slice(0, limit);
+    const exId = excludeId ? String(excludeId) : '';
+    return rows
+      .filter(function (r) {
+        if (!isActiveTop(r)) return false;
+        if (exId && String(r.id) === exId) return false;
+        if (ex && r.username && String(r.username).toLowerCase() === ex) return false;
+        if (r.is_private && !r.invite_link && !r.id) return false;
+        return true;
+      })
+      .slice(0, limit);
   } catch (e) {
-    console.warn('fetchTopItems', e);
     return [];
   }
+}
+
+/** Ссылка на внутреннюю страницу каталога */
+function catalogHref(s) {
+  if (s && s.is_private && s.id) {
+    return '/p/' + encodeURIComponent(s.id);
+  }
+  if (s && s.username) {
+    return '/c/' + encodeURIComponent(s.username);
+  }
+  if (s && s.id) {
+    return '/p/' + encodeURIComponent(s.id);
+  }
+  return '#';
 }
 
 function cardHtml(s, opts) {
   opts = opts || {};
   const isTop = !!opts.isTop || isActiveTop(s);
   const isPrivate = !!(s && s.is_private);
-  const sn = escapeHtml(
+  const display =
     s.display_name ||
-      (isPrivate ? (s.invite_link || 'Приват') : ('@' + (s.username || '')))
-  );
-  // Публичные → /c/username; приватные → invite в Telegram
-  let href = '#';
-  let extraAttrs = '';
-  if (isPrivate && s.invite_link) {
-    href = escapeHtml(s.invite_link);
-    extraAttrs = ' target="_blank" rel="noopener nofollow"';
-  } else if (s.username) {
-    href = '/c/' + encodeURIComponent(s.username);
-  } else if (s.invite_link) {
-    href = escapeHtml(s.invite_link);
-    extraAttrs = ' target="_blank" rel="noopener nofollow"';
-  }
-  const av = s.avatar_url
-    ? `<img src="${escapeHtml(s.avatar_url)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">`
-    : `<span class="ph">${escapeHtml((s.display_name || s.username || '?')[0] || '?')}</span>`;
+    (isPrivate ? 'Приватный канал' : ('@' + (s.username || '')));
+  const sn = escapeHtml(display);
+  const href = catalogHref(s);
+  const av = smallAvatarHtml(s.avatar_url, display, isPrivate);
   const topBadge = isTop ? '<span class="sim-top-badge">Топ</span>' : '';
   const privMark = isPrivate ? ' · Приват' : '';
   const cls = isTop ? 'sim-card sim-card-top' : 'sim-card';
-  return `<a class="${cls}" href="${href}"${extraAttrs}>
+  return `<a class="${cls}" href="${escapeHtml(href)}">
     <div class="sim-av">${av}</div>
     <div class="sim-name">${sn}</div>
     <div class="sim-type">${escapeHtml(typeLabel(s.type))}${isTop ? ' · Топ' : ''}${privMark}</div>
@@ -167,8 +199,8 @@ function cardHtml(s, opts) {
   </a>`;
 }
 
-function renderNotFound(res, username) {
-  const title = 'Канал не найден — ' + SITE_NAME;
+function renderNotFound(res, label) {
+  const title = 'Не найдено — ' + SITE_NAME;
   const html = `<!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -186,7 +218,7 @@ function renderNotFound(res, username) {
 <body>
   <div class="box">
     <h1>Не найдено</h1>
-    <p>Запись «${escapeHtml(username || '')}» в каталоге отсутствует или скрыта.</p>
+    <p>Запись «${escapeHtml(label || '')}» в каталоге отсутствует или скрыта.</p>
     <p><a href="/">← На главную Телегра</a></p>
   </div>
 </body>
@@ -201,50 +233,68 @@ export default async function handler(req, res) {
     return res.status(405).send('Method not allowed');
   }
 
-  const username = normalizeUsername(
-    (req.query && (req.query.username || req.query.u)) || ''
-  );
+  const q = req.query || {};
+  const idParam = String(q.id || '').trim();
+  const username = normalizeUsername(q.username || q.u || '');
 
-  if (!username || username.length < 3) {
-    return renderNotFound(res, username);
-  }
-
-  let item;
+  let item = null;
   try {
-    item = await fetchItem(username);
+    if (idParam) {
+      item = await fetchItemById(idParam);
+    } else if (username && username.length >= 3) {
+      item = await fetchItemByUsername(username);
+    }
   } catch (e) {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     return res.status(502).send('<h1>Временная ошибка</h1><p><a href="/">На главную</a></p>');
   }
 
-  if (!item || !item.username) {
-    return renderNotFound(res, username);
+  if (!item) {
+    return renderNotFound(res, idParam || username);
   }
 
-  const [similar, topItems] = await Promise.all([
-    fetchSimilar(item.category, item.username, 8),
-    fetchTopItems(item.username, 8)
-  ]);
-
-  const name = item.display_name || ('@' + item.username);
+  // Публичный канал открыли по /p/id — можно оставить, SEO ок
+  const isPrivate = !!item.is_private;
+  const name =
+    item.display_name ||
+    (isPrivate ? 'Приватный канал' : ('@' + (item.username || '')));
   const desc = item.description || '';
   const cat = item.category || 'Разное';
   const type = typeLabel(item.type);
-  const tgLink = item.is_private && item.invite_link
+  const tgLink = isPrivate && item.invite_link
     ? item.invite_link
-    : ('https://t.me/' + item.username);
+    : (item.username ? ('https://t.me/' + item.username) : (item.invite_link || '/'));
   const avatar = item.avatar_url || '';
-  const pageUrl = SITE_URL + '/c/' + encodeURIComponent(item.username);
+  const pageUrl = isPrivate || !item.username
+    ? (SITE_URL + '/p/' + encodeURIComponent(item.id))
+    : (SITE_URL + '/c/' + encodeURIComponent(item.username));
   const created = item.created_at
     ? new Date(item.created_at).toLocaleDateString('ru-RU')
     : '';
   const itemIsTop = isActiveTop(item);
 
+  const [similar, topItems] = await Promise.all([
+    fetchSimilar(item.category, item.username || '', item.id, 8),
+    fetchTopItems(item.username || '', item.id, 8)
+  ]);
+
   const metaDesc = truncate(
-    (desc || (type + ' «' + name + '» в каталоге ' + SITE_NAME + '. Категория: ' + cat + '.')) ,
+    desc ||
+      ((isPrivate ? 'Приватный ' : '') +
+        type +
+        ' «' +
+        name +
+        '» в каталоге ' +
+        SITE_NAME +
+        '. Категория: ' +
+        cat +
+        '.'),
     160
   );
-  const pageTitle = truncate(name + ' — ' + type + ' в каталоге ' + SITE_NAME, 70);
+  const pageTitle = truncate(
+    name + ' — ' + (isPrivate ? 'приватный ' : '') + type + ' в каталоге ' + SITE_NAME,
+    70
+  );
 
   const similarHtml = similar.length
     ? `<section class="similar">
@@ -269,9 +319,7 @@ export default async function handler(req, res) {
       </section>`
     : '';
 
-  const avatarBlock = avatar
-    ? `<img class="hero-avatar" src="${escapeHtml(avatar)}" alt="${escapeHtml(name)}" width="96" height="96" referrerpolicy="no-referrer">`
-    : `<div class="hero-avatar fallback">${escapeHtml((name.replace(/^@/, '')[0] || '?').toUpperCase())}</div>`;
+  const avatarBlock = avatarImgHtml(avatar, name, 'hero-avatar', isPrivate);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -304,7 +352,7 @@ export default async function handler(req, res) {
   <meta property="og:title" content="${escapeHtml(pageTitle)}">
   <meta property="og:description" content="${escapeHtml(metaDesc)}">
   <meta property="og:url" content="${escapeHtml(pageUrl)}">
-  ${avatar ? `<meta property="og:image" content="${escapeHtml(avatar)}">` : ''}
+  ${avatar && /^https?:\/\//i.test(avatar) ? `<meta property="og:image" content="${escapeHtml(avatar)}">` : ''}
 
   <meta name="twitter:card" content="summary">
   <meta name="twitter:title" content="${escapeHtml(pageTitle)}">
@@ -364,6 +412,17 @@ export default async function handler(req, res) {
       display: flex; align-items: center; justify-content: center;
       background: var(--accent); color: #fff; font-size: 2rem; font-weight: 700;
     }
+    .hero-avatar.fallback.eye-slash {
+      background: #5a6570;
+      font-size: 2.1rem;
+      color: #e8ecf0;
+    }
+    .sim-av .ph-eye {
+      display: flex; width: 100%; height: 100%; align-items: center; justify-content: center;
+      color: #e8ecf0; background: #5a6570; font-size: 1.15rem;
+    }
+    .sim-av .ph-eye svg { width: 22px; height: 22px; }
+
     h1 {
       font-family: 'Playfair Display', Georgia, serif;
       font-size: 1.75rem; line-height: 1.25; margin-bottom: 6px;
@@ -378,12 +437,14 @@ export default async function handler(req, res) {
     .badge.top {
       background: #f5efe0; color: var(--top-text); border-color: var(--top-border);
     }
+    .badge.private {
+      background: #f0e8f5; color: #6b4a7a; border-color: #d4c4e0;
+    }
     .username { color: var(--muted); font-size: 0.95rem; margin-bottom: 16px; }
     .desc {
       font-size: 1.02rem; color: #333; margin-bottom: 22px;
       white-space: pre-wrap; word-break: break-word;
     }
-    .desc:empty { display: none; }
     .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px; }
     .btn {
       display: inline-flex; align-items: center; justify-content: center;
@@ -417,7 +478,6 @@ export default async function handler(req, res) {
       text-align: center; transition: box-shadow 0.15s, transform 0.15s;
     }
     .sim-card:hover { box-shadow: 0 6px 16px rgba(0,0,0,0.06); transform: translateY(-2px); }
-    /* Выделение топа — тёплый золотистый */
     .sim-card-top {
       background: var(--top-bg);
       border-color: var(--top-border);
@@ -436,9 +496,7 @@ export default async function handler(req, res) {
       width: 48px; height: 48px; margin: 0 auto 8px; border-radius: 50%;
       overflow: hidden; background: var(--accent);
     }
-    .sim-card-top .sim-av {
-      box-shadow: 0 0 0 2px #e8d5a8;
-    }
+    .sim-card-top .sim-av { box-shadow: 0 0 0 2px #e8d5a8; }
     .sim-av img { width: 100%; height: 100%; object-fit: cover; }
     .sim-av .ph {
       display: flex; width: 100%; height: 100%; align-items: center; justify-content: center;
@@ -481,10 +539,11 @@ export default async function handler(req, res) {
           <div class="badges">
             <span class="badge accent">${escapeHtml(type)}</span>
             <span class="badge">${escapeHtml(cat)}</span>
+            ${isPrivate ? '<span class="badge private">Приватный</span>' : ''}
             ${itemIsTop ? '<span class="badge top">Топ</span>' : ''}
           </div>
           <h1>${escapeHtml(name)}</h1>
-          <div class="username">@${escapeHtml(item.username)}</div>
+          <div class="username">${isPrivate ? 'Приватная ссылка-приглашение' : '@' + escapeHtml(item.username || '')}</div>
         </div>
       </div>
 
@@ -492,7 +551,7 @@ export default async function handler(req, res) {
 
       <div class="actions">
         <a class="btn btn-primary" href="${escapeHtml(tgLink)}" rel="noopener nofollow" target="_blank">
-          Открыть в Telegram
+          ${isPrivate ? 'Вступить в Telegram' : 'Открыть в Telegram'}
         </a>
         <a class="btn btn-ghost" href="/">Смотреть каталог</a>
       </div>
