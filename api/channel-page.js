@@ -93,14 +93,14 @@ async function fetchSimilar(category, username, limit) {
   }
 }
 
-/** Актуальные размещения в Топе (для блока на странице канала) */
+/** Актуальные размещения в Топе (публичные и приватные — как на главной) */
 async function fetchTopItems(excludeUsername, limit) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return [];
   const nowIso = new Date().toISOString();
+  // Без фильтра is_private — приватные из Топа тоже показываем
   const qs =
-    'select=username,display_name,type,avatar_url,category,is_top,top_until' +
+    'select=username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
     '&is_top=eq.true' +
-    '&is_private=eq.false' +
     '&or=(top_until.is.null,top_until.gt.' + encodeURIComponent(nowIso) + ')' +
     (excludeUsername ? '&username=neq.' + encodeURIComponent(excludeUsername) : '') +
     '&order=top_until.desc.nullslast' +
@@ -124,17 +124,33 @@ async function fetchTopItems(excludeUsername, limit) {
 function cardHtml(s, opts) {
   opts = opts || {};
   const isTop = !!opts.isTop || isActiveTop(s);
-  const sn = escapeHtml(s.display_name || ('@' + s.username));
-  const su = encodeURIComponent(s.username || '');
+  const isPrivate = !!(s && s.is_private);
+  const sn = escapeHtml(
+    s.display_name ||
+      (isPrivate ? (s.invite_link || 'Приват') : ('@' + (s.username || '')))
+  );
+  // Публичные → /c/username; приватные → invite в Telegram
+  let href = '#';
+  let extraAttrs = '';
+  if (isPrivate && s.invite_link) {
+    href = escapeHtml(s.invite_link);
+    extraAttrs = ' target="_blank" rel="noopener nofollow"';
+  } else if (s.username) {
+    href = '/c/' + encodeURIComponent(s.username);
+  } else if (s.invite_link) {
+    href = escapeHtml(s.invite_link);
+    extraAttrs = ' target="_blank" rel="noopener nofollow"';
+  }
   const av = s.avatar_url
     ? `<img src="${escapeHtml(s.avatar_url)}" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">`
     : `<span class="ph">${escapeHtml((s.display_name || s.username || '?')[0] || '?')}</span>`;
   const topBadge = isTop ? '<span class="sim-top-badge">Топ</span>' : '';
+  const privMark = isPrivate ? ' · Приват' : '';
   const cls = isTop ? 'sim-card sim-card-top' : 'sim-card';
-  return `<a class="${cls}" href="/c/${su}">
+  return `<a class="${cls}" href="${href}"${extraAttrs}>
     <div class="sim-av">${av}</div>
     <div class="sim-name">${sn}</div>
-    <div class="sim-type">${escapeHtml(typeLabel(s.type))}${isTop ? ' · Топ' : ''}</div>
+    <div class="sim-type">${escapeHtml(typeLabel(s.type))}${isTop ? ' · Топ' : ''}${privMark}</div>
     ${topBadge}
   </a>`;
 }
