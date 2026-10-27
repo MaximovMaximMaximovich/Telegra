@@ -3601,21 +3601,25 @@
       }
     }
 
-    // Ссылка на карточку в каталоге (SEO) или invite для приватных
+    // Ссылка на карточку в каталоге (SEO): публичные /c/, приватные /p/{id}
     function catalogItemHref(item) {
       if (!item) return '#';
       if (item.is_private) {
+        if (item.id) return '/p/' + encodeURIComponent(item.id);
         return item.invite_link || '#';
       }
       var u = item.username ? String(item.username) : '';
       u = u.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
-      if (!u) return '#';
+      if (!u) {
+        if (item.id) return '/p/' + encodeURIComponent(item.id);
+        return '#';
+      }
       return '/c/' + encodeURIComponent(u);
     }
 
-    // Публичные — на нашу страницу; приватные — во внешний Telegram
+    // Внутренние страницы каталога — без target=_blank
     function catalogItemLinkAttrs(item) {
-      if (item && item.is_private) {
+      if (item && item.is_private && !item.id && item.invite_link) {
         return ' target="_blank" rel="noopener"';
       }
       return '';
