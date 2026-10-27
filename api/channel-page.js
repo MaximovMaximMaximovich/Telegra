@@ -96,15 +96,14 @@ async function fetchSimilar(category, username, limit) {
 /** Актуальные размещения в Топе (публичные и приватные — как на главной) */
 async function fetchTopItems(excludeUsername, limit) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return [];
-  const nowIso = new Date().toISOString();
-  // Без фильтра is_private — приватные из Топа тоже показываем
+  limit = limit || 8;
+  // Простой запрос: только is_top. Срок и private фильтруем в JS
+  // (сложный or/nullslast в PostgREST часто даёт пустой ответ)
   const qs =
     'select=username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
     '&is_top=eq.true' +
-    '&or=(top_until.is.null,top_until.gt.' + encodeURIComponent(nowIso) + ')' +
-    (excludeUsername ? '&username=neq.' + encodeURIComponent(excludeUsername) : '') +
-    '&order=top_until.desc.nullslast' +
-    '&limit=' + (limit || 8);
+    '&order=created_at.desc' +
+    '&limit=50';
   try {
     const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
       headers: {
@@ -113,10 +112,23 @@ async function fetchTopItems(excludeUsername, limit) {
         Accept: 'application/json'
       }
     });
-    if (!res.ok) return [];
-    const rows = await res.json();
-    return Array.isArray(rows) ? rows.filter(isActiveTop) : [];
+    if (!res.ok) {
+      console.warn('fetchTopItems HTTP', res.status, await res.text().catch(function () { return ''; }));
+      return [];
+    }
+    let rows = await res.json();
+    if (!Array.isArray(rows)) return [];
+    const ex = String(excludeUsername || '').toLowerCase();
+    rows = rows.filter(function (r) {
+      if (!isActiveTop(r)) return false;
+      if (ex && r.username && String(r.username).toLowerCase() === ex) return false;
+      // приватные без ссылки не показываем (некуда вести)
+      if (r.is_private && !r.invite_link) return false;
+      return true;
+    });
+    return rows.slice(0, limit);
   } catch (e) {
+    console.warn('fetchTopItems', e);
     return [];
   }
 }
