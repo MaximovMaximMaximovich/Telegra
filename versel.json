@@ -1,16 +1,16 @@
 {
-  "routes": [
+  "rewrites": [
     {
-      "src": "^/c/([^/]+)$",
-      "dest": "/api/channel-page?username=$1"
+      "source": "/c/:username",
+      "destination": "/api/channel-page?username=:username"
     },
     {
-      "src": "^/p/([^/]+)$",
-      "dest": "/api/channel-page?id=$1"
+      "source": "/p/:id",
+      "destination": "/api/channel-page?id=:id"
     },
     {
-      "src": "^/sitemap\\.xml$",
-      "dest": "/api/sitemap"
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
     }
   ],
   "crons": [
