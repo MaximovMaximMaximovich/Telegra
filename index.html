@@ -1037,8 +1037,8 @@
     </aside>
 
     <footer>
-      <a onclick="openLegal('agreement')">Пользовательское соглашение</a>
-      <a onclick="openLegal('privacy')">Политика конфиденциальности</a>
+      <a href="/?legal=agreement" onclick="openLegal('agreement'); return false;">Пользовательское соглашение</a>
+      <a href="/?legal=privacy" onclick="openLegal('privacy'); return false;">Политика конфиденциальности</a>
       <div style="margin-top:12px;">© Telegra 2026</div>
     </footer>
   </div>
@@ -4255,6 +4255,14 @@
       }, 800);
 
       console.info('[Telegra] boot ok, items:', allItems.length);
+
+      // Открытие юр. текстов по ссылке /?legal=agreement|privacy (для SEO и прямых URL)
+      try {
+        var legalParam = new URLSearchParams(window.location.search || '').get('legal');
+        if (legalParam === 'agreement' || legalParam === 'privacy') {
+          setTimeout(function () { openLegal(legalParam); }, 300);
+        }
+      } catch (eLegal) {}
 
       // Полный refresh каталога реже — раз в 10 минут (фон догружает сам)
       setInterval(function () {
