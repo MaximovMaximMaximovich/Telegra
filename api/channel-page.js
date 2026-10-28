@@ -64,10 +64,7 @@ const EYE_SVG =
   '</svg>';
 
 function heroAvatar(url, name, isPrivate) {
-  if (isPrivate) {
-    return '<div class="hero-avatar fallback eye-slash" title="Приватный">' + EYE_SVG + '</div>';
-  }
-  const letter = escapeHtml(letterFallback(name));
+  // Если есть загруженная аватарка — показываем её (и для приватных)
   if (url && /^https?:\/\//i.test(String(url))) {
     return (
       '<img class="hero-avatar" src="' +
@@ -77,14 +74,15 @@ function heroAvatar(url, name, isPrivate) {
       '" width="96" height="96" referrerpolicy="no-referrer">'
     );
   }
+  // Нет фото: приватным — глаз, остальным — буква
+  if (isPrivate) {
+    return '<div class="hero-avatar fallback eye-slash" title="Приватный">' + EYE_SVG + '</div>';
+  }
+  const letter = escapeHtml(letterFallback(name));
   return '<div class="hero-avatar fallback">' + letter + '</div>';
 }
 
 function cardAvatar(url, name, isPrivate) {
-  if (isPrivate) {
-    return '<span class="ph ph-eye" title="Приватный">' + EYE_SVG + '</span>';
-  }
-  const letter = escapeHtml(letterFallback(name));
   if (url && /^https?:\/\//i.test(String(url))) {
     return (
       '<img src="' +
@@ -92,6 +90,10 @@ function cardAvatar(url, name, isPrivate) {
       '" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">'
     );
   }
+  if (isPrivate) {
+    return '<span class="ph ph-eye" title="Приватный">' + EYE_SVG + '</span>';
+  }
+  const letter = escapeHtml(letterFallback(name));
   return '<span class="ph">' + letter + '</span>';
 }
 
