@@ -1220,6 +1220,17 @@
     </div>
   </div>
 
+  <!-- Отчёт после массовых проверок (ссылки и т.п.) -->
+  <div class="modal-overlay" id="admin-report-modal">
+    <div class="modal">
+      <h3 id="admin-report-title">Отчёт</h3>
+      <div id="admin-report-body" style="font-size:0.95rem;line-height:1.65;color:var(--text);margin:8px 0 4px;"></div>
+      <div class="modal-actions">
+        <button class="btn-add" onclick="closeAdminReport()">ОК</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="refresh-meta-modal">
     <div class="modal">
       <h3>Обновить метаданные</h3>
@@ -3338,6 +3349,28 @@
       document.getElementById('check-links-modal').classList.remove('active');
     }
 
+    function showAdminReport(title, lines) {
+      const modal = document.getElementById('admin-report-modal');
+      const titleEl = document.getElementById('admin-report-title');
+      const bodyEl = document.getElementById('admin-report-body');
+      if (!modal || !bodyEl) {
+        alert((title || 'Отчёт') + '\n\n' + (Array.isArray(lines) ? lines.join('\n') : String(lines || '')));
+        return;
+      }
+      if (titleEl) titleEl.textContent = title || 'Отчёт';
+      const arr = Array.isArray(lines) ? lines : [String(lines || '')];
+      bodyEl.innerHTML = arr
+        .map(function (line) {
+          return '<div style="margin-bottom:8px;">' + escapeHtml(String(line)) + '</div>';
+        })
+        .join('');
+      modal.classList.add('active');
+    }
+    function closeAdminReport() {
+      const modal = document.getElementById('admin-report-modal');
+      if (modal) modal.classList.remove('active');
+    }
+
     async function runCheckLinksByCategory() {
       if (!isAdmin || !supabaseClient) return;
       if (checkLinksRunning) {
@@ -3372,11 +3405,12 @@
       checkLinksRunning = true;
       closeCheckLinksModal();
       let alive = 0, dead = 0, skip = 0, err = 0;
+      const total = list.length;
 
       for (let i = 0; i < list.length; i++) {
         const item = list[i];
         const label = item.username ? '@' + item.username : (item.display_name || item.id);
-        showStatus('Проверка ' + (i + 1) + '/' + list.length + ': ' + label, 120000);
+        showStatus('Проверка ' + (i + 1) + '/' + total + ': ' + label, 120000);
         const r = await checkAndDeleteItem(item.id, { silent: true });
         if (r.status === 'alive') alive++;
         else if (r.status === 'dead' && r.deleted) dead++;
@@ -3386,8 +3420,23 @@
       }
 
       checkLinksRunning = false;
-      showStatus('Готово: рабочих ' + alive + ', удалено ' + dead + (skip ? ', не проверено ' + skip : '') + (err ? ', ошибок ' + err : ''));
+      showStatus('Проверка ссылок завершена', 4000);
       await loadData();
+
+      const reportLines = [
+        'Всего проверено: ' + total,
+        'Рабочих ссылок: ' + alive,
+        'Удалено (нерабочие): ' + dead
+      ];
+      if (skip) reportLines.push('Не удалось проверить (сеть/прокси): ' + skip);
+      if (err) reportLines.push('Прочих ошибок: ' + err);
+      if (cat) reportLines.push('Категория: ' + cat);
+      if (type) {
+        reportLines.push(
+          'Тип: ' + (type === 'channel' ? 'каналы' : type === 'chat' ? 'чаты' : type === 'bot' ? 'боты' : type)
+        );
+      }
+      showAdminReport('Отчёт: проверка ссылок', reportLines);
     }
 
 
@@ -4159,6 +4208,8 @@
       window.runRefreshMetaByCategory = runRefreshMetaByCategory;
       window.openCheckLinksModal = openCheckLinksModal;
       window.closeCheckLinksModal = closeCheckLinksModal;
+      window.showAdminReport = showAdminReport;
+      window.closeAdminReport = closeAdminReport;
       window.runCheckLinksByCategory = runCheckLinksByCategory;
       window.openDeleteCategoryModal = openDeleteCategoryModal;
       window.closeDeleteCategoryModal = closeDeleteCategoryModal;
