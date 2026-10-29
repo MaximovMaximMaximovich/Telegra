@@ -3359,9 +3359,16 @@
       }
       if (titleEl) titleEl.textContent = title || 'Отчёт';
       const arr = Array.isArray(lines) ? lines : [String(lines || '')];
+      bodyEl.style.maxHeight = '60vh';
+      bodyEl.style.overflowY = 'auto';
       bodyEl.innerHTML = arr
         .map(function (line) {
-          return '<div style="margin-bottom:8px;">' + escapeHtml(String(line)) + '</div>';
+          const s = String(line);
+          // заголовки секций
+          if (s.indexOf('——') === 0 || s.indexOf('===') === 0) {
+            return '<div style="margin:14px 0 8px;font-weight:700;color:var(--accent);">' + escapeHtml(s) + '</div>';
+          }
+          return '<div style="margin-bottom:6px;font-size:0.9rem;word-break:break-all;line-height:1.45;">' + escapeHtml(s) + '</div>';
         })
         .join('');
       modal.classList.add('active');
@@ -3406,16 +3413,40 @@
       closeCheckLinksModal();
       let alive = 0, dead = 0, skip = 0, err = 0;
       const total = list.length;
+      const skipItems = [];
+      const errItems = [];
+
+      function formatCheckRef(item) {
+        const name = item.display_name || '';
+        const user = item.username ? '@' + item.username : '';
+        const link =
+          (typeof buildTelegramCheckUrl === 'function' && buildTelegramCheckUrl(item)) ||
+          item.invite_link ||
+          (item.username ? 'https://t.me/' + item.username : '');
+        const head = user || name || String(item.id || '');
+        if (link && head && link.indexOf(String(item.username || '')) === -1) {
+          return head + (name && user ? ' (' + name + ')' : '') + ' — ' + link;
+        }
+        if (link) return (head && head !== link ? head + ' — ' : '') + link;
+        return head || String(item.id || '—');
+      }
 
       for (let i = 0; i < list.length; i++) {
         const item = list[i];
         const label = item.username ? '@' + item.username : (item.display_name || item.id);
         showStatus('Проверка ' + (i + 1) + '/' + total + ': ' + label, 120000);
         const r = await checkAndDeleteItem(item.id, { silent: true });
-        if (r.status === 'alive') alive++;
-        else if (r.status === 'dead' && r.deleted) dead++;
-        else if (r.status === 'network') skip++;
-        else err++;
+        if (r.status === 'alive') {
+          alive++;
+        } else if (r.status === 'dead' && r.deleted) {
+          dead++;
+        } else if (r.status === 'network') {
+          skip++;
+          skipItems.push(formatCheckRef(item));
+        } else {
+          err++;
+          errItems.push(formatCheckRef(item) + (r && r.reason ? ' [' + r.reason + ']' : ''));
+        }
         await new Promise(r => setTimeout(r, 120));
       }
 
@@ -3429,13 +3460,27 @@
         'Удалено (нерабочие): ' + dead
       ];
       if (skip) reportLines.push('Не удалось проверить (сеть/прокси): ' + skip);
-      if (err) reportLines.push('Прочих ошибок: ' + err);
+      if (err) reportLines.push('С ошибкой: ' + err);
       if (cat) reportLines.push('Категория: ' + cat);
       if (type) {
         reportLines.push(
           'Тип: ' + (type === 'channel' ? 'каналы' : type === 'chat' ? 'чаты' : type === 'bot' ? 'боты' : type)
         );
       }
+
+      if (skipItems.length) {
+        reportLines.push('—— Не удалось проверить (проверьте вручную) ——');
+        for (let s = 0; s < skipItems.length; s++) {
+          reportLines.push((s + 1) + '. ' + skipItems[s]);
+        }
+      }
+      if (errItems.length) {
+        reportLines.push('—— С ошибкой (проверьте вручную) ——');
+        for (let e = 0; e < errItems.length; e++) {
+          reportLines.push((e + 1) + '. ' + errItems[e]);
+        }
+      }
+
       showAdminReport('Отчёт: проверка ссылок', reportLines);
     }
 
