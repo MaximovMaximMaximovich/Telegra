@@ -1747,23 +1747,43 @@
     }
 
 
+    function applyAdminChrome(on) {
+      const badge = document.getElementById('admin-badge');
+      const loginToggle = document.getElementById('login-toggle');
+      const blSection = document.getElementById('blacklist-section');
+      if (on) {
+        if (badge) badge.classList.add('active');
+        if (loginToggle) loginToggle.classList.add('hidden');
+        if (blSection) blSection.style.display = 'block';
+      } else {
+        if (badge) badge.classList.remove('active');
+        if (loginToggle) loginToggle.classList.remove('hidden');
+        if (blSection) blSection.style.display = 'none';
+      }
+    }
+
     async function checkSession() {
       if (!supabaseClient) return;
       try {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
+        let nextAdmin = false;
+        if (session && session.user) {
           const { data } = await supabaseClient
             .from('admins')
             .select('user_id')
             .eq('user_id', session.user.id)
             .maybeSingle();
-          if (data) {
-            isAdmin = true;
-            document.getElementById('admin-badge').classList.add('active');
-            document.getElementById('login-toggle').classList.add('hidden');
-            document.getElementById('blacklist-section').style.display = 'block';
-            setTimeout(function () { try { loadAnalytics(); } catch (e) {} }, 400);
-          }
+          if (data) nextAdmin = true;
+        }
+        const prev = isAdmin;
+        isAdmin = nextAdmin;
+        applyAdminChrome(isAdmin);
+        // Важно: меню (бейдж) обновляли без render — кнопки на карточках пропадали
+        if (isAdmin !== prev || isAdmin) {
+          try { render(); } catch (e) {}
+        }
+        if (isAdmin) {
+          setTimeout(function () { try { loadAnalytics(); } catch (e) {} }, 400);
         }
       } catch (e) {
         console.error('checkSession error:', e);
@@ -1803,10 +1823,8 @@
           return;
         }
         isAdmin = true;
-        document.getElementById('admin-badge').classList.add('active');
-        document.getElementById('login-toggle').classList.add('hidden');
+        applyAdminChrome(true);
         document.getElementById('login-popup').classList.remove('active');
-        document.getElementById('blacklist-section').style.display = 'block';
         loginPopupOpen = false;
         showStatus('Вы вошли как админ');
         render();
@@ -1823,9 +1841,7 @@
         try { await supabaseClient.auth.signOut(); } catch (e) {}
       }
       isAdmin = false;
-      document.getElementById('admin-badge').classList.remove('active');
-      document.getElementById('login-toggle').classList.remove('hidden');
-      document.getElementById('blacklist-section').style.display = 'none';
+      applyAdminChrome(false);
       showStatus('Вы вышли');
       render();
     }
@@ -4340,15 +4356,33 @@
       // Статистика просмотра — после списка, не на критическом пути
       setTimeout(function () { try { trackPageView(); } catch (e) {} }, 500);
 
-      // Сессия админа и payment bot — только после first paint
+      // Сессия админа: сразу после каталога + повтор, если supabase-js подгрузился позже
+      tryInitSupabase();
+      if (supabaseClient) {
+        try { await checkSession(); } catch (e) {}
+        loadPaymentBot().catch(function () {});
+      }
       setTimeout(function () {
         tryInitSupabase();
         if (supabaseClient) {
           checkSession().catch(function () {});
-          // payment bot нужен только для модалки «В Топ»
           loadPaymentBot().catch(function () {});
         }
-      }, 800);
+      }, 1500);
+      // Подписка на смену сессии (истечение токена / другой вкладке)
+      try {
+        if (supabaseClient && supabaseClient.auth && supabaseClient.auth.onAuthStateChange) {
+          supabaseClient.auth.onAuthStateChange(function (event) {
+            if (event === 'SIGNED_OUT') {
+              isAdmin = false;
+              applyAdminChrome(false);
+              try { render(); } catch (e) {}
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+              checkSession().catch(function () {});
+            }
+          });
+        }
+      } catch (eAuth) {}
 
       console.info('[Telegra] boot ok, items:', allItems.length);
 
