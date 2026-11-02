@@ -55,6 +55,24 @@
       --accent-light: #e8f0ed;
       --soft: #f3f0ea;
       --ink: #1a1a1a;
+      --paper-base: #f7f5f0;
+      --top-card-bg: #fffcf5;
+      --top-card-border: #e0d0a8;
+    }
+
+    html[data-theme="dark"] {
+      --bg: #1a1d1b;
+      --card: #242826;
+      --text: #e8ebe9;
+      --muted: #9aa39e;
+      --border: #3a403c;
+      --accent: #5aab90;
+      --accent-light: #2a3d36;
+      --soft: #2c322f;
+      --ink: #f0f2f1;
+      --paper-base: #1a1d1b;
+      --top-card-bg: #2a2820;
+      --top-card-border: #5c5340;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -76,16 +94,22 @@
       z-index: -1;
       pointer-events: none;
       overflow: hidden;
-      background-color: #f7f5f0;
+      background-color: var(--paper-base);
       background-image:
-        /* мягкий вертикальный тон бумаги */
         linear-gradient(
           180deg,
-          #faf8f4 0%,
-          #f7f5f0 40%,
-          #f3f0ea 78%,
-          #efebe3 100%
+          var(--bg) 0%,
+          var(--paper-base) 40%,
+          var(--soft) 100%
         );
+    }
+    html[data-theme="dark"] .bg-planets .paper-fiber,
+    html[data-theme="dark"] .bg-planets .paper-grain,
+    html[data-theme="dark"] .bg-planets .paper-grain-fine {
+      opacity: 0.12;
+    }
+    html[data-theme="dark"] .bg-planets .paper-wash {
+      opacity: 0.5;
     }
     /* Слой волокна бумаги (крупная мягкая структура) */
     .bg-planets .paper-fiber {
@@ -165,6 +189,27 @@
     }
 
     /* Login */
+    .theme-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
     .login-btn-toggle {
       position: fixed;
       top: 10px;
@@ -282,7 +327,7 @@
       font-size: 0.68rem;
       font-weight: 500;
       color: var(--muted);
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 6px;
       padding: 3px 8px;
@@ -348,7 +393,7 @@
       font-size: 4rem;
       font-weight: 700;
       letter-spacing: -0.5px;
-      color: #1a1a1a;
+      color: var(--ink);
       margin-bottom: 8px;
     }
     header .subtitle {
@@ -358,7 +403,7 @@
     }
 
     .about {
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 28px 32px;
@@ -420,7 +465,7 @@
     }
 
     .card {
-      background: #fff;
+      background: var(--card);
       border-radius: 16px;
       padding: 16px;
       display: flex;
@@ -434,8 +479,8 @@
       box-shadow: 0 10px 24px rgba(0,0,0,0.07);
     }
     .card.top-card {
-      border-color: #e0d0a8;
-      background: #fffcf5;
+      border-color: var(--top-card-border);
+      background: var(--top-card-bg);
       box-shadow: 0 4px 14px rgba(184,149,74,0.1);
     }
     .card.top-card:hover {
@@ -541,7 +586,7 @@
       align-self: start;
     }
     .search-box {
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
       padding: 16px;
@@ -614,9 +659,13 @@
       gap: 6px;
       /* без лимита высоты — показываем все недавние */
     }
-    .recent-list .item-row {
+    html[data-theme="light"] .recent-list .item-row, .recent-list .item-row {
       border-color: #c5d9d0;
       background: #f7faf8;
+    }
+    html[data-theme="dark"] .recent-list .item-row {
+      border-color: var(--border);
+      background: var(--soft);
     }
     .recent-badge {
       display: inline-block;
@@ -644,7 +693,7 @@
       overflow-y: auto;
     }
     .item-row {
-      background: #fff;
+      background: var(--card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 9px 11px;
@@ -767,7 +816,7 @@
     }
     .modal-overlay.active { display: flex; }
     .modal {
-      background: #fff;
+      background: var(--card);
       border-radius: 18px;
       padding: 26px;
       width: 100%;
@@ -804,7 +853,7 @@
       min-height: 90px;
       resize: vertical;
       display: block !important;
-      background: #fff;
+      background: var(--card);
     }
     .checkbox-row {
       display: flex;
@@ -938,6 +987,8 @@
     <div class="paper-grain" data-speed="0.08"></div>
     <div class="paper-grain-fine" data-speed="0.03"></div>
   </div>
+
+  <button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Сменить тему">Тема</button>
 
   <!-- Очень маленькая кнопка Login -->
   <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
@@ -1136,6 +1187,12 @@
       <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Для приватной ссылки название нужно указать вручную.</p>
       <label>Название</label>
       <input type="text" id="private-name-input" placeholder="Например: Закрытый чат IT">
+      <p style="font-size:0.82rem;color:var(--muted);margin:12px 0 4px;line-height:1.5;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+        <strong style="color:var(--text);">Про аватарку.</strong>
+        У приватных каналов и чатов фото из Telegram часто не подтягивается.
+        Если после добавления аватарки нет — напишите администратору сайта и пришлите
+        <strong>аватарку</strong> и <strong>ссылку или название</strong> вашего канала/чата: мы загрузим изображение в каталог.
+      </p>
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closePrivateNameModal()">Отмена</button>
         <button class="btn-add" onclick="confirmPrivateName()">Добавить</button>
@@ -2105,7 +2162,7 @@
             setListsMessage(
               'Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
               '<br><span style="font-size:0.8rem;color:#888;">Проверьте RLS-политику SELECT для таблицы items</span>' +
-              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background: var(--card);">Повторить</button>'
             );
             return;
           }
@@ -2183,7 +2240,7 @@
             return loadData(true);
           }
           setListsMessage(
-            'Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background:#fff;">Повторить</button>'
+            'Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background: var(--card);">Повторить</button>'
           );
         } finally {
           loadDataInFlight = null;
@@ -3911,7 +3968,7 @@
                        font-size:${eyeSize}px;line-height:1;filter:grayscale(0.15);">
             👁
             <span style="position:absolute;left:50%;top:50%;width:${Math.round(size * 0.55)}px;height:${slashW}px;
-                         background:#fff;border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
+                         background: var(--card);border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
                          box-shadow:0 0 0 1px rgba(92,107,192,0.35);"></span>
           </span>
         </div>`;
@@ -4239,8 +4296,34 @@
     });
 
 
+    // Тема: светлая / тёмная
+    function applyTheme(theme) {
+      theme = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('telegra_theme', theme); } catch (e) {}
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = theme === 'dark' ? 'Светлая' : 'Тёмная';
+    }
+    function toggleTheme() {
+      const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      applyTheme(cur === 'dark' ? 'light' : 'dark');
+    }
+    (function initTheme() {
+      var saved = '';
+      try { saved = localStorage.getItem('telegra_theme') || ''; } catch (e) {}
+      if (saved === 'dark' || saved === 'light') {
+        applyTheme(saved);
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        applyTheme('dark');
+      } else {
+        applyTheme('light');
+      }
+    })();
+
     // Явно в window — чтобы onclick="..." всегда видел функции
     try {
+      window.toggleTheme = toggleTheme;
+      window.applyTheme = applyTheme;
       window.openModal = openModal;
       window.closeModal = closeModal;
       window.addItem = addItem;
