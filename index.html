@@ -1942,7 +1942,7 @@
       const q = extraQuery ? ('&' + extraQuery) : '';
       const url = SUPABASE_URL + '/rest/v1/items?select=' + ITEMS_SELECT + '&order=created_at.desc' + q;
       const ctrl = new AbortController();
-      const timer = setTimeout(function () { ctrl.abort(); }, 10000);
+      const timer = setTimeout(function () { ctrl.abort(); }, 15000);
       try {
         const res = await fetch(url, {
           headers: Object.assign({}, REST_HEADERS, { 'Range': from + '-' + (from + size - 1) }),
@@ -1954,7 +1954,16 @@
           throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
         }
         const batch = await res.json();
-        return Array.isArray(batch) ? batch : [];
+        // Content-Range: 0-249/11906 — полный размер каталога
+        let totalHint = null;
+        try {
+          const cr = res.headers.get('content-range') || res.headers.get('Content-Range') || '';
+          const m = /\/(\d+|\*)\s*$/.exec(cr);
+          if (m && m[1] !== '*') totalHint = parseInt(m[1], 10);
+        } catch (e) {}
+        const rows = Array.isArray(batch) ? batch : [];
+        rows._totalHint = totalHint;
+        return rows;
       } catch (e) {
         clearTimeout(timer);
         throw e;
@@ -2019,26 +2028,47 @@
 
     // Догрузка остального каталога в фоне (поиск по всем записям)
     async function loadCatalogBackground(startFrom) {
-      if (catalogBgLoading || catalogFullyLoaded) return;
+      if (catalogBgLoading) return;
+      if (catalogFullyLoaded && startFrom == null) return;
       catalogBgLoading = true;
-      let from = startFrom || 0;
+      catalogFullyLoaded = false;
+      let from = typeof startFrom === 'number' ? startFrom : 0;
       const pageSize = 500;
+      let okComplete = false;
       try {
         while (from < 100000) {
           const batch = await fetchItemsRange(from, pageSize);
-          if (!batch.length) break;
+          if (!batch.length) {
+            okComplete = true;
+            break;
+          }
           allItems = mergeItemsById(allItems, batch);
           from += pageSize;
-          if (batch.length < pageSize) break;
-          // периодически обновляем UI без мигания
-          if (from % 1500 === 0) {
+          if (batch.length < pageSize) {
+            okComplete = true;
+            break;
+          }
+          if (from % 1000 === 0) {
             try { render(); } catch (e) {}
           }
         }
-        catalogFullyLoaded = true;
-        try { render(); } catch (e) {}
+        if (okComplete) {
+          catalogFullyLoaded = true;
+          try { render(); } catch (e) {}
+        } else {
+          // не дошли до конца — повторим позже
+          setTimeout(function () {
+            catalogFullyLoaded = false;
+            loadCatalogBackground(from);
+          }, 4000);
+        }
       } catch (e) {
         console.warn('catalog background', e);
+        // сеть оборвалась — не оставляем гостя с «обрубком» навсегда
+        setTimeout(function () {
+          catalogFullyLoaded = false;
+          loadCatalogBackground(from);
+        }, 5000);
       } finally {
         catalogBgLoading = false;
       }
@@ -2096,8 +2126,11 @@
             ]);
             items = mergeItemsById(mergeItemsById(triple[0] || [], triple[1] || []), triple[2] || []);
             usedRest = true;
-            // если пришло 250 «новых» — в базе скорее всего ещё есть, догрузим фоном
-            needBackground = (triple[1] && triple[1].length >= 250);
+            // если пришло 250 «новых» или Content-Range говорит что всего больше — догрузим фоном
+            const batch1 = triple[1] || [];
+            const totalHint = batch1._totalHint;
+            needBackground = (batch1.length >= 250) ||
+              (typeof totalHint === 'number' && totalHint > items.length);
           } catch (eRest) {
             error = { message: eRest.message || String(eRest) };
           }
@@ -2178,12 +2211,19 @@
           listVisibleCount = listPageSize;
 
           const nowIso = Date.now();
-          allItems = (items || []).map(it => {
+          const mapped = (items || []).map(it => {
             if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
               return { ...it, is_top: false, top_until: null };
             }
             return it;
           });
+          // Не затираем уже догруженный каталог первой порцией (~250) —
+          // иначе в одном браузере «3000», после refresh «250», у гостя «пропали каналы»
+          if (allItems.length > mapped.length) {
+            allItems = mergeItemsById(allItems, mapped);
+          } else {
+            allItems = mapped;
+          }
 
           // ЧС нужен в основном админу — не блокируем первый экран
           if (isAdmin) {
@@ -4484,10 +4524,11 @@
         }
       } catch (eLegal) {}
 
-      // Полный refresh каталога реже — раз в 10 минут (фон догружает сам)
+      // Мягкое обновление: догрузка/синхронизация в фоне БЕЗ обнуления списка
       setInterval(function () {
+        if (catalogBgLoading) return;
         catalogFullyLoaded = false;
-        loadData(true);
+        loadCatalogBackground(0);
       }, 10 * 60 * 1000);
       setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       setInterval(function () {
