@@ -236,12 +236,12 @@ function renderNotFound(res, label) {
     '<title>Не найдено — ' +
     escapeHtml(SITE_NAME) +
     '</title><meta name="robots" content="noindex, follow">' +
-    '<style>body{font-family:system-ui,sans-serif;background:#f7f5f0;text-align:center;padding:40px}' +
-    'a{color:#2c5f4e}.box{max-width:480px;margin:40px auto;background:#fff;border:1px solid #e8e4dc;' +
+    '<style>html[data-theme=dark]{color-scheme:dark}:root{--bg:#f7f5f0;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:#e8e4dc;--accent:#2c5f4e}html[data-theme=dark]{--bg:#1a1d1b;--card:#242826;--text:#e8ebe9;--muted:#9aa39e;--border:#3a403c;--accent:#5aab90}body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);text-align:center;padding:40px}' +
+    'a{color:var(--accent)}.box{max-width:480px;margin:40px auto;background:var(--card);border:1px solid var(--border);' +
     'border-radius:16px;padding:32px}</style></head><body><div class="box"><h1>Не найдено</h1>' +
     '<p>Запись «' +
     escapeHtml(label || '') +
-    '» отсутствует.</p><p><a href="/">← На главную</a></p></div></body></html>';
+    '» отсутствует.</p><p><a href="/">← На главную</a></p></div><script>(function(){function applyTheme(th){th=th===\'dark\'?\'dark\':\'light\';document.documentElement.setAttribute(\'data-theme\',th);try{localStorage.setItem(\'telegra_theme\',th)}catch(e){}var b=document.getElementById(\'theme-toggle\');if(b)b.textContent=th===\'dark\'?\'Светлая\':\'Тёмная\';var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute(\'content\',th===\'dark\'?\'#1a1d1b\':\'#2c5f4e\')}function toggleTheme(){var c=document.documentElement.getAttribute(\'data-theme\')===\'dark\'?\'dark\':\'light\';applyTheme(c===\'dark\'?\'light\':\'dark\')}window.toggleTheme=toggleTheme;var s=\'\';try{s=localStorage.getItem(\'telegra_theme\')||\'\'}catch(e){}if(s===\'dark\'||s===\'light\')applyTheme(s);else if(window.matchMedia&&window.matchMedia(\'(prefers-color-scheme: dark)\').matches)applyTheme(\'dark\');else applyTheme(\'light\')})();</script></body></html>';
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.setHeader('Cache-Control', 'public, s-maxage=60');
   return res.status(404).send(html);
@@ -418,7 +418,7 @@ async function handler(req, res) {
       JSON.stringify(jsonLd).replace(/</g, '\\u003c') +
       '</script>' +
       '<style>' +
-      ':root{--bg:#f7f5f0;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:#e8e4dc;--accent:#2c5f4e;--soft:#f3f0ea;--top-bg:#fffcf5;--top-border:#e0d0a8;--top-text:#7a5c20}' +
+      ':root{--bg:#f7f5f0;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:#e8e4dc;--accent:#2c5f4e;--soft:#f3f0ea;--top-bg:#fffcf5;--top-border:#e0d0a8;--top-text:#7a5c20}html[data-theme=dark]{--bg:#1a1d1b;--card:#242826;--text:#e8ebe9;--muted:#9aa39e;--border:#3a403c;--accent:#5aab90;--soft:#2c322f;--top-bg:#2a2820;--top-border:#5c5340;--top-text:#c4a86a}.theme-toggle{position:fixed;top:10px;right:10px;z-index:50;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:600;color:var(--muted);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}.theme-toggle:hover{color:var(--accent);border-color:var(--accent)}' +
       '*{box-sizing:border-box;margin:0;padding:0}' +
       'body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh;padding:24px 16px 48px}' +
       '.wrap{max-width:720px;margin:0 auto}' +
@@ -462,7 +462,9 @@ async function handler(req, res) {
       'footer{margin-top:40px;text-align:center;font-size:.8rem;color:var(--muted)}' +
       'footer a{color:var(--muted)}' +
       '@media(max-width:520px){.hero{flex-direction:column;text-align:center}.badges,.actions{justify-content:center}}' +
-      '</style></head><body><div class="wrap">' +
+      '</style></head><body>' +
+      '<button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">Тема</button>' +
+      '<div class="wrap">' +
       '<div class="nav"><a href="/">← ' +
       escapeHtml(SITE_NAME) +
       '</a><a href="/#add">Добавить канал</a></div>' +
@@ -511,7 +513,9 @@ async function handler(req, res) {
       '<footer><a href="/">' +
       escapeHtml(SITE_NAME) +
       '</a> — каталог Telegram-каналов, чатов и ботов</footer>' +
-      '</div></body></html>';
+      '</div>' +
+      '<script>(function(){function applyTheme(th){th=th===\'dark\'?\'dark\':\'light\';document.documentElement.setAttribute(\'data-theme\',th);try{localStorage.setItem(\'telegra_theme\',th)}catch(e){}var b=document.getElementById(\'theme-toggle\');if(b)b.textContent=th===\'dark\'?\'Светлая\':\'Тёмная\';var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute(\'content\',th===\'dark\'?\'#1a1d1b\':\'#2c5f4e\')}function toggleTheme(){var c=document.documentElement.getAttribute(\'data-theme\')===\'dark\'?\'dark\':\'light\';applyTheme(c===\'dark\'?\'light\':\'dark\')}window.toggleTheme=toggleTheme;var s=\'\';try{s=localStorage.getItem(\'telegra_theme\')||\'\'}catch(e){}if(s===\'dark\'||s===\'light\')applyTheme(s);else if(window.matchMedia&&window.matchMedia(\'(prefers-color-scheme: dark)\').matches)applyTheme(\'dark\');else applyTheme(\'light\')})();</script>' +
+      '</body></html>';
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
