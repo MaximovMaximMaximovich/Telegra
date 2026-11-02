@@ -411,14 +411,15 @@
       margin-bottom: 20px;
       font-size: 0.98rem;
       line-height: 1.7;
-      color: #333;
+      color: var(--muted);
       box-shadow: 0 4px 16px rgba(0,0,0,0.04);
     }
-    .about p { margin-bottom: 14px; }
+    .about p { margin-bottom: 14px; color: var(--muted); }
     .about p:last-child { margin-bottom: 0; }
     .about strong { color: var(--text); }
+    .about a { color: var(--accent); }
     .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
-    .about li { margin-bottom: 7px; }
+    .about li { margin-bottom: 7px; color: var(--muted); }
 
     .add-buttons {
       display: flex;
@@ -1103,7 +1104,13 @@
       <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
       <label>2. Ссылка</label>
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
-      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 12px;">Открытый или приватный — сайт определит сам</p>
+      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 8px;">Открытый или приватный — сайт определит сам</p>
+      <p style="font-size:0.8rem;color:var(--muted);margin:0 0 12px;line-height:1.45;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+        <strong style="color:var(--text);">Приватный канал или чат.</strong>
+        Аватарка из Telegram часто не загружается. Если после добавления фото нет — напишите
+        <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">администратору</a>
+        и пришлите <strong>аватарку</strong> вместе с <strong>ссылкой или названием</strong> канала/чата — загрузим в каталог.
+      </p>
       <label>3. Описание</label>
       <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
       <label>4. Категория (тема)</label>
