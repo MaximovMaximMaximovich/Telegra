@@ -1,536 +1,4509 @@
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
-const SUPABASE_KEY = (
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
-  process.env.SUPABASE_ANON_KEY ||
-  ''
-).trim();
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Телегра — каталог Telegram-каналов, чатов и ботов</title>
+  <meta name="description" content="Телегра — удобный каталог Telegram-каналов, чатов и ботов (каталог ТГ). Бесплатно добавьте свой канал, найдите сообщества по категориям, размещение в Топ.">
+  <meta name="keywords" content="каталог ТГ, каталог тг, каталог телеграм каналов, telegram каналы, телеграм чаты, телеграм боты, каталог telegram, добавить канал в телеграм">
+  <meta name="author" content="Телегра">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://телегра.site/">
 
-const SITE_URL = (process.env.SITE_URL || 'https://телегра.site').replace(/\/+$/, '');
-const SITE_NAME = 'Телегра';
+  <!-- Yandex verification -->
+  <meta name="yandex-verification" content="4393c63170f41afc" />
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Телегра">
+  <meta property="og:title" content="Телегра — каталог Telegram-каналов, чатов и ботов">
+  <meta property="og:description" content="Каталог Telegram-каналов, чатов и ботов. Поиск по категориям, бесплатное добавление, размещение в Топ.">
+  <meta property="og:url" content="https://телегра.site/">
 
-function escapeHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Телегра — каталог Telegram-каналов, чатов и ботов">
+  <meta name="twitter:description" content="Каталог Telegram-каналов, чатов и ботов. Поиск по категориям, бесплатное добавление.">
 
-function normalizeUsername(u) {
-  return String(u || '')
-    .trim()
-    .replace(/^@/, '')
-    .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
-    .split('/')[0]
-    .split('?')[0]
-    .toLowerCase();
-}
+  <!-- Theme -->
+  <meta name="theme-color" content="#2c5f4e">
 
-function typeLabel(t) {
-  if (t === 'chat') return 'Чат';
-  if (t === 'bot') return 'Бот';
-  return 'Канал';
-}
+  <!-- Favicon -->
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-function truncate(s, n) {
-  s = String(s || '').replace(/\s+/g, ' ').trim();
-  if (s.length <= n) return s;
-  return s.slice(0, n - 1).trim() + '…';
-}
+  <!-- Ускорение: ранние соединения -->
+  <link rel="preconnect" href="https://wrlolhdnedzcpuizgohg.supabase.co" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700&display=swap">
 
-function isActiveTop(row) {
-  if (!row || !row.is_top) return false;
-  if (!row.top_until) return true;
-  try {
-    return new Date(row.top_until).getTime() > Date.now();
-  } catch (e) {
-    return !!row.is_top;
-  }
-}
+  <!-- defer: не блокирует первую отрисовку; каталог идёт через REST -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2'"></script>
+  <style>
 
-function letterFallback(name) {
-  const s = String(name || '?').replace(/^@/, '').trim();
-  return (s[0] || '?').toUpperCase();
-}
-
-const EYE_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" ' +
-  'stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-  '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>' +
-  '<path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>' +
-  '<path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/>' +
-  '<line x1="1" y1="1" x2="23" y2="23"/>' +
-  '</svg>';
-
-function heroAvatar(url, name, isPrivate) {
-  // Если есть загруженная аватарка — показываем её (и для приватных)
-  if (url && /^https?:\/\//i.test(String(url))) {
-    return (
-      '<img class="hero-avatar" src="' +
-      escapeHtml(url) +
-      '" alt="' +
-      escapeHtml(name || '') +
-      '" width="96" height="96" referrerpolicy="no-referrer">'
-    );
-  }
-  // Нет фото: приватным — глаз, остальным — буква
-  if (isPrivate) {
-    return '<div class="hero-avatar fallback eye-slash" title="Приватный">' + EYE_SVG + '</div>';
-  }
-  const letter = escapeHtml(letterFallback(name));
-  return '<div class="hero-avatar fallback">' + letter + '</div>';
-}
-
-function cardAvatar(url, name, isPrivate) {
-  if (url && /^https?:\/\//i.test(String(url))) {
-    return (
-      '<img src="' +
-      escapeHtml(url) +
-      '" alt="" width="40" height="40" loading="lazy" referrerpolicy="no-referrer">'
-    );
-  }
-  if (isPrivate) {
-    return '<span class="ph ph-eye" title="Приватный">' + EYE_SVG + '</span>';
-  }
-  const letter = escapeHtml(letterFallback(name));
-  return '<span class="ph">' + letter + '</span>';
-}
-
-async function sbFetch(qs) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return null;
-  const res = await fetch(SUPABASE_URL + '/rest/v1/items?' + qs, {
-    headers: {
-      apikey: SUPABASE_KEY,
-      Authorization: 'Bearer ' + SUPABASE_KEY,
-      Accept: 'application/json'
+    :root {
+      --bg: #f7f5f0;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #e8e4dc;
+      --accent: #2c5f4e;
+      --accent-light: #e8f0ed;
+      --soft: #f3f0ea;
+      --ink: #1a1a1a;
+      --paper-base: #f7f5f0;
+      --top-card-bg: #fffcf5;
+      --top-card-border: #e0d0a8;
     }
-  });
-  if (!res.ok) return null;
-  try {
-    return await res.json();
-  } catch (e) {
-    return null;
+
+    html[data-theme="dark"] {
+      --bg: #1a1d1b;
+      --card: #242826;
+      --text: #e8ebe9;
+      --muted: #9aa39e;
+      --border: #3a403c;
+      --accent: #5aab90;
+      --accent-light: #2a3d36;
+      --soft: #2c322f;
+      --ink: #f0f2f1;
+      --paper-base: #1a1d1b;
+      --top-card-bg: #2a2820;
+      --top-card-border: #5c5340;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: transparent;
+      color: var(--text);
+      min-height: 100vh;
+      padding: 28px 24px;
+      line-height: 1.55;
+      position: relative;
+    }
+
+    /* Фон: тёплая бумага / крафт + зерно */
+    .bg-planets {
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      overflow: hidden;
+      background-color: var(--paper-base);
+      background-image:
+        linear-gradient(
+          180deg,
+          var(--bg) 0%,
+          var(--paper-base) 40%,
+          var(--soft) 100%
+        );
+    }
+    html[data-theme="dark"] .bg-planets .paper-fiber,
+    html[data-theme="dark"] .bg-planets .paper-grain,
+    html[data-theme="dark"] .bg-planets .paper-grain-fine {
+      opacity: 0.12;
+    }
+    html[data-theme="dark"] .bg-planets .paper-wash {
+      opacity: 0.5;
+    }
+    /* Слой волокна бумаги (крупная мягкая структура) */
+    .bg-planets .paper-fiber {
+      position: absolute;
+      inset: 0;
+      opacity: 0.45;
+      background-image:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0px,
+          transparent 2px,
+          rgba(44, 95, 78, 0.015) 2px,
+          rgba(44, 95, 78, 0.015) 3px
+        ),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0px,
+          transparent 3px,
+          rgba(90, 70, 40, 0.012) 3px,
+          rgba(90, 70, 40, 0.012) 4px
+        );
+      will-change: transform;
+    }
+    /* Зерно через SVG feTurbulence */
+    .bg-planets .paper-grain {
+      position: absolute;
+      inset: -10%;
+      width: 120%;
+      height: 120%;
+      opacity: 0.35;
+      mix-blend-mode: multiply;
+      will-change: transform;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.15 0 0 0 0 0.2 0 0 0 0 0.16 0 0 0 0.55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 180px 180px;
+    }
+    /* Второе зерно — мельче, теплее */
+    .bg-planets .paper-grain-fine {
+      position: absolute;
+      inset: 0;
+      opacity: 0.22;
+      mix-blend-mode: soft-light;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 128 128' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.35 0 0 0 0 0.28 0 0 0 0 0.18 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 96px 96px;
+      will-change: transform;
+    }
+    /* Лёгкие «пятна» крафта по углам */
+    .bg-planets .paper-wash {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 70% 50% at 10% 20%, rgba(44, 95, 78, 0.04) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 45% at 90% 80%, rgba(184, 149, 74, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse 50% 40% at 70% 15%, rgba(90, 70, 40, 0.03) 0%, transparent 45%);
+      will-change: transform;
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+    }
+
+    .page {
+      max-width: 1320px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 32px;
+    }
+
+    html { overflow-x: hidden; }
+    body { overflow-x: hidden; max-width: 100vw; }
+    .page, main, aside, .card, .item-row, .search-box, .about, .top-grid {
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    /* Login */
+    .theme-toggle {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+    .theme-toggle:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .login-btn-toggle {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      transition: all 0.2s;
+    }
+    .login-btn-toggle:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+    .login-btn-toggle.hidden { display: none; }
+
+    .login-popup {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: var(--card);
+      padding: 12px;
+      border-radius: 12px;
+      width: 200px;
+      z-index: 101;
+      border: 1px solid var(--border);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.14);
+      font-size: 0.88rem;
+      display: none;
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    .login-popup.active {
+      display: block;
+      opacity: 1;
+      transform: scale(1);
+    }
+    .login-popup strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.9rem;
+    }
+    .login-popup input {
+      width: 100%;
+      padding: 8px 10px;
+      margin: 4px 0 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.88rem;
+    }
+    .login-popup button {
+      width: 100%;
+      padding: 9px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.88rem;
+    }
+    .login-popup .close-login {
+      background: var(--soft);
+      color: var(--muted);
+      margin-top: 5px;
+    }
+    .error-msg {
+      color: #a33;
+      font-size: 0.8rem;
+      margin-top: 6px;
+      display: none;
+    }
+
+    .admin-badge {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      z-index: 100;
+      background: var(--accent-light);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: none;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      max-width: calc(100vw - 24px);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .admin-badge.active { display: flex; }
+    @media (max-width: 600px) {
+      .admin-badge {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        gap: 4px;
+        max-width: calc(100vw - 16px);
+      }
+      .admin-badge button {
+        font-size: 0.68rem !important;
+      }
+    }
+
+    .admin-stats {
+      font-size: 0.68rem;
+      font-weight: 500;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px 8px;
+      white-space: nowrap;
+    }
+    .admin-badge button.stats-btn {
+      color: var(--accent) !important;
+    }
+    #analytics-modal .analytics-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    #analytics-modal .stat-card {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      text-align: center;
+    }
+    #analytics-modal .stat-card .num {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    #analytics-modal .stat-card .lbl {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    #analytics-modal .top-queries {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    #analytics-modal .top-queries li {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.88rem;
+    }
+    #analytics-modal .top-queries li:last-child { border-bottom: none; }
+
+    .admin-badge button {
+      background: none;
+      border: none;
+      color: #a33;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 32px;
+      padding-top: 10px;
+    }
+    header h1 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      margin-bottom: 8px;
+    }
+    header .subtitle {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .about {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 32px;
+      margin-top: 44px;
+      margin-bottom: 20px;
+      font-size: 0.98rem;
+      line-height: 1.7;
+      color: var(--muted);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    }
+    .about p { margin-bottom: 14px; color: var(--muted); }
+    .about p:last-child { margin-bottom: 0; }
+    .about strong { color: var(--text); }
+    .about a { color: var(--accent); }
+    .about ul { margin: 14px 0 14px 22px; color: var(--muted); }
+    .about li { margin-bottom: 7px; color: var(--muted); }
+
+    .add-buttons {
+      display: flex;
+      gap: 14px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 36px;
+    }
+    .btn {
+      padding: 13px 24px;
+      font-size: 0.92rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s;
+      color: #1a1a1a;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .btn-chat { background: #d6e6f3; }
+    .btn-channel { background: #e4dff0; }
+    .btn-bot { background: #d9ebe4; }
+    .btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(0.97);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    }
+    .btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .top-section h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      color: var(--ink);
+    }
+    .top-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      gap: 14px;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.07);
+    }
+    .card.top-card {
+      border-color: var(--top-card-border);
+      background: var(--top-card-bg);
+      box-shadow: 0 4px 14px rgba(184,149,74,0.1);
+    }
+    .card.top-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(184,149,74,0.14);
+    }
+
+    .card-avatar {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border: 2px solid #fff;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: white;
+      overflow: hidden;
+    }
+    .card-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+    .card.top-card .card-avatar {
+      cursor: pointer;
+      transition: transform 0.15s ease;
+    }
+    .card.top-card .card-avatar:hover { transform: scale(1.08); }
+    .card.top-card .card-avatar:active { transform: scale(0.96); }
+    #confetti-canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+
+
+
+    .card-content { flex: 1; min-width: 0; }
+    .card .type {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      margin-bottom: 3px;
+      color: var(--muted);
+    }
+    .card .username {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .card .username a { color: var(--text); text-decoration: none; }
+    .card .username a:hover { color: var(--accent); }
+    .card .desc {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-bottom: 8px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .card .meta {
+      font-size: 0.78rem;
+      color: var(--muted);
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .card .actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .card .actions button {
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-top { background: #f5efe0 !important; border-color: #d4c4a0 !important; color: #7a5c20 !important; }
+    .btn-make-top { background: #e8f0ed !important; border-color: var(--accent) !important; color: var(--accent) !important; }
+    .btn-blacklist { color: #a33 !important; }
+    .btn-delete { color: #a33 !important; font-weight: 700 !important; }
+    .btn-remove-top { color: #a33 !important; }
+
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      align-self: start;
+    }
+    .search-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .search-box input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+    }
+    .filters {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .filter-btn {
+      padding: 7px 12px;
+      font-size: 0.8rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
+      font-weight: 500;
+      color: var(--muted);
+    }
+    .filter-btn.active {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
+    }
+    .category-box { margin-top: 12px; }
+    .category-box label {
+      display: block;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .category-box select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.9rem;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    .recent-section {
+      margin-top: 28px;
+      margin-bottom: 8px;
+      min-height: 120px; /* меньше CLS, пока список грузится */
+    }
+    .recent-section h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+      color: var(--ink);
+    }
+    .recent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      /* без лимита высоты — показываем все недавние */
+    }
+    html[data-theme="light"] .recent-list .item-row, .recent-list .item-row {
+      border-color: #c5d9d0;
+      background: #f7faf8;
+    }
+    html[data-theme="dark"] .recent-list .item-row {
+      border-color: var(--border);
+      background: var(--soft);
+    }
+    .recent-badge {
+      display: inline-block;
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.65rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 6px;
+      margin-left: 6px;
+    }
+
+    .items-section h2 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--ink);
+    }
+    .items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+    .item-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 9px 11px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.03);
+      transition: box-shadow 0.15s ease;
+    }
+    .item-row:hover {
+      box-shadow: 0 4px 12px rgba(0,0,0,0.07);
+    }
+    .item-row .info { flex: 1; min-width: 0; }
+    .item-row .uname {
+      font-weight: 600;
+      font-size: 0.84rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1.2;
+    }
+    .item-row .uname a { color: var(--text); text-decoration: none; }
+    .item-row .meta {
+      font-size: 0.68rem;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+    .item-row .item-desc {
+      font-size: 0.72rem;
+      color: #666;
+      margin-top: 1px;
+      line-height: 1.25;
+      display: -webkit-box;
+      -webkit-line-clamp: 1;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .private-badge {
+      display: inline-block;
+      background: #e8eaf6;
+      color: #3949ab;
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 6px;
+      vertical-align: middle;
+    }
+    .item-row .actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 3px;
+      flex-wrap: wrap;
+    }
+    .item-row .actions button {
+      padding: 3px 7px;
+      font-size: 0.65rem;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
+    }
+
+    .blacklist-section {
+      display: none;
+      margin-top: 30px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px;
+    }
+    .blacklist-section h2 { font-size: 1.1rem; margin-bottom: 12px; }
+    .blacklist-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .blacklist-item:last-child { border-bottom: none; }
+    .blacklist-item button {
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
+      color: #a33;
+    }
+
+    footer {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 30px 0 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      margin-top: 20px;
+    }
+    footer a {
+      color: var(--muted);
+      text-decoration: underline;
+      cursor: pointer;
+      margin: 0 8px;
+    }
+    footer a:hover { color: var(--accent); }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: var(--card);
+      border-radius: 18px;
+      padding: 26px;
+      width: 100%;
+      max-width: 420px;
+      max-height: 90vh;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.12);
+    }
+    .modal h3 {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 1.25rem;
+      margin-bottom: 16px;
+      color: var(--ink);
+    }
+    .modal label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 4px;
+      color: var(--muted);
+    }
+    .modal input, .modal textarea, .modal select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-size: 0.95rem;
+      margin-bottom: 12px;
+      font-family: inherit;
+    }
+    .modal textarea {
+      min-height: 90px;
+      resize: vertical;
+      display: block !important;
+      background: var(--card);
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .checkbox-row input { width: auto; margin: 0; }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .btn-cancel {
+      flex: 1;
+      padding: 11px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: var(--soft);
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .btn-add {
+      flex: 1;
+      padding: 11px;
+      border-radius: 10px;
+      border: none;
+      background: var(--accent);
+      color: white;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+    .status-bar {
+      position: fixed;
+      bottom: 12px;
+      right: 12px;
+      background: #333;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      z-index: 50;
+      opacity: 0.85;
+      display: none;
+    }
+    .add-progress { display: none; margin: 14px 0 8px; }
+    .add-progress.active { display: block; }
+    .progress-track {
+      height: 10px;
+      background: var(--soft);
+      border-radius: 999px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #2c5f4e, #4a9a7c);
+      border-radius: 999px;
+      transition: width 0.35s ease;
+    }
+    .progress-text {
+      margin-top: 8px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    @media (max-width: 1000px) {
+      .page { grid-template-columns: 1fr; gap: 16px; }
+      body { padding: 12px; }
+      header { margin-bottom: 18px; }
+      header h1 { font-size: 2.5rem; }
+      header .subtitle { font-size: 0.95rem; }
+      .add-buttons { margin-bottom: 20px; gap: 10px; }
+      .btn { padding: 12px 16px; font-size: 0.88rem; }
+      .btn:hover { transform: none; filter: none; }
+      .top-section h2 { font-size: 1.2rem; margin-bottom: 12px; }
+      .top-grid { grid-template-columns: 1fr; gap: 10px; }
+      .card { padding: 12px; gap: 10px; border-radius: 12px; }
+      .card:hover, .card.top-card:hover { transform: none; }
+      .card-avatar { width: 44px !important; height: 44px !important; font-size: 1rem; }
+      .card .username { font-size: 1rem; }
+      .card .desc { font-size: 0.82rem; }
+      .sidebar { position: static; width: 100%; }
+      .search-box { padding: 12px; border-radius: 12px; margin-bottom: 14px; }
+      .items-list { max-height: none; gap: 6px; }
+      .about { padding: 16px; margin-top: 24px; font-size: 0.92rem; }
+    }
+
+    @media (max-width: 600px) {
+      body { padding: 10px; }
+      header h1 { font-size: 2.1rem; }
+      header .subtitle { font-size: 0.85rem; }
+      .add-buttons { flex-direction: column; align-items: stretch; }
+      .btn { width: 100%; }
+      .item-row { padding: 8px; }
+      .modal { padding: 16px; border-radius: 14px; max-width: 100%; }
+    }
+
+  </style>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Телегра",
+    "alternateName": ["Telegra", "телегра.site"],
+    "url": "https://телегра.site/",
+    "description": "Каталог Telegram-каналов, чатов и ботов",
+    "inLanguage": "ru-RU",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://телегра.site/?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
   }
-}
+  </script>
+</head>
+<body>
 
-async function fetchItemByUsername(username) {
-  const qs =
-    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
-    '&username=eq.' +
-    encodeURIComponent(username) +
-    '&is_private=eq.false&limit=1';
-  const rows = await sbFetch(qs);
-  return Array.isArray(rows) && rows[0] ? rows[0] : null;
-}
+  <div class="bg-planets" id="bg-planets" aria-hidden="true">
+    <div class="paper-wash" data-speed="0.04"></div>
+    <div class="paper-fiber" data-speed="0.06"></div>
+    <div class="paper-grain" data-speed="0.08"></div>
+    <div class="paper-grain-fine" data-speed="0.03"></div>
+  </div>
 
-async function fetchItemById(id) {
-  id = String(id || '').trim();
-  if (!id) return null;
-  // UUID или любой id из primary key
-  const qs =
-    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
-    '&id=eq.' +
-    encodeURIComponent(id) +
-    '&limit=1';
-  let rows = await sbFetch(qs);
-  if (Array.isArray(rows) && rows[0]) return rows[0];
-  // запасной путь: иногда id приходит с лишними символами
-  const cleaned = id.replace(/[^a-zA-Z0-9-]/g, '');
-  if (cleaned && cleaned !== id) {
-    rows = await sbFetch(
-      'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
-      '&id=eq.' + encodeURIComponent(cleaned) + '&limit=1'
-    );
-    if (Array.isArray(rows) && rows[0]) return rows[0];
-  }
-  return null;
-}
+  <button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Сменить тему">Тема</button>
 
-async function fetchSimilar(category, excludeUsername, excludeId, limit) {
-  if (!category) return [];
-  let qs =
-    'select=id,username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
-    '&category=eq.' +
-    encodeURIComponent(category) +
-    '&is_private=eq.false&order=created_at.desc&limit=' +
-    (limit || 8);
-  if (excludeUsername) {
-    qs += '&username=neq.' + encodeURIComponent(excludeUsername);
-  }
-  const rows = await sbFetch(qs);
-  if (!Array.isArray(rows)) return [];
-  if (excludeId) {
-    return rows.filter(function (r) {
-      return String(r.id) !== String(excludeId);
-    });
-  }
-  return rows;
-}
+  <!-- Очень маленькая кнопка Login -->
+  <button class="login-btn-toggle" id="login-toggle" onclick="toggleLoginPopup()">Login</button>
 
-async function fetchTopItems(excludeUsername, excludeId, limit) {
-  limit = limit || 8;
-  const qs =
-    'select=id,username,display_name,type,avatar_url,category,is_top,top_until,is_private,invite_link' +
-    '&is_top=eq.true&order=created_at.desc&limit=50';
-  const rows = await sbFetch(qs);
-  if (!Array.isArray(rows)) return [];
-  const ex = String(excludeUsername || '').toLowerCase();
-  const exId = excludeId ? String(excludeId) : '';
-  return rows
-    .filter(function (r) {
-      if (!isActiveTop(r)) return false;
-      if (exId && String(r.id) === exId) return false;
-      if (ex && r.username && String(r.username).toLowerCase() === ex) return false;
-      if (r.is_private && !r.invite_link && !r.id) return false;
-      return true;
-    })
-    .slice(0, limit);
-}
+  <!-- Всплывающее окно Login -->
+  <div class="login-popup" id="login-popup">
+    <strong>Вход</strong>
+    <input type="email" id="admin-email" placeholder="Email" autocomplete="username">
+    <input type="password" id="admin-pass" placeholder="Пароль" autocomplete="current-password">
+    <button onclick="loginAdmin()">Войти</button>
+    <button class="close-login" onclick="toggleLoginPopup()">Закрыть</button>
+    <div class="error-msg" id="login-error"></div>
+  </div>
 
-function catalogHref(s) {
-  if (s && s.is_private && s.id) return '/p/' + encodeURIComponent(s.id);
-  if (s && s.username) return '/c/' + encodeURIComponent(s.username);
-  if (s && s.id) return '/p/' + encodeURIComponent(s.id);
-  return '#';
-}
+  <!-- Бейдж админа -->
+  <div class="admin-badge" id="admin-badge">
+    <span>Админ</span>
+    <span class="admin-stats" id="admin-stats" title="Просмотры и поиски">…</span>
+    <button type="button" class="stats-btn" onclick="openAnalyticsModal()" title="Статистика">Стат</button>
+    <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
+    <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
+    <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
+    <button type="button" onclick="openDeleteCategoryModal()" title="Удалить все записи категории">Удал. кат.</button>
+    <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
+    <button type="button" onclick="logoutAdmin()">Выйти</button>
+  </div>
 
-function cardHtml(s, forceTop) {
-  const isTop = !!forceTop || isActiveTop(s);
-  const isPrivate = !!(s && s.is_private);
-  const display =
-    s.display_name ||
-    (isPrivate ? 'Приватный канал' : '@' + (s.username || ''));
-  const sn = escapeHtml(display);
-  const href = catalogHref(s);
-  const av = cardAvatar(s.avatar_url, display, isPrivate);
-  const topBadge = isTop ? '<span class="sim-top-badge">Топ</span>' : '';
-  const privMark = isPrivate ? ' · Приват' : '';
-  const cls = isTop ? 'sim-card sim-card-top' : 'sim-card';
-  return (
-    '<a class="' +
-    cls +
-    '" href="' +
-    escapeHtml(href) +
-    '">' +
-    '<div class="sim-av">' +
-    av +
-    '</div>' +
-    '<div class="sim-name">' +
-    sn +
-    '</div>' +
-    '<div class="sim-type">' +
-    escapeHtml(typeLabel(s.type)) +
-    (isTop ? ' · Топ' : '') +
-    privMark +
-    '</div>' +
-    topBadge +
-    '</a>'
-  );
-}
+  <div class="page">
+    <main>
+      <header>
+        <h1>Телегра</h1>
+        <div class="subtitle">Каталог Telegram-каналов, чатов и ботов</div>
+      </header>
 
-function renderNotFound(res, label) {
-  const html =
-    '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
-    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-    '<title>Не найдено — ' +
-    escapeHtml(SITE_NAME) +
-    '</title><meta name="robots" content="noindex, follow">' +
-    '<style>html[data-theme=dark]{color-scheme:dark}:root{--bg:#f7f5f0;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:#e8e4dc;--accent:#2c5f4e}html[data-theme=dark]{--bg:#1a1d1b;--card:#242826;--text:#e8ebe9;--muted:#9aa39e;--border:#3a403c;--accent:#5aab90}body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);text-align:center;padding:40px}' +
-    'a{color:var(--accent)}.box{max-width:480px;margin:40px auto;background:var(--card);border:1px solid var(--border);' +
-    'border-radius:16px;padding:32px}</style></head><body><div class="box"><h1>Не найдено</h1>' +
-    '<p>Запись «' +
-    escapeHtml(label || '') +
-    '» отсутствует.</p><p><a href="/">← На главную</a></p></div><script>(function(){function applyTheme(th){th=th===\'dark\'?\'dark\':\'light\';document.documentElement.setAttribute(\'data-theme\',th);try{localStorage.setItem(\'telegra_theme\',th)}catch(e){}var b=document.getElementById(\'theme-toggle\');if(b)b.textContent=th===\'dark\'?\'Светлая\':\'Тёмная\';var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute(\'content\',th===\'dark\'?\'#1a1d1b\':\'#2c5f4e\')}function toggleTheme(){var c=document.documentElement.getAttribute(\'data-theme\')===\'dark\'?\'dark\':\'light\';applyTheme(c===\'dark\'?\'light\':\'dark\')}window.toggleTheme=toggleTheme;var s=\'\';try{s=localStorage.getItem(\'telegra_theme\')||\'\'}catch(e){}if(s===\'dark\'||s===\'light\')applyTheme(s);else if(window.matchMedia&&window.matchMedia(\'(prefers-color-scheme: dark)\').matches)applyTheme(\'dark\');else applyTheme(\'light\')})();</script></body></html>';
-  res.setHeader('Content-Type', 'text/html; charset=utf-8');
-  res.setHeader('Cache-Control', 'public, s-maxage=60');
-  return res.status(404).send(html);
-}
+      <div class="add-buttons">
+        <button class="btn btn-chat" onclick="openModal('chat')">Добавить чат</button>
+        <button class="btn btn-channel" onclick="openModal('channel')">Добавить канал</button>
+        <button class="btn btn-bot" onclick="openModal('bot')">Добавить бот</button>
+      </div>
 
-function pickQuery(req) {
-  const q = req.query || {};
-  // Vercel иногда отдаёт массивы
-  function one(v) {
-    if (Array.isArray(v)) return String(v[0] || '').trim();
-    return String(v == null ? '' : v).trim();
-  }
-  let id = one(q.id);
-  let username = one(q.username) || one(q.u);
-  // запасной разбор URL, если query пустой
-  if (!id && !username && req.url) {
+      <section class="top-section">
+        <h2>Топ размещение <span id="top-count" style="font-size:0.9rem;color:var(--muted);font-weight:500;"></span></h2>
+        <div class="top-grid" id="top-list">
+          <div class="loading">Загрузка...</div>
+        </div>
+      </section>
+
+      <section class="recent-section">
+        <h2>Недавно добавленные <span id="recent-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
+        <div class="recent-list" id="recent-list">
+          <div class="loading">Пока пусто</div>
+        </div>
+      </section>
+
+      <section class="blacklist-section" id="blacklist-section">
+        <h2>Чёрный список</h2>
+        <div id="blacklist-list"></div>
+      </section>
+
+      <div class="about">
+        <p><strong>Telegra</strong> — удобный каталог Telegram-каналов, чатов и ботов. Здесь вы можете найти интересные сообщества или добавить свои.</p>
+        <p>Все данные хранятся в защищённой базе и доступны всем пользователям 24/7.</p>
+        <ul>
+          <li>Бесплатное добавление каналов, чатов и ботов</li>
+          <li>Размещение в Топ</li>
+          <li>Удобный поиск и фильтры</li>
+          <li>Отдельные страницы каналов для удобного просмотра</li>
+        </ul>
+        <p><strong>Важно.</strong> Telegra — открытый справочный каталог. Администрация сайта не создаёт материалы каналов, чатов и ботов, заранее их не проверяет и не несёт ответственности за их содержание. Все ссылки ведут на сторонние ресурсы Telegram; выбор подписки и просмотра контента остаётся за посетителем.</p>
+        <p>Заметили запись, которая может навредить людям, нарушает закон или распространяет опасный контент — напишите нам: укажите название или ссылку и кратко опишите причину. Мы рассмотрим обращение и при необходимости удалим материал из каталога. Жалобы и вопросы: <a id="about-contact" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener">@TG_Administrator_Vip_bot</a></p>
+      </div>
+    </main>
+
+    <aside class="sidebar">
+      <div class="search-box">
+        <input type="text" id="search-input" placeholder="Поиск..." oninput="onSearchInput()">
+        <div class="filters">
+          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">Все</button>
+          <button class="filter-btn" data-filter="chat" onclick="setFilter('chat')">Чаты</button>
+          <button class="filter-btn" data-filter="channel" onclick="setFilter('channel')">Каналы</button>
+          <button class="filter-btn" data-filter="bot" onclick="setFilter('bot')">Боты</button>
+        </div>
+        <div class="category-box">
+          <label for="category-filter">Категория</label>
+          <select id="category-filter" onchange="setCategoryFilter(this.value)">
+            <!-- заполняется из CATEGORIES -->
+          </select>
+        </div>
+      </div>
+
+      <section class="items-section">
+        <h2>Все записи <span id="items-count" style="font-size:0.85rem;color:var(--muted);font-weight:500;"></span></h2>
+        <div class="items-list" id="items-list">
+          <div class="loading">Загрузка...</div>
+        </div>
+      </section>
+    </aside>
+
+    <footer>
+      <a href="/?legal=agreement" onclick="openLegal('agreement'); return false;">Пользовательское соглашение</a>
+      <a href="/?legal=privacy" onclick="openLegal('privacy'); return false;">Политика конфиденциальности</a>
+      <div style="margin-top:12px;">© Telegra 2026</div>
+    </footer>
+  </div>
+
+  <!-- Модалка добавления -->
+  <div class="modal-overlay" id="add-modal">
+    <div class="modal">
+      <h3 id="modal-title">Добавить</h3>
+      <p id="modal-type-hint" style="font-size:0.85rem;color:var(--muted);margin:-8px 0 12px;">Тип: —</p>
+      <label>1. Название</label>
+      <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
+      <label>2. Ссылка</label>
+      <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
+      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 8px;">Открытый или приватный — сайт определит сам</p>
+      <p style="font-size:0.8rem;color:var(--muted);margin:0 0 12px;line-height:1.45;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+        <strong style="color:var(--text);">Приватный канал или чат.</strong>
+        Аватарка из Telegram часто не загружается. Если после добавления фото нет — напишите
+        <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">администратору</a>
+        и пришлите <strong>аватарку</strong> вместе с <strong>ссылкой или названием</strong> канала/чата — загрузим в каталог.
+      </p>
+      <label>3. Описание</label>
+      <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
+      <label>4. Категория (тема)</label>
+      <select id="item-category">
+        <!-- заполняется из CATEGORIES -->
+      </select>
+
+      <div class="add-progress" id="add-progress">
+        <div class="progress-track"><div class="progress-fill" id="add-progress-fill"></div></div>
+        <div class="progress-text" id="add-progress-text">Загрузка данных из Telegram…</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" id="add-cancel-btn" onclick="closeModal()">Отмена</button>
+        <button class="btn-add" id="add-submit-btn" onclick="addItem()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка оплаты Топ -->
+  <div class="modal-overlay" id="top-modal">
+    <div class="modal">
+      <h3>Размещение в Топ</h3>
+
+      <!-- Шаг 1: выбор дней -->
+      <div id="top-step-1">
+        <p style="margin-bottom:8px;color:var(--muted);font-size:0.95rem;">До 3 дней — <strong>60 ₽</strong>/день. Скидка с 7 дней. Месяц — <strong>1000 ₽</strong>.</p>
+        <p id="price-hint" style="margin-bottom:12px;font-size:0.82rem;color:var(--muted);"></p>
+        <label>Количество дней</label>
+        <select id="days-select" onchange="updatePrice()">
+          <option value="1">1 день — 60 ₽</option>
+          <option value="2">2 дня — 120 ₽</option>
+          <option value="3">3 дня — 180 ₽</option>
+          <option value="7" selected>7 дней — 300 ₽</option>
+          <option value="14">14 дней — 520 ₽</option>
+          <option value="30">30 дней — 1000 ₽</option>
+        </select>
+        <p style="margin:12px 0;font-size:1.1rem;">Итого: <strong id="total-price">300 ₽</strong></p>
+        <div class="modal-actions">
+          <button class="btn-cancel" onclick="closeTopModal()">Отмена</button>
+          <button class="btn-add" onclick="confirmTopDays()">ОК</button>
+        </div>
+      </div>
+
+      <!-- Шаг 2: ссылка на бота -->
+      <div id="top-step-2" style="display:none;">
+        <p style="margin-bottom:12px;font-size:0.95rem;line-height:1.5;">
+          Для оплаты напишите боту сумму и username записи.
+        </p>
+        <p style="margin-bottom:16px;font-size:0.9rem;color:var(--muted);">
+          Итого: <strong id="top-final-price">300 ₽</strong>
+        </p>
+        <a id="payment-bot-link" href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener"
+           style="display:block;text-align:center;padding:14px 16px;background:var(--accent);color:#fff;border-radius:10px;font-weight:600;text-decoration:none;font-size:1rem;">
+          Открыть @TG_Administrator_Vip_bot
+        </a>
+        <div class="modal-actions" style="margin-top:14px;">
+          <button class="btn-cancel" onclick="closeTopModal()" style="flex:1;">Закрыть</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: сменить бота для оплаты (только админ) -->
+  <div class="modal-overlay" id="bot-settings-modal">
+    <div class="modal">
+      <h3>Ссылка для оплаты</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Username бота или канала, куда писать об оплате Топа (без @).</p>
+      <label>Username бота</label>
+      <input type="text" id="payment-bot-input" placeholder="например MyPayBot">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBotSettings()">Отмена</button>
+        <button class="btn-add" onclick="savePaymentBot()">Сохранить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: название приватного чата -->
+  <div class="modal-overlay" id="private-name-modal">
+    <div class="modal">
+      <h3>Введите название чата/канала</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">Для приватной ссылки название нужно указать вручную.</p>
+      <label>Название</label>
+      <input type="text" id="private-name-input" placeholder="Например: Закрытый чат IT">
+      <p style="font-size:0.82rem;color:var(--muted);margin:12px 0 4px;line-height:1.5;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+        <strong style="color:var(--text);">Про аватарку.</strong>
+        У приватных каналов и чатов фото из Telegram часто не подтягивается.
+        Если после добавления аватарки нет — напишите администратору сайта и пришлите
+        <strong>аватарку</strong> и <strong>ссылку или название</strong> вашего канала/чата: мы загрузим изображение в каталог.
+      </p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePrivateNameModal()">Отмена</button>
+        <button class="btn-add" onclick="confirmPrivateName()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка: массовое добавление (админ) -->
+  <div class="modal-overlay" id="bulk-modal">
+    <div class="modal">
+      <h3>Массовое добавление</h3>
+      <label>Раздел</label>
+      <select id="bulk-type">
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <label>Категория</label>
+      <select id="bulk-category">
+        <!-- заполняется из CATEGORIES -->
+      </select>
+      <label>Usernames через пробел (с @)</label>
+      <textarea id="bulk-list" placeholder="@channel1 @channel2 @mybot" style="min-height:120px;"></textarea>
+      <p style="font-size:0.78rem;color:var(--muted);margin-top:-6px;">Можно через пробел, запятую или с новой строки. Дубликаты пропускаются. Названия — из Telegram.</p>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBulkModal()">Отмена</button>
+        <button class="btn-add" onclick="runBulkImport()">Добавить</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Массовое обновление метаданных -->
+
+
+  <div class="modal-overlay" id="delete-category-modal">
+    <div class="modal">
+      <h3>Удалить категорию</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Удалит <strong>все</strong> каналы, чаты и боты в выбранной категории. Действие необратимо.
+      </p>
+      <label>Категория</label>
+      <select id="delete-category-select">
+        <!-- заполняется из CATEGORIES -->
+      </select>
+      <label>Только тип (необязательно)</label>
+      <select id="delete-category-type">
+        <option value="">Все типы</option>
+        <option value="channel">Только каналы</option>
+        <option value="chat">Только чаты</option>
+        <option value="bot">Только боты</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeDeleteCategoryModal()">Отмена</button>
+        <button class="btn-add" style="background:#a33;" onclick="runDeleteCategory()">Удалить все</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="check-links-modal">
+    <div class="modal">
+      <h3>Проверка ссылок</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Проверит, открывается ли страница в Telegram. Нерабочие записи будут удалены.
+        Может занять несколько минут. Не закрывайте вкладку.
+      </p>
+      <label>Категория</label>
+      <select id="check-links-category">
+        <!-- заполняется из CATEGORIES -->
+      </select>
+      <label>Тип (необязательно)</label>
+      <select id="check-links-type">
+        <option value="">Все типы</option>
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeCheckLinksModal()">Отмена</button>
+        <button class="btn-add" onclick="runCheckLinksByCategory()">Проверить и удалить мёртвые</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Отчёт после массовых проверок (ссылки и т.п.) -->
+  <div class="modal-overlay" id="admin-report-modal">
+    <div class="modal">
+      <h3 id="admin-report-title">Отчёт</h3>
+      <div id="admin-report-body" style="font-size:0.95rem;line-height:1.65;color:var(--text);margin:8px 0 4px;"></div>
+      <div class="modal-actions">
+        <button class="btn-add" onclick="closeAdminReport()">ОК</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="refresh-meta-modal">
+    <div class="modal">
+      <h3>Обновить метаданные</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
+        Подтянет название, описание и аватар из Telegram для публичных записей.
+        Приватные пропускаются. Может занять несколько минут.
+      </p>
+      <label>Категория</label>
+      <select id="refresh-meta-category">
+        <!-- заполняется из CATEGORIES -->
+      </select>
+      <label>Тип (необязательно)</label>
+      <select id="refresh-meta-type">
+        <option value="">Все типы</option>
+        <option value="channel">Каналы</option>
+        <option value="chat">Чаты</option>
+        <option value="bot">Боты</option>
+      </select>
+      <label class="checkbox-row" style="margin-bottom:12px;">
+        <input type="checkbox" id="refresh-meta-only-empty" checked>
+        <span style="font-size:0.88rem;color:var(--muted);">Только без аватара / слабые данные</span>
+      </label>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeRefreshMetaModal()">Отмена</button>
+        <button class="btn-add" onclick="runRefreshMetaByCategory()">Обновить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Модалка админа: добавить в Топ -->
+  <div class="modal-overlay" id="admin-top-modal">
+    <div class="modal">
+      <h3>Добавить в Топ (админ)</h3>
+      <label>Дней</label>
+      <input type="number" id="admin-top-days" value="7" min="1" max="365">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeAdminTopModal()">Отмена</button>
+        <button class="btn-add" onclick="confirmAdminTop()">Добавить в Топ</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="modal-overlay" id="analytics-modal">
+    <div class="modal" style="max-width:480px;">
+      <h3>Статистика</h3>
+      <p style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;">Просмотры считают только гости (не админ). Топ‑10 запросов не сбрасывается.</p>
+      <div class="analytics-grid">
+        <div class="stat-card">
+          <div class="num" id="stat-views-day">—</div>
+          <div class="lbl">Просмотры за день</div>
+          <button type="button" onclick="resetStatsBucket('day')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить день</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-week">—</div>
+          <div class="lbl">Просмотры за неделю</div>
+          <button type="button" onclick="resetStatsBucket('week')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить неделю</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-month">—</div>
+          <div class="lbl">Просмотры за месяц</div>
+          <button type="button" onclick="resetStatsBucket('month')" style="margin-top:8px;font-size:0.72rem;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить месяц</button>
+        </div>
+        <div class="stat-card">
+          <div class="num" id="stat-views-total">—</div>
+          <div class="lbl">Просмотры всего</div>
+        </div>
+      </div>
+      <label style="margin-bottom:8px;">Топ‑10 поисковых запросов (за всё время)</label>
+      <ul class="top-queries" id="stat-top-queries">
+        <li style="color:var(--muted);">Нет данных</li>
+      </ul>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-cancel" onclick="closeAnalyticsModal()" style="flex:1;">Закрыть</button>
+        <button class="btn-add" onclick="loadAnalytics()" style="flex:1;">Обновить</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Юридические тексты -->
+  <div class="modal-overlay" id="legal-modal">
+    <div class="modal">
+      <h3 id="legal-title"></h3>
+      <div id="legal-content" style="font-size:0.92rem;line-height:1.6;"></div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button class="btn-cancel" onclick="closeLegal()" style="flex:1;">Закрыть</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar"></div>
+
+  <script>
+    // ======================
+    // SUPABASE
+    // ======================
+    console.info('[Telegra] script start');
+    const SUPABASE_URL = 'https://wrlolhdnedzcpuizgohg.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndybG9saGRuZWR6Y3B1aXpnb2hnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1MTk3MjUsImV4cCI6MjEwNzA5NTcyNX0.AoJ1rwI55AtEH5MgzHOdXXeyCe8wh2EOo3Wzn4WrqJ4';
+
+    // Безопасная инициализация — если библиотека не загрузилась, сайт всё равно работает
+    let supabaseClient = null;
     try {
-      const u = new URL(req.url, 'http://localhost');
-      id = one(u.searchParams.get('id'));
-      username = username || one(u.searchParams.get('username')) || one(u.searchParams.get('u'));
-    } catch (e) {}
-  }
-  return { id: id, username: username };
-}
-
-async function handler(req, res) {
-  try {
-    if (req.method !== 'GET' && req.method !== 'HEAD') {
-      return res.status(405).send('Method not allowed');
+      if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } else {
+        console.warn('Supabase library not loaded yet');
+      }
+    } catch (e) {
+      console.error('Supabase init error:', e);
     }
 
-    const q = pickQuery(req);
-    const idParam = q.id;
-    const username = normalizeUsername(q.username);
+    let isAdmin = false;
+    let currentType = null;
+    let pendingTopId = null;
+    let pendingPrivate = null; // данные для второго шага (название приватного)
+    let allItems = [];
+    let blacklist = [];
+    let currentFilter = 'all';
+    let currentCategory = '';
+    let loginPopupOpen = false;
+    let paymentBot = 'TG_Administrator_Vip_bot';
+    let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+    let listPageSize = 50;
+    let listVisibleCount = 50;
+    let lastFilteredList = [];
 
-    let item = null;
-    if (idParam) {
-      item = await fetchItemById(idParam);
-    }
-    if (!item && username && username.length >= 3) {
-      item = await fetchItemByUsername(username);
-    }
-    // если открыли /p/ с username по ошибке
-    if (!item && idParam && idParam.length >= 3 && !idParam.includes('-')) {
-      item = await fetchItemByUsername(normalizeUsername(idParam));
-    }
+    // Единый список категорий — больше не дублируем в 6 местах HTML
+    const CATEGORIES = [
+      'Авто, мото, техника', 'Аниме', 'Знакомства', 'Бизнес и стартапы',
+      'Для взрослых 18+', 'Для мужчин', 'Для женщин', 'Для родителей',
+      'Блоги', 'Еда и напитки', 'ЕГЭ, ОГЭ, Экзамены', 'Здоровье и спорт',
+      'Игры и приложения', 'Инвестиции и финансы', 'Иностранные языки',
+      'Криптовалюта', 'Маркетинг и реклама', 'Маркетплейсы', 'Медицина',
+      'Мода и красота', 'Мотивация и саморазвитие', 'Музыка',
+      'Наука и образование', 'Нейросети и AI', 'Новости и СМИ',
+      'Поиск работы, вакансии', 'Продажи', 'Прогнозы и ставки', 'Программирование',
+      'Психология', 'Путешествия', 'Развитие и обучение', 'Развлечения и юмор',
+      'Ремонт и строительство', 'Рукоделие и хобби', 'SMM', 'Стихи и цитаты',
+      'Телеграм', 'Технологии', 'Трейдинг', 'Фильмы и сериалы',
+      'Футбол, хоккей', 'Фото, искусство', 'Фриланс', 'Халява и скидки',
+      'Чаты', 'Юриспруденция', 'Даркнет и хакеры', 'Разное'
+    ];
 
-    if (!item) {
-      return renderNotFound(res, idParam || username);
-    }
+    // Простой кэш метаданных Telegram на время сессии (снижает нагрузку на прокси)
+    const tgMetaCache = new Map();
+    const TG_META_CACHE_TTL = 10 * 60 * 1000; // 10 минут
 
-    const isPrivate = !!item.is_private;
-    const name =
-      item.display_name ||
-      (isPrivate ? 'Приватный канал' : '@' + (item.username || ''));
-    const desc = item.description || '';
-    const cat = item.category || 'Разное';
-    const type = typeLabel(item.type);
-    const tgLink =
-      isPrivate && item.invite_link
-        ? item.invite_link
-        : item.username
-          ? 'https://t.me/' + item.username
-          : item.invite_link || '/';
-    const avatar = item.avatar_url || '';
-    const pageUrl =
-      isPrivate || !item.username
-        ? SITE_URL + '/p/' + encodeURIComponent(item.id)
-        : SITE_URL + '/c/' + encodeURIComponent(item.username);
-    const created = item.created_at
-      ? new Date(item.created_at).toLocaleDateString('ru-RU')
-      : '';
-    const itemIsTop = isActiveTop(item);
-
-    const pair = await Promise.all([
-      fetchSimilar(item.category, item.username || '', item.id, 8),
-      fetchTopItems(item.username || '', item.id, 8)
-    ]);
-    const similar = pair[0] || [];
-    const topItems = pair[1] || [];
-
-    const metaDesc = truncate(
-      desc ||
-        (isPrivate ? 'Приватный ' : '') +
-          type +
-          ' «' +
-          name +
-          '» в каталоге ' +
-          SITE_NAME +
-          '. Категория: ' +
-          cat +
-          '.',
-      160
-    );
-    const pageTitle = truncate(
-      name +
-        ' — ' +
-        (isPrivate ? 'приватный ' : '') +
-        type +
-        ' в каталоге ' +
-        SITE_NAME,
-      70
-    );
-
-    let similarHtml = '';
-    if (similar.length) {
-      similarHtml =
-        '<section class="similar"><h2>Похожие в категории «' +
-        escapeHtml(cat) +
-        '»</h2><div class="sim-grid">' +
-        similar
-          .map(function (s) {
-            return cardHtml(s, isActiveTop(s));
-          })
-          .join('') +
-        '</div></section>';
+    function fillCategorySelect(selectEl, opts = {}) {
+      if (!selectEl) return;
+      const {
+        includeEmpty = true,
+        emptyLabel = 'Все категории',
+        emptyValue = '',
+        selected = ''
+      } = opts;
+      const parts = [];
+      if (includeEmpty) {
+        parts.push(`<option value="${escapeHtml(emptyValue)}">${escapeHtml(emptyLabel)}</option>`);
+      }
+      for (const cat of CATEGORIES) {
+        const sel = (cat === selected) ? ' selected' : '';
+        parts.push(`<option value="${escapeHtml(cat)}"${sel}>${escapeHtml(cat)}</option>`);
+      }
+      selectEl.innerHTML = parts.join('');
     }
 
-    let topHtml = '';
-    if (topItems.length) {
-      topHtml =
-        '<section class="similar top-section-page"><h2>Топ в каталоге</h2>' +
-        '<p class="top-hint">Выделенные размещения — сейчас в Топе на главной</p>' +
-        '<div class="sim-grid">' +
-        topItems
-          .map(function (s) {
-            return cardHtml(s, true);
-          })
-          .join('') +
-        '</div></section>';
+    function initCategorySelects() {
+      fillCategorySelect(document.getElementById('category-filter'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('item-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Выберите категорию',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('bulk-category'), {
+        includeEmpty: false,
+        selected: 'Разное'
+      });
+      // Для bulk если нет selected по умолчанию — ставим Разное вручную
+      const bulkCat = document.getElementById('bulk-category');
+      if (bulkCat && !bulkCat.value) bulkCat.value = 'Разное';
+
+      fillCategorySelect(document.getElementById('delete-category-select'), {
+        includeEmpty: true,
+        emptyLabel: '— выберите —',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('check-links-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
+      fillCategorySelect(document.getElementById('refresh-meta-category'), {
+        includeEmpty: true,
+        emptyLabel: 'Все категории',
+        emptyValue: ''
+      });
     }
 
-    const avatarBlock = heroAvatar(avatar, name, isPrivate);
+    function escapeHtml(s) {
+      return String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function escapeJsAttr(s) {
+      // для вставки в одинарные кавычки onclick="fn('...')"
+      return String(s ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/\r/g, '')
+        .replace(/\n/g, '\\n')
+        .replace(/\u2028/g, '')
+        .replace(/\u2029/g, '');
+    }
+ // ротация каждые 5 мин
 
-    const jsonLd = {
-      '@context': 'https://schema.org',
-      '@type': 'WebPage',
-      name: name,
-      description: metaDesc,
-      url: pageUrl,
-      isPartOf: { '@type': 'WebSite', name: SITE_NAME, url: SITE_URL }
+    function normalizeBotUsername(v) {
+      return String(v || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+        .split('/')[0]
+        .split('?')[0];
+    }
+
+    function applyPaymentBotUI() {
+      const bot = normalizeBotUsername(paymentBot) || 'TG_Administrator_Vip_bot';
+      paymentBot = bot;
+      const link = document.getElementById('payment-bot-link');
+      if (link) {
+        link.href = 'https://t.me/' + bot;
+        link.textContent = 'Открыть @' + bot;
+      }
+      const about = document.getElementById('about-contact');
+      if (about) {
+        about.href = 'https://t.me/' + bot;
+        about.textContent = '@' + bot;
+      }
+    }
+
+    async function loadPaymentBot() {
+      if (!supabaseClient) {
+        applyPaymentBotUI();
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient
+          .from('settings')
+          .select('value')
+          .eq('key', 'payment_bot')
+          .maybeSingle();
+        if (!error && data && data.value) {
+          paymentBot = normalizeBotUsername(data.value);
+        }
+      } catch (e) {
+        console.warn('loadPaymentBot:', e);
+      }
+      applyPaymentBotUI();
+    }
+
+    function openBotSettings() {
+      if (!isAdmin) return;
+      document.getElementById('payment-bot-input').value = paymentBot;
+      document.getElementById('bot-settings-modal').classList.add('active');
+    }
+    function closeBotSettings() {
+      document.getElementById('bot-settings-modal').classList.remove('active');
+    }
+
+    async function savePaymentBot() {
+      if (!isAdmin || !supabaseClient) return;
+      const bot = normalizeBotUsername(document.getElementById('payment-bot-input').value);
+      if (!bot) {
+        alert('Укажите username бота');
+        return;
+      }
+      try {
+        const { error } = await supabaseClient
+          .from('settings')
+          .upsert({ key: 'payment_bot', value: bot }, { onConflict: 'key' });
+        if (error) {
+          alert('Ошибка сохранения. Выполни SQL для таблицы settings (см. инструкцию).\n' + (error.message || ''));
+          return;
+        }
+        paymentBot = bot;
+        applyPaymentBotUI();
+        closeBotSettings();
+        showStatus('Бот для оплаты: @' + bot);
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+      }
+    }
+
+    const legalTexts = {
+      agreement: {
+        title: 'Пользовательское соглашение',
+        content: `<h3>1. Основные понятия</h3><p><strong>Telegra</strong> — справочный каталог каналов, чатов и ботов Telegram. Используя сайт, вы соглашаетесь с настоящими условиями.</p>
+<h3>2. Характер сервиса</h3><p>Каталог носит информационный характер. Материалы добавляются пользователями. Администрация не является владельцем, автором или модератором контента сторонних каналов, чатов и ботов и не гарантирует их достоверность, безопасность или законность.</p>
+<h3>3. Ограничение ответственности</h3><p>Администрация не несёт ответственности за действия пользователей Telegram, содержание размещённых ссылок и возможный вред, связанный с переходом по ним или использованием сторонних ресурсов. Решение о подписке и взаимодействии с контентом принимает только пользователь.</p>
+<h3>4. Жалобы и удаление</h3><p>Если запись в каталоге, по вашему мнению, может навредить обществу, нарушает закон или содержит опасный контент, вы можете направить жалобу администратору: укажите ссылку или название и краткое обоснование. Обращения рассматриваются, и при подтверждении оснований запись может быть удалена из каталога.</p>
+<h3>5. Права администрации</h3><p>Администрация вправе без предварительного уведомления удалять записи, изменять правила сайта и ограничивать размещение материалов, противоречащих закону или духу сервиса.</p>
+<h3>6. Прочее</h3><p>Копирование материалов сайта — только с указанием источника. По вопросам и жалобам: @TG_Administrator_Vip_bot</p>`
+      },
+      privacy: {
+        title: 'Политика конфиденциальности',
+        content: `<h3>Общие положения</h3><p>Мы обрабатываем только необходимые данные (например, username и технические сведения для работы каталога и статистики). Данные не продаются и не передаются третьим лицам без законных оснований. Вы можете запросить удаление связанных с вами записей у @TG_Administrator_Vip_bot</p>`
+      }
     };
 
-    const html =
-      '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
-      '<meta name="viewport" content="width=device-width, initial-scale=1">' +
-      '<title>' +
-      escapeHtml(pageTitle) +
-      '</title>' +
-      '<meta name="description" content="' +
-      escapeHtml(metaDesc) +
-      '">' +
-      '<meta name="robots" content="index, follow">' +
-      '<link rel="canonical" href="' +
-      escapeHtml(pageUrl) +
-      '">' +
-      '<meta property="og:type" content="website">' +
-      '<meta property="og:locale" content="ru_RU">' +
-      '<meta property="og:site_name" content="' +
-      escapeHtml(SITE_NAME) +
-      '">' +
-      '<meta property="og:title" content="' +
-      escapeHtml(pageTitle) +
-      '">' +
-      '<meta property="og:description" content="' +
-      escapeHtml(metaDesc) +
-      '">' +
-      '<meta property="og:url" content="' +
-      escapeHtml(pageUrl) +
-      '">' +
-      '<meta name="theme-color" content="#2c5f4e">' +
-      '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' +
-      '<script type="application/ld+json">' +
-      JSON.stringify(jsonLd).replace(/</g, '\\u003c') +
-      '</script>' +
-      '<style>' +
-      ':root{--bg:#f7f5f0;--card:#fff;--text:#1a1a1a;--muted:#6b6b6b;--border:#e8e4dc;--accent:#2c5f4e;--soft:#f3f0ea;--top-bg:#fffcf5;--top-border:#e0d0a8;--top-text:#7a5c20}html[data-theme=dark]{--bg:#1a1d1b;--card:#242826;--text:#e8ebe9;--muted:#9aa39e;--border:#3a403c;--accent:#5aab90;--soft:#2c322f;--top-bg:#2a2820;--top-border:#5c5340;--top-text:#c4a86a}.theme-toggle{position:fixed;top:10px;right:10px;z-index:50;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:5px 12px;font-size:.75rem;font-weight:600;color:var(--muted);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.08)}.theme-toggle:hover{color:var(--accent);border-color:var(--accent)}' +
-      '*{box-sizing:border-box;margin:0;padding:0}' +
-      'body{font-family:system-ui,sans-serif;background:var(--bg);color:var(--text);line-height:1.55;min-height:100vh;padding:24px 16px 48px}' +
-      '.wrap{max-width:720px;margin:0 auto}' +
-      '.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;font-size:.9rem}' +
-      '.nav a{color:var(--accent);text-decoration:none;font-weight:600}' +
-      '.crumbs{color:var(--muted);font-size:.82rem;margin-bottom:16px}' +
-      '.crumbs a{color:var(--muted)}' +
-      '.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;box-shadow:0 4px 20px rgba(0,0,0,.04)}' +
-      '.card.is-top{border-color:var(--top-border);background:linear-gradient(180deg,#fffcf5 0%,#fff 55%)}' +
-      '.hero{display:flex;gap:20px;align-items:center;margin-bottom:20px}' +
-      '.hero-avatar{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid #fff;box-shadow:0 4px 14px rgba(0,0,0,.1);flex-shrink:0}' +
-      '.hero-avatar.fallback{display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-size:2rem;font-weight:700}' +
-      '.hero-avatar.fallback.eye-slash{background:#5a6570;color:#e8ecf0}' +
-      'h1{font-size:1.75rem;line-height:1.25;margin-bottom:6px}' +
-      '.badges{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:4px}' +
-      '.badge{font-size:.72rem;font-weight:600;text-transform:uppercase;padding:4px 10px;border-radius:8px;background:var(--soft);color:var(--muted);border:1px solid var(--border)}' +
-      '.badge.accent{background:#e8f0ed;color:var(--accent);border-color:#c5d9d0}' +
-      '.badge.top{background:#f5efe0;color:var(--top-text);border-color:var(--top-border)}' +
-      '.badge.private{background:#f0e8f5;color:#6b4a7a;border-color:#d4c4e0}' +
-      '.username{color:var(--muted);font-size:.95rem;margin-bottom:16px}' +
-      '.desc{font-size:1.02rem;color:#333;margin-bottom:22px;white-space:pre-wrap;word-break:break-word}' +
-      '.actions{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:8px}' +
-      '.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 20px;border-radius:12px;font-weight:600;font-size:.95rem;text-decoration:none}' +
-      '.btn-primary{background:var(--accent);color:#fff}' +
-      '.btn-ghost{background:var(--soft);color:var(--text);border:1px solid var(--border)}' +
-      '.meta-line{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);font-size:.82rem;color:var(--muted)}' +
-      '.similar{margin-top:32px}' +
-      '.similar h2{font-size:1.25rem;margin-bottom:8px}' +
-      '.top-hint{font-size:.85rem;color:var(--top-text);margin:-2px 0 14px}' +
-      '.sim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}' +
-      '.sim-card{position:relative;background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px 12px;text-decoration:none;color:var(--text);text-align:center}' +
-      '.sim-card-top{background:var(--top-bg);border-color:var(--top-border)}' +
-      '.sim-top-badge{position:absolute;top:8px;right:8px;font-size:.62rem;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:6px;background:#f5efe0;color:var(--top-text);border:1px solid var(--top-border)}' +
-      '.sim-av{width:48px;height:48px;margin:0 auto 8px;border-radius:50%;overflow:hidden;background:var(--accent)}' +
-      '.sim-av img{width:100%;height:100%;object-fit:cover}' +
-      '.sim-av .ph{display:flex;width:100%;height:100%;align-items:center;justify-content:center;color:#fff;font-weight:700}' +
-      '.sim-av .ph-eye{display:flex;width:100%;height:100%;align-items:center;justify-content:center;color:#e8ecf0;background:#5a6570}' +
-      '.sim-av .ph-eye svg{width:22px;height:22px}' +
-      '.sim-name{font-weight:600;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
-      '.sim-type{font-size:.72rem;color:var(--muted);margin-top:2px}' +
-      'footer{margin-top:40px;text-align:center;font-size:.8rem;color:var(--muted)}' +
-      'footer a{color:var(--muted)}' +
-      '@media(max-width:520px){.hero{flex-direction:column;text-align:center}.badges,.actions{justify-content:center}}' +
-      '</style></head><body>' +
-      '<button type="button" class="theme-toggle" id="theme-toggle" onclick="toggleTheme()">Тема</button>' +
-      '<div class="wrap">' +
-      '<div class="nav"><a href="/">← ' +
-      escapeHtml(SITE_NAME) +
-      '</a><a href="/#add">Добавить канал</a></div>' +
-      '<nav class="crumbs"><a href="/">Главная</a> · <a href="/?cat=' +
-      encodeURIComponent(cat) +
-      '">' +
-      escapeHtml(cat) +
-      '</a> · <span>' +
-      escapeHtml(name) +
-      '</span></nav>' +
-      '<article class="card' +
-      (itemIsTop ? ' is-top' : '') +
-      '"><div class="hero">' +
-      avatarBlock +
-      '<div><div class="badges">' +
-      '<span class="badge accent">' +
-      escapeHtml(type) +
-      '</span><span class="badge">' +
-      escapeHtml(cat) +
-      '</span>' +
-      (isPrivate ? '<span class="badge private">Приватный</span>' : '') +
-      (itemIsTop ? '<span class="badge top">Топ</span>' : '') +
-      '</div><h1>' +
-      escapeHtml(name) +
-      '</h1><div class="username">' +
-      (isPrivate
-        ? 'Приватная ссылка-приглашение'
-        : '@' + escapeHtml(item.username || '')) +
-      '</div></div></div>' +
-      (desc
-        ? '<div class="desc">' + escapeHtml(desc) + '</div>'
-        : '<div class="desc" style="color:var(--muted)">Описание пока не указано.</div>') +
-      '<div class="actions">' +
-      '<a class="btn btn-primary" href="' +
-      escapeHtml(tgLink) +
-      '" rel="noopener nofollow" target="_blank">' +
-      (isPrivate ? 'Вступить в Telegram' : 'Открыть в Telegram') +
-      '</a>' +
-      '<a class="btn btn-ghost" href="/">Смотреть каталог</a></div>' +
-      '<div class="meta-line">Страница в каталоге ' +
-      escapeHtml(SITE_NAME) +
-      (created ? ' · добавлено ' + escapeHtml(created) : '') +
-      ' · не является официальной страницей Telegram</div></article>' +
-      topHtml +
-      similarHtml +
-      '<footer><a href="/">' +
-      escapeHtml(SITE_NAME) +
-      '</a> — каталог Telegram-каналов, чатов и ботов</footer>' +
-      '</div>' +
-      '<script>(function(){function applyTheme(th){th=th===\'dark\'?\'dark\':\'light\';document.documentElement.setAttribute(\'data-theme\',th);try{localStorage.setItem(\'telegra_theme\',th)}catch(e){}var b=document.getElementById(\'theme-toggle\');if(b)b.textContent=th===\'dark\'?\'Светлая\':\'Тёмная\';var m=document.querySelector(\'meta[name="theme-color"]\');if(m)m.setAttribute(\'content\',th===\'dark\'?\'#1a1d1b\':\'#2c5f4e\')}function toggleTheme(){var c=document.documentElement.getAttribute(\'data-theme\')===\'dark\'?\'dark\':\'light\';applyTheme(c===\'dark\'?\'light\':\'dark\')}window.toggleTheme=toggleTheme;var s=\'\';try{s=localStorage.getItem(\'telegra_theme\')||\'\'}catch(e){}if(s===\'dark\'||s===\'light\')applyTheme(s);else if(window.matchMedia&&window.matchMedia(\'(prefers-color-scheme: dark)\').matches)applyTheme(\'dark\');else applyTheme(\'light\')})();</script>' +
-      '</body></html>';
+    function showStatus(msg, ms) {
+      const el = document.getElementById('status-bar');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.display = 'block';
+      clearTimeout(el._t);
+      el._t = setTimeout(() => { el.style.display = 'none'; }, ms || 3000);
+    }
 
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
-    return res.status(200).send(html);
-  } catch (e) {
-    console.error('channel-page error', e);
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    return res
-      .status(500)
-      .send(
-        '<h1>Ошибка</h1><p>' +
-          escapeHtml((e && e.message) || 'unknown') +
-          '</p><p><a href="/">На главную</a></p>'
-      );
-  }
-}
+    // ===== Login popup =====
+    function toggleLoginPopup() {
+      loginPopupOpen = !loginPopupOpen;
+      const popup = document.getElementById('login-popup');
+      const toggle = document.getElementById('login-toggle');
+      const err = document.getElementById('login-error');
+      if (loginPopupOpen) {
+        popup.classList.add('active');
+        toggle.classList.add('hidden');
+        if (err) err.style.display = 'none';
+      } else {
+        popup.classList.remove('active');
+        toggle.classList.remove('hidden');
+      }
+    }
 
-export default handler;
+
+    function getVisitorId() {
+      try {
+        let id = localStorage.getItem('telegra_vid');
+        if (!id) {
+          id = 'v_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+          localStorage.setItem('telegra_vid', id);
+        }
+        return id;
+      } catch (e) {
+        return 'anon';
+      }
+    }
+
+    async function trackEvent(type, query) {
+      if (!supabaseClient) return;
+      try {
+        const row = {
+          type: type,
+          visitor_id: getVisitorId(),
+          query: query ? String(query).slice(0, 120) : null
+        };
+        await supabaseClient.from('analytics_events').insert(row);
+      } catch (e) {
+        console.warn('analytics', e);
+      }
+    }
+
+    function trackPageView() {
+      // Админа в счётчик просмотров не пишем
+      if (isAdmin) return;
+      try {
+        const key = 'telegra_pv_' + new Date().toISOString().slice(0, 10);
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, '1');
+      } catch (e) {}
+      trackEvent('page_view', null);
+    }
+
+    let filterDebounceTimer = null;
+    function onSearchInput() {
+      // Debounce heavy re-render to avoid lag on large catalogs / mobile
+      if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
+      filterDebounceTimer = setTimeout(() => {
+        listVisibleCount = listPageSize;
+        applyFilters();
+      }, 180);
+
+      const q = (document.getElementById('search-input')?.value || '').trim();
+      if (searchTrackTimer) clearTimeout(searchTrackTimer);
+      if (q.length < 2) return;
+      searchTrackTimer = setTimeout(() => {
+        if (q === lastTrackedSearch) return;
+        lastTrackedSearch = q;
+        trackEvent('search', q);
+      }, 800);
+    }
+
+    function openAnalyticsModal() {
+      if (!isAdmin) return;
+      document.getElementById('analytics-modal').classList.add('active');
+      loadAnalytics();
+    }
+    function closeAnalyticsModal() {
+      document.getElementById('analytics-modal').classList.remove('active');
+    }
+
+    function defaultStatsBucketStart(bucket) {
+      const now = new Date();
+      if (bucket === 'day') {
+        return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      }
+      if (bucket === 'week') {
+        return new Date(now.getTime() - 7 * 86400000).toISOString();
+      }
+      if (bucket === 'month') {
+        return new Date(now.getTime() - 30 * 86400000).toISOString();
+      }
+      return new Date(0).toISOString();
+    }
+
+    function getStatsBucketStart(bucket) {
+      try {
+        const v = localStorage.getItem('telegra_stats_reset_' + bucket);
+        if (v) return v;
+      } catch (e) {}
+      return defaultStatsBucketStart(bucket);
+    }
+
+    function resetStatsBucket(bucket) {
+      if (!isAdmin) return;
+      const labels = { day: 'день', week: 'неделю', month: 'месяц' };
+      const label = labels[bucket] || bucket;
+      if (!confirm('Сбросить счётчик просмотров за ' + label + '?\nТоп‑10 запросов и «всего» не изменятся.')) return;
+      try {
+        localStorage.setItem('telegra_stats_reset_' + bucket, new Date().toISOString());
+      } catch (e) {}
+      showStatus('Сброшено: ' + label);
+      loadAnalytics();
+    }
+
+    async function loadAnalytics() {
+      if (!isAdmin || !supabaseClient) return;
+      const el = document.getElementById('admin-stats');
+      const set = (id, v) => {
+        const n = document.getElementById(id);
+        if (n) n.textContent = v;
+      };
+      try {
+        const startDay = getStatsBucketStart('day');
+        const startWeek = getStatsBucketStart('week');
+        const startMonth = getStatsBucketStart('month');
+
+        const countType = async (type, since) => {
+          let q = supabaseClient
+            .from('analytics_events')
+            .select('*', { count: 'exact', head: true })
+            .eq('type', type);
+          if (since) q = q.gte('created_at', since);
+          const { count, error } = await q;
+          if (error) throw error;
+          return count || 0;
+        };
+
+        const [vDay, vWeek, vMonth, vTotal] = await Promise.all([
+          countType('page_view', startDay),
+          countType('page_view', startWeek),
+          countType('page_view', startMonth),
+          countType('page_view', null)
+        ]);
+
+        set('stat-views-day', vDay);
+        set('stat-views-week', vWeek);
+        set('stat-views-month', vMonth);
+        set('stat-views-total', vTotal);
+        if (el) el.textContent = 'День: ' + vDay + ' · Нед: ' + vWeek + ' · Мес: ' + vMonth + ' · Всего: ' + vTotal;
+
+        // Топ‑10 запросов за всё время — не сбрасывается
+        const { data: searches, error: se } = await supabaseClient
+          .from('analytics_events')
+          .select('query')
+          .eq('type', 'search')
+          .not('query', 'is', null)
+          .limit(2000);
+        if (se) throw se;
+
+        const freq = {};
+        (searches || []).forEach(r => {
+          const k = String(r.query || '').trim().toLowerCase();
+          if (!k || k.length < 2) return;
+          freq[k] = (freq[k] || 0) + 1;
+        });
+        const top = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 10);
+        const list = document.getElementById('stat-top-queries');
+        if (list) {
+          if (!top.length) {
+            list.innerHTML = '<li style="color:var(--muted);">Нет данных</li>';
+          } else {
+            list.innerHTML = top.map(([q, c], i) =>
+              '<li><span>' + (i + 1) + '. ' + escapeHtml(q) + '</span><strong>' + c + '</strong></li>'
+            ).join('');
+          }
+        }
+      } catch (e) {
+        console.warn('loadAnalytics', e);
+        if (el) el.textContent = 'Стат: нет таблицы?';
+        showStatus('Статистика: проверьте таблицу analytics_events в Supabase');
+      }
+    }
+
+
+    function applyAdminChrome(on) {
+      const badge = document.getElementById('admin-badge');
+      const loginToggle = document.getElementById('login-toggle');
+      const blSection = document.getElementById('blacklist-section');
+      if (on) {
+        if (badge) badge.classList.add('active');
+        if (loginToggle) loginToggle.classList.add('hidden');
+        if (blSection) blSection.style.display = 'block';
+      } else {
+        if (badge) badge.classList.remove('active');
+        if (loginToggle) loginToggle.classList.remove('hidden');
+        if (blSection) blSection.style.display = 'none';
+      }
+    }
+
+    async function checkSession() {
+      if (!supabaseClient) return;
+      try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        let nextAdmin = false;
+        if (session && session.user) {
+          const { data } = await supabaseClient
+            .from('admins')
+            .select('user_id')
+            .eq('user_id', session.user.id)
+            .maybeSingle();
+          if (data) nextAdmin = true;
+        }
+        const prev = isAdmin;
+        isAdmin = nextAdmin;
+        applyAdminChrome(isAdmin);
+        // Важно: меню (бейдж) обновляли без render — кнопки на карточках пропадали
+        if (isAdmin !== prev || isAdmin) {
+          try { render(); } catch (e) {}
+        }
+        if (isAdmin) {
+          setTimeout(function () { try { loadAnalytics(); } catch (e) {} }, 400);
+        }
+      } catch (e) {
+        console.error('checkSession error:', e);
+      }
+    }
+
+    async function loginAdmin() {
+      const email = document.getElementById('admin-email').value.trim();
+      const password = document.getElementById('admin-pass').value;
+      const errEl = document.getElementById('login-error');
+      if (!email || !password) {
+        errEl.textContent = 'Введите email и пароль';
+        errEl.style.display = 'block';
+        return;
+      }
+      if (!supabaseClient) {
+        errEl.textContent = 'База данных недоступна. Обновите страницу.';
+        errEl.style.display = 'block';
+        return;
+      }
+      try {
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) {
+          errEl.textContent = error.message || 'Ошибка входа';
+          errEl.style.display = 'block';
+          return;
+        }
+        const { data: adminData } = await supabaseClient
+          .from('admins')
+          .select('user_id')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        if (!adminData) {
+          await supabaseClient.auth.signOut();
+          errEl.textContent = 'Нет прав администратора';
+          errEl.style.display = 'block';
+          return;
+        }
+        isAdmin = true;
+        applyAdminChrome(true);
+        document.getElementById('login-popup').classList.remove('active');
+        loginPopupOpen = false;
+        showStatus('Вы вошли как админ');
+        render();
+        loadAnalytics();
+      } catch (e) {
+        console.error(e);
+        errEl.textContent = 'Ошибка сети';
+        errEl.style.display = 'block';
+      }
+    }
+
+    async function logoutAdmin() {
+      if (supabaseClient) {
+        try { await supabaseClient.auth.signOut(); } catch (e) {}
+      }
+      isAdmin = false;
+      applyAdminChrome(false);
+      showStatus('Вы вышли');
+      render();
+    }
+
+    function setListsMessage(msg) {
+      const html = '<div class="loading">' + msg + '</div>';
+      const top = document.getElementById('top-list');
+      const items = document.getElementById('items-list');
+      const recent = document.getElementById('recent-list');
+      if (top) top.innerHTML = html;
+      if (items) items.innerHTML = html;
+      if (recent) recent.innerHTML = html;
+    }
+
+    function withTimeout(promise, ms, label) {
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error((label || 'Запрос') + ' превысил ' + (ms / 1000) + ' сек')), ms);
+      });
+      return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
+    }
+
+    const ITEMS_SELECT = 'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at';
+    const REST_HEADERS = {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+      'Accept': 'application/json',
+      'Prefer': 'count=exact'
+    };
+    let catalogFullyLoaded = false;
+    let catalogBgLoading = false;
+
+    async function fetchItemsRange(from, size, extraQuery) {
+      const q = extraQuery ? ('&' + extraQuery) : '';
+      const url = SUPABASE_URL + '/rest/v1/items?select=' + ITEMS_SELECT + '&order=created_at.desc' + q;
+      const ctrl = new AbortController();
+      const timer = setTimeout(function () { ctrl.abort(); }, 10000);
+      try {
+        const res = await fetch(url, {
+          headers: Object.assign({}, REST_HEADERS, { 'Range': from + '-' + (from + size - 1) }),
+          signal: ctrl.signal
+        });
+        clearTimeout(timer);
+        if (!res.ok) {
+          const t = await res.text().catch(function () { return ''; });
+          throw new Error('HTTP ' + res.status + (t ? (': ' + t.slice(0, 120)) : ''));
+        }
+        const batch = await res.json();
+        return Array.isArray(batch) ? batch : [];
+      } catch (e) {
+        clearTimeout(timer);
+        throw e;
+      }
+    }
+
+    // Топ отдельным лёгким запросом (чтобы не ждать весь каталог)
+    async function fetchTopItemsViaRest() {
+      try {
+        return await fetchItemsRange(0, 100, 'is_top=eq.true');
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // «Недавно добавленные» — отдельный быстрый запрос (source=user, 3 суток)
+    async function fetchRecentUserViaRest() {
+      try {
+        const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+        return await fetchItemsRange(0, 40, 'source=eq.user&created_at=gte.' + encodeURIComponent(since));
+      } catch (e) {
+        return [];
+      }
+    }
+
+    // Полная выгрузка (для фона / запасной путь)
+    async function fetchItemsViaRest() {
+      const pageSize = 500;
+      let from = 0;
+      let all = [];
+      while (true) {
+        try {
+          const batch = await fetchItemsRange(from, pageSize);
+          if (!batch.length) break;
+          all = all.concat(batch);
+          if (batch.length < pageSize) break;
+          from += pageSize;
+          if (from > 100000) break;
+        } catch (e) {
+          if (all.length) return all;
+          throw e;
+        }
+      }
+      return all;
+    }
+
+    function mergeItemsById(base, extra) {
+      const map = Object.create(null);
+      (base || []).forEach(function (it) {
+        if (it && it.id != null) map[String(it.id)] = it;
+      });
+      (extra || []).forEach(function (it) {
+        if (it && it.id != null) map[String(it.id)] = it;
+      });
+      const out = [];
+      for (const k in map) out.push(map[k]);
+      out.sort(function (a, b) {
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
+      return out;
+    }
+
+    // Догрузка остального каталога в фоне (поиск по всем записям)
+    async function loadCatalogBackground(startFrom) {
+      if (catalogBgLoading || catalogFullyLoaded) return;
+      catalogBgLoading = true;
+      let from = startFrom || 0;
+      const pageSize = 500;
+      try {
+        while (from < 100000) {
+          const batch = await fetchItemsRange(from, pageSize);
+          if (!batch.length) break;
+          allItems = mergeItemsById(allItems, batch);
+          from += pageSize;
+          if (batch.length < pageSize) break;
+          // периодически обновляем UI без мигания
+          if (from % 1500 === 0) {
+            try { render(); } catch (e) {}
+          }
+        }
+        catalogFullyLoaded = true;
+        try { render(); } catch (e) {}
+      } catch (e) {
+        console.warn('catalog background', e);
+      } finally {
+        catalogBgLoading = false;
+      }
+    }
+
+    async function fetchBlacklistViaRest() {
+      try {
+        const headers = {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Accept': 'application/json'
+        };
+        const res = await withTimeout(
+          fetch(SUPABASE_URL + '/rest/v1/blacklist?select=value', { headers }),
+          8000,
+          'ЧС'
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data || []).map(r => r.value);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    let loadDataInFlight = null;
+    let loadDataAttempts = 0;
+    let welcomeShown = false;
+
+    async function loadData(isRetry) {
+      // не гоняем параллельные полные загрузки
+      if (loadDataInFlight && !isRetry) {
+        return loadDataInFlight;
+      }
+      if (isRetry) loadDataInFlight = null;
+
+      const run = (async () => {
+        try {
+          if (!allItems.length) {
+            setListsMessage('Загрузка…');
+            showStatus('Подождите, идёт загрузка сайта…', 120000);
+          }
+
+          let items = [];
+          let error = null;
+          let usedRest = false;
+          let needBackground = false;
+
+          // --- Быстрый старт: Топ + свежие + «недавно от пользователей» (параллельно) ---
+          try {
+            const triple = await Promise.all([
+              fetchTopItemsViaRest(),
+              fetchItemsRange(0, 250),
+              fetchRecentUserViaRest()
+            ]);
+            items = mergeItemsById(mergeItemsById(triple[0] || [], triple[1] || []), triple[2] || []);
+            usedRest = true;
+            // если пришло 250 «новых» — в базе скорее всего ещё есть, догрузим фоном
+            needBackground = (triple[1] && triple[1].length >= 250);
+          } catch (eRest) {
+            error = { message: eRest.message || String(eRest) };
+          }
+
+          // --- Запасной путь: полный REST / supabase-js ---
+          if ((!items || !items.length)) {
+            try {
+              const restItems = await fetchItemsViaRest();
+              if (restItems && restItems.length) {
+                items = restItems;
+                usedRest = true;
+                needBackground = false;
+                catalogFullyLoaded = true;
+              }
+            } catch (e2) {
+              error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
+            }
+          }
+
+          if ((!items || !items.length) && supabaseClient) {
+            try {
+              const res = await withTimeout(
+                supabaseClient
+                  .from('items')
+                  .select(ITEMS_SELECT)
+                  .order('created_at', { ascending: false })
+                  .range(0, 249),
+                10000,
+                'Загрузка каталога'
+              );
+              if (!res.error && res.data && res.data.length) {
+                items = res.data;
+                error = null;
+                needBackground = res.data.length >= 250;
+              }
+            } catch (e) {
+              if (!items.length) {
+                error = { message: (error && error.message ? error.message + ' | ' : '') + (e.message || String(e)) };
+              }
+            }
+          }
+
+          if (!items.length && !error) {
+            error = { message: 'Не удалось загрузить каталог' };
+          }
+
+          // пустой каталог без ошибки — это нормально
+          if (error && items.length === 0 && /permission|RLS|JWT|401|403/i.test(error.message || '')) {
+            // оставим error
+          } else if (!error) {
+            // ok
+          }
+
+          if (error && !items.length) {
+            console.error('loadData error:', error);
+            if (loadDataAttempts < 2) {
+              loadDataAttempts++;
+              showStatus('Повтор загрузки (' + loadDataAttempts + ')…', 5000);
+              await new Promise(r => setTimeout(r, 1500));
+              // пересоздать клиент на всякий случай
+              try {
+                if (window.supabase && window.supabase.createClient) {
+                  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                }
+              } catch (e) {}
+              loadDataInFlight = null;
+              return loadData(true);
+            }
+            setListsMessage(
+              'Ошибка загрузки: ' + escapeHtml(error.message || 'нет доступа к базе') +
+              '<br><span style="font-size:0.8rem;color:#888;">Проверьте RLS-политику SELECT для таблицы items</span>' +
+              '<br><button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background: var(--card);">Повторить</button>'
+            );
+            return;
+          }
+
+          loadDataAttempts = 0;
+          listVisibleCount = listPageSize;
+
+          const nowIso = Date.now();
+          allItems = (items || []).map(it => {
+            if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
+              return { ...it, is_top: false, top_until: null };
+            }
+            return it;
+          });
+
+          // ЧС нужен в основном админу — не блокируем первый экран
+          if (isAdmin) {
+            try {
+              blacklist = await fetchBlacklistViaRest();
+            } catch (e) {
+              blacklist = [];
+            }
+          }
+
+          try {
+            render();
+          } catch (re) {
+            console.error('render error', re);
+            setListsMessage('Данные получены, но ошибка отрисовки: ' + escapeHtml(re.message || ''));
+            return;
+          }
+
+          if (!allItems.length) {
+            const top = document.getElementById('top-list');
+            if (top) top.innerHTML = '<div class="loading">Пока пусто</div>';
+            const il = document.getElementById('items-list');
+            if (il && /Загрузка/.test(il.innerHTML)) {
+              il.innerHTML = '<div class="loading">Пока пусто</div>';
+            }
+          }
+
+          console.info('[Telegra] first paint items:', allItems.length, 'bg:', !!needBackground);
+          if (!welcomeShown) {
+            welcomeShown = true;
+            showStatus('Добро пожаловать', 3500);
+          }
+
+          // Остальной каталог — в фоне (поиск по всем)
+          if (needBackground) {
+            setTimeout(function () { loadCatalogBackground(250); }, 100);
+          } else {
+            catalogFullyLoaded = true;
+          }
+
+          // Сброс просроченного топа — только в фоне
+          if (supabaseClient) {
+            setTimeout(function () {
+              try {
+                supabaseClient
+                  .from('items')
+                  .update({ is_top: false, top_until: null })
+                  .lt('top_until', new Date().toISOString())
+                  .eq('is_top', true)
+                  .then(function () {})
+                  .catch(function () {});
+              } catch (e) {}
+            }, 2000);
+          }
+        } catch (e) {
+          console.error('loadData fatal:', e);
+          if (loadDataAttempts < 2) {
+            loadDataAttempts++;
+            await new Promise(r => setTimeout(r, 1500));
+            loadDataInFlight = null;
+            return loadData(true);
+          }
+          setListsMessage(
+            'Ошибка сети. <button type="button" onclick="loadDataAttempts=0;loadData()" style="margin-top:8px;padding:6px 12px;cursor:pointer;border-radius:8px;border:1px solid #ccc;background: var(--card);">Повторить</button>'
+          );
+        } finally {
+          loadDataInFlight = null;
+        }
+      })();
+
+      loadDataInFlight = run;
+      return run;
+    }
+
+    function normalizeUsername(u) {
+      return String(u || '')
+        .trim()
+        .replace(/^@/, '')
+        .replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '')
+        .split('/')[0]
+        .split('?')[0]
+        .toLowerCase();
+    }
+
+    function normalizeInvite(link) {
+      return String(link || '').trim().replace(/\/+$/, '').toLowerCase();
+    }
+
+    function isDuplicate(username, invite) {
+      const u = username ? normalizeUsername(username) : '';
+      const inv = invite ? normalizeInvite(invite) : '';
+      return allItems.some(it => {
+        if (u && it.username && normalizeUsername(it.username) === u) return true;
+        if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return true;
+        return false;
+      });
+    }
+
+    // Проверка дубля прямо в базе (надёжнее при массовом импорте)
+    async function existsInDb(username, invite) {
+      if (!supabaseClient) return false;
+      try {
+        if (username) {
+          const u = normalizeUsername(username);
+          // Точное сравнение после нормализации на клиенте (ilike может дать ложные)
+          const { data } = await supabaseClient
+            .from('items')
+            .select('id, username')
+            .ilike('username', u)
+            .limit(8);
+          if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
+        }
+        if (invite) {
+          // Сначала точное совпадение как в БД
+          const { data } = await supabaseClient
+            .from('items')
+            .select('id, invite_link')
+            .eq('invite_link', invite)
+            .limit(3);
+          if ((data || []).length) return true;
+
+          // Нормализованная форма: ищем по нескольким возможным вариантам записи
+          const inv = normalizeInvite(invite);
+          const variants = [invite, inv];
+          if (inv.startsWith('https://t.me/')) {
+            variants.push(inv.replace('https://t.me/', 'https://telegram.me/'));
+            variants.push(inv.replace(/^https:\/\//, 'http://'));
+          }
+          for (const v of [...new Set(variants)]) {
+            const { data: d2 } = await supabaseClient
+              .from('items')
+              .select('id')
+              .eq('invite_link', v)
+              .limit(1);
+            if (d2 && d2.length) return true;
+          }
+          // Больше не тянем 2000 строк — полагаемся на isDuplicate (allItems) + точные запросы
+        }
+      } catch (e) {
+        console.warn('existsInDb', e);
+      }
+      return false;
+    }
+
+    // Название / описание / аватар из Telegram.
+    // Каналы/чаты: t.me/username + t.me/s/username
+    // Боты: только t.me/username (у /s/ у ботов часто пусто)
+    // Реальный CDN (telesco.pe) предпочтительнее unavatar.
+    async function fetchTgMeta(username, onProgress, entityType, opts) {
+      const uname = normalizeUsername(username);
+      if (!uname) return { title: null, description: null, avatar: null };
+
+      // Кэш на сессию — не дёргаем прокси повторно для того же username
+      const cacheKey = uname + '|' + (entityType || '');
+      const cached = tgMetaCache.get(cacheKey);
+      if (cached && (Date.now() - cached.ts) < TG_META_CACHE_TTL) {
+        if (typeof onProgress === 'function') onProgress(100, 'Из кэша');
+        return { ...cached.meta };
+      }
+
+      const setP = (n, msg) => { if (typeof onProgress === 'function') onProgress(n, msg); };
+      const isBot = entityType === 'bot' || /bot$/i.test(uname);
+      const fast = !!(opts && opts.fast);
+
+      function decodeEntities(s) {
+        if (!s) return s;
+        return String(s)
+          .replace(/&amp;/g, '&')
+          .replace(/&quot;/g, '"')
+          .replace(/&#039;/g, "'")
+          .replace(/&#39;/g, "'")
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(parseInt(n, 10)))
+          .replace(/&#x([0-9a-f]+);/gi, (_, n) => String.fromCharCode(parseInt(n, 16)));
+      }
+
+      function isBadAvatar(url) {
+        if (!url) return true;
+        return /telegram\.org|t_logo|favicon|img\/Telegram|\/img\/t_logo|telegram_logo/i.test(url);
+      }
+
+      function isGoodTitle(t) {
+        if (!t) return false;
+        const s = t.trim();
+        if (!s || s.length < 1) return false;
+        if (/^Telegram$/i.test(s)) return false;
+        if (s === '@' + uname || s.toLowerCase() === uname.toLowerCase()) return false;
+        return true;
+      }
+
+      function parseMeta(html) {
+        if (!html || html.length < 80) return null;
+
+        if (/tgme_page_error|icon-error|doesn.?t seem to exist|page is unavailable|Invite link is invalid/i.test(html)) {
+          return null;
+        }
+
+        // ---------- TITLE ----------
+        let title = null;
+        const titlePatterns = [
+          /class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_page_title[^>]*>\s*(?:<span[^>]*>)?\s*([^<]{1,200})/i,
+          /class=["']tgme_channel_info_header_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i,
+          /tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i,
+          /property=["']og:title["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:title["']/i,
+          /<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i,
+          /<title>\s*([^<]{1,200}?)\s*<\/title>/i
+        ];
+        for (const re of titlePatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            title = decodeEntities(m[1].trim());
+            title = title.replace(/\s*[—|–-]\s*Telegram$/i, '').trim();
+            title = title.replace(/^Telegram:\s*/i, '').trim();
+            if (isGoodTitle(title)) break;
+            title = null;
+          }
+        }
+
+        // ---------- DESCRIPTION ----------
+        let description = null;
+        const descPatterns = [
+          /class=["']tgme_page_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_page_description[^>]*>\s*([\s\S]*?)<\//i,
+          /class=["']tgme_channel_info_description["'][^>]*>\s*([\s\S]*?)<\//i,
+          /tgme_channel_info_description[^>]*>\s*([\s\S]*?)<\//i,
+          /property=["']og:description["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:description["']/i
+        ];
+        for (const re of descPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let d = m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            d = decodeEntities(d);
+            if (d && d.length >= 3 && !/^If you have.?Telegram/i.test(d) && !/^You can contact/i.test(d)) {
+              description = d.slice(0, 500);
+              break;
+            }
+          }
+        }
+
+        // ---------- AVATAR ----------
+        // У ботов часто: <img class="tgme_page_photo_image" src="...">
+        // или <i class="tgme_page_photo_image" style="background-image:url(...)">
+        let avatar = null;
+        const avatarPatterns = [
+          // img с классом tgme_page_photo_image (боты и каналы)
+          /<img[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+src=["']([^"']+)["']/i,
+          /<img[^>]+src=["']([^"']+)["'][^>]+class=["'][^"']*tgme_page_photo_image[^"']*["']/i,
+          /tgme_page_photo_image[^>]+src=["']([^"']+)["']/i,
+          /class=["']tgme_page_photo_image["'][^>]+src=["']([^"']+)/i,
+          // <i class="tgme_page_photo_image" style="background-image:url(...)">
+          /<i[^>]+class=["'][^"']*tgme_page_photo_image[^"']*["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /class=["']tgme_page_photo_image["'][^>]+style=["'][^"']*url\(['"]?([^'")\s]+)/i,
+          /tgme_page_photo_image[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          // photo wrap background
+          /tgme_page_photo[^>]+style=["'][^"']*background-image:\s*url\(['"]?([^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/cdn\d*\.telesco\.pe\/[^'")\s]+)/i,
+          /background-image:\s*url\(['"]?(https?:\/\/[^'")\s]*telesco\.pe\/[^'")\s]+)/i,
+          // вложенный img внутри photo
+          /tgme_page_photo[^>]*>[\s\S]{0,300}?<img[^>]+src=["']([^"']+)["']/i,
+          // og:image
+          /property=["']og:image["']\s+content=["']([^"']+)["']/i,
+          /content=["']([^"']+)["']\s+property=["']og:image["']/i,
+          // любой CDN-файл
+          /(https?:\/\/cdn\d*\.telesco\.pe\/file\/[A-Za-z0-9_\-\/]+\.(?:jpg|jpeg|png|webp))/i
+        ];
+        for (const re of avatarPatterns) {
+          const m = html.match(re);
+          if (m && m[1]) {
+            let a = decodeEntities(m[1].trim());
+            if (a.startsWith('//')) a = 'https:' + a;
+            if (!isBadAvatar(a) && /^https?:\/\//i.test(a)) {
+              avatar = a;
+              break;
+            }
+          }
+        }
+
+        if (!title && !avatar && !description) return null;
+        return {
+          title: title || null,
+          description: description || null,
+          avatar: avatar || null
+        };
+      }
+
+      function mergeMeta(into, from) {
+        if (!from) return into;
+        if (!into) return { ...from };
+        if (isGoodTitle(from.title) && (!isGoodTitle(into.title) || from.title.length > (into.title || '').length)) {
+          into.title = from.title;
+        }
+        if (from.description && (!into.description || from.description.length > into.description.length)) {
+          into.description = from.description;
+        }
+        if (from.avatar && !isBadAvatar(from.avatar)) {
+          const fromIsCdn = /telesco\.pe|cdn\d*\.telegram/i.test(from.avatar);
+          const intoIsCdn = into.avatar && /telesco\.pe|cdn\d*\.telegram/i.test(into.avatar);
+          if (!into.avatar || (fromIsCdn && !intoIsCdn)) {
+            into.avatar = from.avatar;
+          }
+        }
+        return into;
+      }
+
+      setP(8, 'Подключение к Telegram…');
+
+      // Свой прокси на Vercel + один запасной
+      const MY_PROXY = '/api/tg-proxy';
+      const proxies = [
+        (u) => MY_PROXY + '?url=' + encodeURIComponent(u),
+        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+      ];
+
+      // В fast: сначала только t.me/username; /s/ — только если мета слабая
+      const primaryTargets = isBot
+        ? ['https://t.me/' + uname]
+        : ['https://t.me/' + uname];
+      const secondaryTargets = (!isBot && !fast)
+        ? ['https://t.me/s/' + uname]
+        : (!isBot ? ['https://t.me/s/' + uname] : []);
+
+      const fetchTimeout = fast ? 9000 : 14000;
+
+      async function fetchOneHtml(target, proxyFn) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), fetchTimeout);
+        try {
+          const res = await fetch(proxyFn(target), {
+            signal: ctrl.signal,
+            headers: { 'Accept': 'text/html,application/xhtml+xml' }
+          });
+          clearTimeout(timer);
+          if (!res.ok) return null;
+          const html = await res.text();
+          if (!html || html.length < 100) return null;
+          return parseMeta(html);
+        } catch (e) {
+          clearTimeout(timer);
+          return null;
+        }
+      }
+
+      async function loadFromTargets(targets) {
+        let local = null;
+        for (const target of targets) {
+          if (fast) {
+            // параллельно 2 прокси — берём первый удачный / мёржим
+            const jobs = proxies.map(fn => fetchOneHtml(target, fn));
+            const results = await Promise.all(jobs);
+            for (const parsed of results) {
+              if (parsed) local = mergeMeta(local, parsed);
+            }
+          } else {
+            for (let i = 0; i < proxies.length; i++) {
+              setP(10 + Math.floor(((i + 1) / proxies.length) * 70), 'Загрузка данных…');
+              const parsed = await fetchOneHtml(target, proxies[i]);
+              if (parsed) {
+                local = mergeMeta(local, parsed);
+                if (isGoodTitle(local.title) && local.avatar && !isBadAvatar(local.avatar) && !/unavatar/i.test(local.avatar) && local.description) {
+                  return local;
+                }
+              }
+              if (i < proxies.length - 1) await new Promise(r => setTimeout(r, 200));
+            }
+          }
+          if (local && isGoodTitle(local.title) && local.avatar && !isBadAvatar(local.avatar) && !/unavatar/i.test(local.avatar)) {
+            if (local.description || fast) return local;
+          }
+        }
+        return local;
+      }
+
+      let meta = await loadFromTargets(primaryTargets);
+
+      // Догрузка /s/ только если не бот и мета слабая
+      const weakMeta = !meta || !isGoodTitle(meta.title) || !meta.avatar || isBadAvatar(meta.avatar) || /unavatar/i.test(meta.avatar || '');
+      if (weakMeta && secondaryTargets.length) {
+        setP(70, 'Уточнение данных…');
+        const meta2 = await loadFromTargets(secondaryTargets);
+        meta = mergeMeta(meta, meta2);
+      }
+
+      setP(85, 'Подгрузка аватарки…');
+
+      if (!meta) meta = { title: null, description: null, avatar: null };
+
+      if (!isGoodTitle(meta.title)) {
+        meta.title = '@' + uname;
+      }
+
+      if (!meta.avatar || isBadAvatar(meta.avatar)) {
+        meta.avatar = 'https://unavatar.io/telegram/' + encodeURIComponent(uname);
+      }
+
+      setP(96, 'Почти готово…');
+      // Сохраняем в кэш сессии
+      try {
+        tgMetaCache.set(cacheKey, { ts: Date.now(), meta: { ...meta } });
+      } catch (e) {}
+      return meta;
+    }
+
+    async function insertItemRow(row) {
+      // финальная защита от дубля username
+      if (row.username) {
+        if (isDuplicate(row.username, null) || await existsInDb(row.username, null)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
+      }
+      if (row.invite_link) {
+        if (isDuplicate(null, row.invite_link) || await existsInDb(null, row.invite_link)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
+      }
+
+      let { error } = await supabaseClient.from('items').insert(row);
+      // колонка source может ещё не быть в БД
+      if (error && row.source && /source|column/i.test(error.message || '')) {
+        const copy = { ...row };
+        delete copy.source;
+        ({ error } = await supabaseClient.from('items').insert(copy));
+      }
+      if (error && row.avatar_url && /avatar_url/i.test(error.message || '')) {
+        const copy = { ...row };
+        delete copy.avatar_url;
+        if (row.username && await existsInDb(row.username, null)) {
+          return { message: 'duplicate', code: 'DUPLICATE' };
+        }
+        ({ error } = await supabaseClient.from('items').insert(copy));
+      }
+      // уникальный конфликт postgres
+      if (error && (error.code === '23505' || /duplicate|unique/i.test(error.message || ''))) {
+        return { message: 'duplicate', code: 'DUPLICATE' };
+      }
+      return error;
+    }
+
+    function parseTelegramLink(raw) {
+      let s = String(raw || '').trim();
+      if (!s) return { ok: false };
+      // private invite
+      if (/t\.me\/\+/i.test(s) || /t\.me\/joinchat\//i.test(s) || s.startsWith('+')) {
+        let link = s;
+        if (s.startsWith('+')) link = 'https://t.me/' + s;
+        if (!/^https?:\/\//i.test(link)) {
+          if (/^t\.me\//i.test(link)) link = 'https://' + link;
+        }
+        return { ok: true, isPrivate: true, invite: link, username: null };
+      }
+      // username forms: @name, t.me/name, https://t.me/name, plain name
+      let u = s.replace(/^@/, '');
+      u = u.replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '');
+      u = u.split('/')[0].split('?')[0].trim();
+      if (!u || u.startsWith('+')) return { ok: false };
+      if (!/^[a-zA-Z0-9_]{3,}$/.test(u) && !/^[a-zA-Z0-9_]+$/.test(u)) {
+        // still accept if looks like username
+        if (!/^[a-zA-Z][a-zA-Z0-9_]{2,31}$/.test(u)) {
+          // might be invalid
+        }
+      }
+      return { ok: true, isPrivate: false, invite: null, username: u };
+    }
+
+    function setAddProgress(pct, text) {
+      const box = document.getElementById('add-progress');
+      const fill = document.getElementById('add-progress-fill');
+      const txt = document.getElementById('add-progress-text');
+      if (!box) return;
+      box.classList.add('active');
+      if (fill) fill.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      if (txt && text) txt.textContent = text;
+    }
+    function hideAddProgress() {
+      const box = document.getElementById('add-progress');
+      const fill = document.getElementById('add-progress-fill');
+      if (box) box.classList.remove('active');
+      if (fill) fill.style.width = '0%';
+      const btn = document.getElementById('add-submit-btn');
+      const cancel = document.getElementById('add-cancel-btn');
+      if (btn) btn.disabled = false;
+      if (cancel) cancel.disabled = false;
+    }
+    function lockAddForm(lock) {
+      const btn = document.getElementById('add-submit-btn');
+      const cancel = document.getElementById('add-cancel-btn');
+      if (btn) btn.disabled = !!lock;
+      if (cancel) cancel.disabled = !!lock;
+      ['item-name', 'item-link', 'item-desc', 'item-category'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = !!lock;
+      });
+    }
+
+    // Токен сессии админа — секрет в код страницы не пишем
+    async function getAdminAccessToken() {
+      try {
+        if (!supabaseClient) return null;
+        var sess = await supabaseClient.auth.getSession();
+        var token = sess && sess.data && sess.data.session && sess.data.session.access_token;
+        return token || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Скачать/сжать аватар → Storage (гости тоже; секрет в HTML не нужен).
+    // oldUrl — старый файл в Storage, удалится после замены (если есть сессия админа).
+    async function cacheAvatarToSupabase(imageUrl, username, oldUrl) {
+      if (!imageUrl || !username) return imageUrl;
+      if (/supabase\.co\/storage\//i.test(imageUrl)) {
+        if (oldUrl && oldUrl !== imageUrl && /supabase\.co\/storage\//i.test(oldUrl)) {
+          await deleteStoredAvatar(oldUrl);
+        }
+        return imageUrl;
+      }
+      try {
+        var api =
+          '/api/cache-avatar?url=' + encodeURIComponent(imageUrl) +
+          '&username=' + encodeURIComponent(username);
+        var r = await fetch(api);
+        var j = await r.json();
+        if (j && j.ok && j.url) {
+          if (oldUrl && oldUrl !== j.url && /supabase\.co\/storage\//i.test(oldUrl)) {
+            await deleteStoredAvatar(oldUrl);
+          }
+          return j.url;
+        }
+      } catch (e) {
+        console.warn('cache avatar', e);
+      }
+      return imageUrl;
+    }
+
+    // Удалить файл аватара из Storage (только под сессией админа)
+    async function deleteStoredAvatar(imageUrl) {
+      if (!imageUrl || !/supabase\.co\/storage\//i.test(imageUrl)) return;
+      try {
+        var token = await getAdminAccessToken();
+        if (!token) return;
+        var api = '/api/delete-avatar?url=' + encodeURIComponent(imageUrl);
+        await fetch(api, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+      } catch (e) {
+        console.warn('delete avatar', e);
+      }
+    }
+
+    async function addItem() {
+      if (!supabaseClient) {
+        alert('База данных недоступна. Обновите страницу.');
+        return;
+      }
+      const name = (document.getElementById('item-name')?.value || '').trim();
+      const linkRaw = (document.getElementById('item-link')?.value || '').trim();
+      const userDesc = (document.getElementById('item-desc')?.value || '').trim();
+      let category = document.getElementById('item-category').value;
+      if (!category) category = 'Разное';
+
+      if (!name) {
+        alert('Укажите название');
+        return;
+      }
+      if (!linkRaw) {
+        alert('Укажите ссылку');
+        return;
+      }
+
+      const parsed = parseTelegramLink(linkRaw);
+      if (!parsed.ok) {
+        alert('Не удалось распознать ссылку. Пример: @channel, t.me/channel или https://t.me/+xxxx');
+        return;
+      }
+
+      lockAddForm(true);
+      setAddProgress(5, 'Проверка…');
+
+      try {
+        if (parsed.isPrivate) {
+          if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
+            hideAddProgress();
+            alert('Эта ссылка уже есть в каталоге');
+            return;
+          }
+          if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
+            hideAddProgress();
+            alert('Эта ссылка в чёрном списке');
+            return;
+          }
+          setAddProgress(50, 'Сохранение…');
+          const row = {
+            type: currentType,
+            username: null,
+            invite_link: parsed.invite,
+            is_private: true,
+            display_name: name,
+            description: userDesc || null,
+            category: category,
+            is_top: false,
+            top_until: null,
+            source: isAdmin ? 'admin' : 'user'
+          };
+          const error = await insertItemRow(row);
+          if (error) {
+            hideAddProgress();
+            if (error.code === 'DUPLICATE') alert('Уже есть в каталоге');
+            else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+            return;
+          }
+          setAddProgress(100, 'Готово!');
+          closeModal();
+          hideAddProgress();
+          showStatus('Добавлено!');
+          await loadData();
+          return;
+        }
+
+        // public
+        const username = normalizeUsername(parsed.username);
+        if (isDuplicate(username, null) || await existsInDb(username, null)) {
+          hideAddProgress();
+          alert('Этот канал/чат/бот уже есть в каталоге');
+          return;
+        }
+        if (blacklist.some(b => normalizeUsername(b) === username)) {
+          hideAddProgress();
+          alert('Этот канал/чат в чёрном списке');
+          return;
+        }
+
+        setAddProgress(10, 'Загрузка аватарки и описания из Telegram…');
+        const meta = await fetchTgMeta(username, setAddProgress, currentType);
+
+        let avatarUrl = (meta && meta.avatar) || null;
+        // Для ботов: если из ТГ не пришёл реальный CDN-аватар — не ставим unavatar,
+        // на сайте покажется наш значок 🤖
+        const isBotAdd = currentType === 'bot' || /bot$/i.test(username);
+        if (isBotAdd) {
+          if (!avatarUrl || /unavatar\.io/i.test(avatarUrl) || /telegram\.org|t_logo/i.test(avatarUrl)) {
+            avatarUrl = null;
+          }
+        } else if (!avatarUrl) {
+          avatarUrl = 'https://unavatar.io/telegram/' + encodeURIComponent(username);
+        }
+
+        // Постоянное хранение аватарки в Supabase Storage
+        if (avatarUrl) {
+          setAddProgress(85, 'Сохранение аватарки…');
+          avatarUrl = await cacheAvatarToSupabase(avatarUrl, username);
+        }
+
+        const row = {
+          type: currentType,
+          username: username,
+          invite_link: null,
+          is_private: false,
+          // Если пользователь ввёл своё название — сохраняем его; иначе берём из Telegram
+          display_name: name || (meta && meta.title) || ('@' + username),
+          description: userDesc || (meta && meta.description) || null,
+          category: category,
+          is_top: false,
+          top_until: null,
+          avatar_url: avatarUrl,
+          source: isAdmin ? 'admin' : 'user'
+        };
+
+        setAddProgress(92, 'Сохранение в каталог…');
+        const error = await insertItemRow(row);
+        if (error) {
+          hideAddProgress();
+          if (error.code === 'DUPLICATE') alert('Этот канал/чат/бот уже есть в каталоге');
+          else alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+          return;
+        }
+        setAddProgress(100, 'Готово!');
+        closeModal();
+        hideAddProgress();
+        showStatus('Добавлено!');
+        await loadData();
+      } catch (e) {
+        console.error(e);
+        hideAddProgress();
+        alert('Ошибка сети');
+      }
+    }
+
+    function closePrivateNameModal() {
+      document.getElementById('private-name-modal').classList.remove('active');
+      pendingPrivate = null;
+    }
+
+    async function confirmPrivateName() {
+      if (!pendingPrivate || !supabaseClient) return;
+      const name = document.getElementById('private-name-input').value.trim();
+      if (!name) {
+        alert('Введите название чата/канала');
+        return;
+      }
+      const row = {
+        type: pendingPrivate.type,
+        username: null,
+        invite_link: pendingPrivate.invite,
+        is_private: true,
+        display_name: name,
+        description: pendingPrivate.desc || null,
+        category: pendingPrivate.category,
+        is_top: false,
+        top_until: null,
+        source: isAdmin ? 'admin' : 'user'
+      };
+      if (pendingPrivate.avatarUrl) row.avatar_url = pendingPrivate.avatarUrl;
+      try {
+        const error = await insertItemRow(row);
+        if (error) {
+          alert('Ошибка: ' + (error.message || 'не удалось добавить'));
+          return;
+        }
+        closePrivateNameModal();
+        showStatus('Добавлено!');
+        await loadData();
+      } catch (e) {
+        console.error(e);
+        alert('Ошибка сети');
+      }
+    }
+
+    function openBulkModal() {
+      if (!isAdmin) return;
+      document.getElementById('bulk-list').value = '';
+      document.getElementById('bulk-modal').classList.add('active');
+    }
+    function closeBulkModal() {
+      document.getElementById('bulk-modal').classList.remove('active');
+    }
+
+    let bulkRunning = false;
+    let refreshMetaRunning = false;
+    let checkLinksRunning = false;
+
+    let searchTrackTimer = null;
+    let lastTrackedSearch = '';
+
+
+    async function runBulkImport() {
+      if (!isAdmin || !supabaseClient) return;
+      if (bulkRunning) {
+        alert('Импорт уже идёт, подождите…');
+        return;
+      }
+      bulkRunning = true;
+
+      const type = document.getElementById('bulk-type').value;
+      const category = document.getElementById('bulk-category').value || 'Разное';
+      const raw = document.getElementById('bulk-list').value || '';
+      const parts = raw.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
+      const usernames = [...new Set(parts.map(p => normalizeUsername(p)).filter(u => u && !u.startsWith('+')))];
+
+      if (!usernames.length) {
+        bulkRunning = false;
+        alert('Вставьте usernames через пробел, например: @ch1 @ch2 @ch3');
+        return;
+      }
+
+      try { await loadData(); } catch (e) {}
+
+      const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
+      const blSet = new Set(blacklist.map(b => normalizeUsername(b)).filter(Boolean));
+
+      // Пакетная проверка уже существующих в БД (один запрос вместо N)
+      try {
+        const chunk = 100;
+        for (let i = 0; i < usernames.length; i += chunk) {
+          const slice = usernames.slice(i, i + chunk);
+          const { data } = await supabaseClient
+            .from('items')
+            .select('username')
+            .in('username', slice);
+          (data || []).forEach(r => {
+            const n = normalizeUsername(r.username);
+            if (n) seen.add(n);
+          });
+        }
+      } catch (e) {
+        console.warn('bulk precheck', e);
+      }
+
+      const queue = usernames.filter(u => !seen.has(u) && !blSet.has(u));
+      const skippedUpfront = usernames.length - queue.length;
+      let ok = 0, skip = skippedUpfront, fail = 0;
+      let done = 0;
+      const total = usernames.length;
+
+      showStatus('Импорт… 0/' + total + (queue.length ? ' (в очереди ' + queue.length + ')' : ''), 120000);
+
+      // Свой прокси — можно держать выше параллелизм
+      const CONCURRENCY = 8;
+      let qIndex = 0;
+
+      async function processOne(u) {
+        try {
+          let meta = await fetchTgMeta(u, null, type, { fast: true });
+          const weak = !meta
+            || !meta.title
+            || meta.title === ('@' + u)
+            || !meta.avatar
+            || /unavatar\.io/i.test(meta.avatar || '');
+          // Одна быстрая повторная попытка только если совсем пусто
+          if (weak) {
+            await new Promise(r => setTimeout(r, 150));
+            const meta2 = await fetchTgMeta(u, null, type, { fast: true });
+            if (meta2) {
+              meta = {
+                title: (meta2.title && meta2.title !== ('@' + u)) ? meta2.title : (meta && meta.title),
+                description: meta2.description || (meta && meta.description) || null,
+                avatar: (meta2.avatar && !/unavatar\.io/i.test(meta2.avatar))
+                  ? meta2.avatar
+                  : (meta && meta.avatar && !/unavatar\.io/i.test(meta.avatar))
+                    ? meta.avatar
+                    : (meta2.avatar || (meta && meta.avatar) || null)
+              };
+            }
+          }
+          const displayName = (meta && meta.title && meta.title !== ('@' + u))
+            ? meta.title
+            : ('@' + u);
+          var bulkAvatar = (function() {
+            const a = (meta && meta.avatar) ? meta.avatar : null;
+            if (type === 'bot' || /bot$/i.test(u)) {
+              if (!a || /unavatar\.io/i.test(a) || /telegram\.org|t_logo/i.test(a)) return null;
+            }
+            return a || ('https://unavatar.io/telegram/' + encodeURIComponent(u));
+          })();
+          if (bulkAvatar) {
+            bulkAvatar = await cacheAvatarToSupabase(bulkAvatar, u);
+          }
+          const row = {
+            type,
+            username: u,
+            invite_link: null,
+            is_private: false,
+            display_name: displayName,
+            description: (meta && meta.description) ? meta.description : null,
+            category,
+            is_top: false,
+            top_until: null,
+            source: 'bulk',
+            avatar_url: bulkAvatar
+          };
+
+          const error = await insertItemRow(row);
+          if (error) {
+            if (error.code === 'DUPLICATE') {
+              skip++;
+              seen.add(u);
+            } else fail++;
+          } else {
+            ok++;
+            seen.add(u);
+            allItems.push({
+              username: u,
+              invite_link: null,
+              display_name: row.display_name,
+              description: row.description,
+              avatar_url: row.avatar_url,
+              type,
+              category,
+              is_private: false,
+              source: 'bulk'
+            });
+          }
+        } catch (e) {
+          console.warn('bulk', u, e);
+          fail++;
+        } finally {
+          done++;
+          showStatus('Импорт… ' + done + '/' + total + ' · +' + ok + (fail ? ' · ошибок ' + fail : ''), 120000);
+        }
+      }
+
+      async function worker() {
+        while (qIndex < queue.length) {
+          const my = qIndex++;
+          const u = queue[my];
+          await processOne(u);
+          // небольшая пауза, чтобы не упираться в лимиты Vercel/Telegram
+          await new Promise(r => setTimeout(r, 80));
+        }
+      }
+
+      const workers = [];
+      for (let w = 0; w < Math.min(CONCURRENCY, queue.length || 1); w++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
+
+      bulkRunning = false;
+      closeBulkModal();
+      showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+      await loadData();
+    }
+
+    async function removeTop(id) {
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: false, top_until: null })
+          .eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Убрано из Топа'); await loadData(); }
+      } catch (e) { console.error(e); }
+    }
+
+    async function deleteItem(id) {
+      if (!supabaseClient || !isAdmin) return;
+      if (!confirm('Удалить запись?')) return;
+      try {
+        const item = allItems.find(x => String(x.id) === String(id));
+        if (item && item.avatar_url) await deleteStoredAvatar(item.avatar_url);
+        const { error } = await supabaseClient.from('items').delete().eq('id', id);
+        if (error) alert(error.message);
+        else { showStatus('Удалено'); await loadData(); }
+      } catch (e) { console.error(e); }
+    }
+
+    async function addToBlacklist(id, value) {
+      if (!supabaseClient || !isAdmin) return;
+      if (!confirm('Добавить в чёрный список и удалить?')) return;
+      try {
+        const item = allItems.find(x => String(x.id) === String(id));
+        if (item && item.avatar_url) await deleteStoredAvatar(item.avatar_url);
+        await supabaseClient.from('blacklist').insert({ value });
+        await supabaseClient.from('items').delete().eq('id', id);
+        showStatus('В чёрный список');
+        await loadData();
+      } catch (e) { console.error(e); alert('Ошибка'); }
+    }
+
+    async function removeFromBlacklist(value) {
+      if (!supabaseClient || !isAdmin) return;
+      try {
+        await supabaseClient.from('blacklist').delete().eq('value', value);
+        showStatus('Убрано из ЧС');
+        await loadData();
+      } catch (e) { console.error(e); }
+    }
+
+
+    function isDefaultTgLogo(url) {
+      if (!url) return true;
+      return /t_logo|favicon|img\/Telegram|telegram\.org\/img\//i.test(url);
+    }
+
+    function isWeakMeta(item) {
+      if (!item.avatar_url) return true;
+      if (isDefaultTgLogo(item.avatar_url)) return true;
+      // Свои аватарки в Storage — уже постоянные, не считаем слабыми
+      if (/supabase\.co\/storage\//i.test(item.avatar_url)) {
+        if (!item.description) return true;
+        if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
+        return false;
+      }
+      if (/unavatar\.io/i.test(item.avatar_url)) return true;
+      if (/telesco\.pe/i.test(item.avatar_url)) return true;
+      if (!item.description) return true;
+      if (!item.display_name || item.display_name === '@' + (item.username || '')) return true;
+      return false;
+    }
+
+    async function refreshMeta(id) {
+      if (!supabaseClient || !isAdmin) return;
+      const item = allItems.find(x => String(x.id) === String(id));
+      if (!item || !item.username || item.is_private) {
+        alert('Нет публичного username для обновления');
+        return;
+      }
+      showStatus('Обновление метаданных…', 15000);
+      try {
+        const meta = await fetchTgMeta(item.username, null, item.type);
+        var newAvatar = meta.avatar || item.avatar_url || ('https://unavatar.io/telegram/' + encodeURIComponent(item.username));
+        if (newAvatar) {
+          newAvatar = await cacheAvatarToSupabase(newAvatar, item.username, item.avatar_url);
+        }
+        const patch = {
+          avatar_url: newAvatar
+        };
+        if (meta.title) patch.display_name = meta.title;
+        if (meta.description) patch.description = meta.description;
+        const { error } = await supabaseClient.from('items').update(patch).eq('id', id);
+        if (error) alert(error.message);
+        else {
+          showStatus('Метаданные обновлены');
+          await loadData();
+        }
+      } catch (e) {
+        console.error(e);
+        alert('Не удалось обновить');
+      }
+    }
+
+
+    function buildTelegramCheckUrl(item) {
+      if (item.is_private && item.invite_link) {
+        let inv = String(item.invite_link).trim();
+        if (/^https?:\/\//i.test(inv)) return inv.split('?')[0];
+        if (inv.startsWith('+')) return 'https://t.me/' + inv;
+        if (/^joinchat\//i.test(inv)) return 'https://t.me/' + inv;
+        return 'https://t.me/' + inv.replace(/^\/+/, '');
+      }
+      if (item.username) {
+        const u = String(item.username).replace(/^@/, '').trim();
+        if (u) return 'https://t.me/' + u;
+      }
+      return null;
+    }
+
+    function isDeadTelegramHtml(html) {
+      // true  = точно мёртвая
+      // false = живая
+      // логика стала строже: мёртвые страницы Telegram часто содержат og:title="Telegram"
+      if (!html || html.length < 80) return false;
+
+      const h = html;
+
+      // ——— Явные признаки мёртвой страницы ———
+      if (/tgme_page_error|icon-error/i.test(h)) return true;
+      if (/Sorry,? this (channel|group|bot|user|page)/i.test(h)) return true;
+      if (/doesn.?t seem to exist/i.test(h)) return true;
+      if (/page is unavailable/i.test(h)) return true;
+      if (/Invite link is invalid or has expired/i.test(h)) return true;
+      if (/This invite link is invalid/i.test(h)) return true;
+      if (/нет такой|не существует|ссылка недействительна|ссылка устарела/i.test(h)) return true;
+
+      // Классический текст «канала не существует»
+      // "If you have Telegram, you can contact @username right away."
+      if (/If you have.?Telegram,? you can contact/i.test(h)) return true;
+      if (/you can contact .+ right away/i.test(h)) return true;
+
+      // ——— Признаки живой страницы ———
+      // Настоящий заголовок канала (не просто "Telegram")
+      let title = null;
+      const titleMatch =
+        h.match(/class=["']tgme_page_title["'][^>]*>\s*(?:<[^>]+>\s*)*([^<]{1,200})/i) ||
+        h.match(/tgme_channel_info_header_title[^>]*>\s*([^<]{1,200})/i) ||
+        h.match(/property=["']og:title["']\s+content=["']([^"']+)["']/i) ||
+        h.match(/content=["']([^"']+)["']\s+property=["']og:title["']/i);
+
+      if (titleMatch && titleMatch[1]) {
+        title = titleMatch[1].trim()
+          .replace(/\s*[—|–-]\s*Telegram$/i, '')
+          .replace(/^Telegram:\s*/i, '')
+          .trim();
+      }
+
+      const isGenericTitle = !title || /^Telegram$/i.test(title) || title.length < 2;
+
+      // Есть реальная аватарка с CDN Telegram
+      const hasRealPhoto = /telesco\.pe\/file\//i.test(h) || /cdn\d*\.telesco\.pe/i.test(h);
+
+      // Есть нормальное описание канала
+      const hasDescription =
+        /tgme_page_description/i.test(h) ||
+        /tgme_channel_info_description/i.test(h);
+
+      // Живая только если есть нормальный title ИЛИ реальная аватарка
+      if (!isGenericTitle || hasRealPhoto) {
+        return false; // считаем живой
+      }
+
+      // Во всех остальных случаях — скорее мёртвая
+      return true;
+    }
+
+    async function checkTelegramLinkAlive(item) {
+      const url = buildTelegramCheckUrl(item);
+      if (!url) return { ok: false, reason: 'no_url' };
+
+      const MY_PROXY = '/api/tg-proxy';
+      const proxies = [
+        (u) => MY_PROXY + '?url=' + encodeURIComponent(u),
+        (u) => 'https://api.allorigins.win/raw?url=' + encodeURIComponent(u),
+      ];
+
+      let gotHtml = false;
+      for (let i = 0; i < proxies.length; i++) {
+        try {
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 12000);
+          const res = await fetch(proxies[i](url), { signal: ctrl.signal });
+          clearTimeout(timer);
+          if (!res.ok) continue;
+          const html = await res.text();
+          if (!html || html.length < 50) continue;
+          gotHtml = true;
+          if (isDeadTelegramHtml(html)) return { ok: false, reason: 'dead' };
+          // есть HTML без признаков смерти — считаем живой
+          // (неполные ответы прокси больше не помечаются как dead)
+          return { ok: true };
+        } catch (e) {}
+      }
+      // если прокси не ответили — не удаляем (неизвестно)
+      return { ok: null, reason: gotHtml ? 'dead' : 'network' };
+    }
+
+    async function checkAndDeleteItem(id, opts) {
+      if (!supabaseClient || !isAdmin) return;
+      const silent = opts && opts.silent;
+      const item = allItems.find(x => String(x.id) === String(id));
+      if (!item) {
+        if (!silent) alert('Запись не найдена');
+        return { deleted: false, status: 'missing' };
+      }
+      if (!silent) showStatus('Проверка ссылки…', 20000);
+      const result = await checkTelegramLinkAlive(item);
+      if (result.ok === true) {
+        if (!silent) showStatus('Ссылка рабочая');
+        return { deleted: false, status: 'alive' };
+      }
+      if (result.ok === null && result.reason === 'network') {
+        if (!silent) showStatus('Не удалось проверить (сеть). Запись не удалена.');
+        return { deleted: false, status: 'network' };
+      }
+      // мёртвая
+      try {
+        if (item.avatar_url) await deleteStoredAvatar(item.avatar_url);
+        const { error } = await supabaseClient.from('items').delete().eq('id', id);
+        if (error) {
+          if (!silent) alert(error.message);
+          return { deleted: false, status: 'error' };
+        }
+        allItems = allItems.filter(x => String(x.id) !== String(id));
+        if (!silent) {
+          showStatus('Ссылка не работает — запись удалена');
+          applyFilters();
+        }
+        return { deleted: true, status: 'dead' };
+      } catch (e) {
+        console.error(e);
+        if (!silent) alert('Ошибка удаления');
+        return { deleted: false, status: 'error' };
+      }
+    }
+
+
+    function openDeleteCategoryModal() {
+      if (!isAdmin) return;
+      document.getElementById('delete-category-modal').classList.add('active');
+    }
+    function closeDeleteCategoryModal() {
+      document.getElementById('delete-category-modal').classList.remove('active');
+    }
+
+    async function runDeleteCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      const cat = (document.getElementById('delete-category-select')?.value || '').trim();
+      const type = (document.getElementById('delete-category-type')?.value || '').trim();
+      if (!cat) {
+        alert('Выберите категорию');
+        return;
+      }
+
+      const matches = allItems.filter(it => {
+        const itemCat = (it.category || 'Разное').trim();
+        let catOk = false;
+        if (cat === 'Для взрослых 18+') {
+          catOk = itemCat === 'Для взрослых 18+' || itemCat === 'Для взрослых';
+        } else {
+          catOk = itemCat === cat;
+        }
+        if (!catOk) return false;
+        if (type && it.type !== type) return false;
+        return true;
+      });
+
+      if (!matches.length) {
+        alert('В этой категории нет записей' + (type ? ' выбранного типа' : ''));
+        return;
+      }
+
+      const typeLabel = type === 'channel' ? 'каналов' : type === 'chat' ? 'чатов' : type === 'bot' ? 'ботов' : 'записей';
+      if (!confirm('Удалить ' + matches.length + ' ' + typeLabel + ' из категории «' + cat + '»?\n\nЭто нельзя отменить.')) {
+        return;
+      }
+      // второе подтверждение при большом числе
+      if (matches.length >= 20) {
+        if (!confirm('Точно удалить ' + matches.length + ' записей?')) return;
+      }
+
+      showStatus('Удаление… 0/' + matches.length, 120000);
+      let ok = 0, fail = 0;
+      // Сначала картинки из Storage
+      for (var ai = 0; ai < matches.length; ai++) {
+        if (matches[ai].avatar_url) {
+          await deleteStoredAvatar(matches[ai].avatar_url);
+        }
+        if (ai % 10 === 0) {
+          showStatus('Удаление аватарок… ' + (ai + 1) + '/' + matches.length, 120000);
+        }
+      }
+      // удаляем пачками по id через filter — supabase .in()
+      const ids = matches.map(m => m.id).filter(Boolean);
+      const chunkSize = 50;
+      for (let i = 0; i < ids.length; i += chunkSize) {
+        const chunk = ids.slice(i, i + chunkSize);
+        try {
+          const { error } = await supabaseClient.from('items').delete().in('id', chunk);
+          if (error) {
+            console.error(error);
+            // fallback по одному
+            for (const id of chunk) {
+              const { error: e2 } = await supabaseClient.from('items').delete().eq('id', id);
+              if (e2) fail++;
+              else ok++;
+            }
+          } else {
+            ok += chunk.length;
+          }
+        } catch (e) {
+          console.error(e);
+          fail += chunk.length;
+        }
+        showStatus('Удаление… ' + Math.min(i + chunkSize, ids.length) + '/' + ids.length, 120000);
+      }
+
+      closeDeleteCategoryModal();
+      showStatus('Удалено: ' + ok + (fail ? ', ошибок: ' + fail : ''));
+      await loadData();
+    }
+
+
+    function openCheckLinksModal() {
+      if (!isAdmin) return;
+      document.getElementById('check-links-modal').classList.add('active');
+    }
+    function closeCheckLinksModal() {
+      if (checkLinksRunning) {
+        if (!confirm('Проверка ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+      }
+      document.getElementById('check-links-modal').classList.remove('active');
+    }
+
+    function showAdminReport(title, lines) {
+      const modal = document.getElementById('admin-report-modal');
+      const titleEl = document.getElementById('admin-report-title');
+      const bodyEl = document.getElementById('admin-report-body');
+      if (!modal || !bodyEl) {
+        alert((title || 'Отчёт') + '\n\n' + (Array.isArray(lines) ? lines.join('\n') : String(lines || '')));
+        return;
+      }
+      if (titleEl) titleEl.textContent = title || 'Отчёт';
+      const arr = Array.isArray(lines) ? lines : [String(lines || '')];
+      bodyEl.style.maxHeight = '60vh';
+      bodyEl.style.overflowY = 'auto';
+      bodyEl.innerHTML = arr
+        .map(function (line) {
+          const s = String(line);
+          // заголовки секций
+          if (s.indexOf('——') === 0 || s.indexOf('===') === 0) {
+            return '<div style="margin:14px 0 8px;font-weight:700;color:var(--accent);">' + escapeHtml(s) + '</div>';
+          }
+          return '<div style="margin-bottom:6px;font-size:0.9rem;word-break:break-all;line-height:1.45;">' + escapeHtml(s) + '</div>';
+        })
+        .join('');
+      modal.classList.add('active');
+    }
+    function closeAdminReport() {
+      const modal = document.getElementById('admin-report-modal');
+      if (modal) modal.classList.remove('active');
+    }
+
+    async function runCheckLinksByCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      if (checkLinksRunning) {
+        alert('Проверка уже идёт, подождите…');
+        return;
+      }
+      const cat = (document.getElementById('check-links-category')?.value || '').trim();
+      const type = (document.getElementById('check-links-type')?.value || '').trim();
+
+      const list = allItems.filter(it => {
+        if (type && it.type !== type) return false;
+        if (cat) {
+          const itemCat = (it.category || 'Разное').trim();
+          if (cat === 'Для взрослых 18+') {
+            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
+          } else if (itemCat !== cat) {
+            return false;
+          }
+        }
+        if (!buildTelegramCheckUrl(it)) return false;
+        return true;
+      });
+
+      if (!list.length) {
+        alert('Нет записей для проверки');
+        return;
+      }
+      if (!confirm('Проверить ' + list.length + ' ссылок?\nНерабочие будут удалены. Это может занять несколько минут.')) {
+        return;
+      }
+
+      checkLinksRunning = true;
+      closeCheckLinksModal();
+      let alive = 0, dead = 0, skip = 0, err = 0;
+      const total = list.length;
+      const skipItems = [];
+      const errItems = [];
+
+      function formatCheckRef(item) {
+        const name = item.display_name || '';
+        const user = item.username ? '@' + item.username : '';
+        const link =
+          (typeof buildTelegramCheckUrl === 'function' && buildTelegramCheckUrl(item)) ||
+          item.invite_link ||
+          (item.username ? 'https://t.me/' + item.username : '');
+        const head = user || name || String(item.id || '');
+        if (link && head && link.indexOf(String(item.username || '')) === -1) {
+          return head + (name && user ? ' (' + name + ')' : '') + ' — ' + link;
+        }
+        if (link) return (head && head !== link ? head + ' — ' : '') + link;
+        return head || String(item.id || '—');
+      }
+
+      for (let i = 0; i < list.length; i++) {
+        const item = list[i];
+        const label = item.username ? '@' + item.username : (item.display_name || item.id);
+        showStatus('Проверка ' + (i + 1) + '/' + total + ': ' + label, 120000);
+        const r = await checkAndDeleteItem(item.id, { silent: true });
+        if (r.status === 'alive') {
+          alive++;
+        } else if (r.status === 'dead' && r.deleted) {
+          dead++;
+        } else if (r.status === 'network') {
+          skip++;
+          skipItems.push(formatCheckRef(item));
+        } else {
+          err++;
+          errItems.push(formatCheckRef(item) + (r && r.reason ? ' [' + r.reason + ']' : ''));
+        }
+        await new Promise(r => setTimeout(r, 120));
+      }
+
+      checkLinksRunning = false;
+      showStatus('Проверка ссылок завершена', 4000);
+      await loadData();
+
+      const reportLines = [
+        'Всего проверено: ' + total,
+        'Рабочих ссылок: ' + alive,
+        'Удалено (нерабочие): ' + dead
+      ];
+      if (skip) reportLines.push('Не удалось проверить (сеть/прокси): ' + skip);
+      if (err) reportLines.push('С ошибкой: ' + err);
+      if (cat) reportLines.push('Категория: ' + cat);
+      if (type) {
+        reportLines.push(
+          'Тип: ' + (type === 'channel' ? 'каналы' : type === 'chat' ? 'чаты' : type === 'bot' ? 'боты' : type)
+        );
+      }
+
+      if (skipItems.length) {
+        reportLines.push('—— Не удалось проверить (проверьте вручную) ——');
+        for (let s = 0; s < skipItems.length; s++) {
+          reportLines.push((s + 1) + '. ' + skipItems[s]);
+        }
+      }
+      if (errItems.length) {
+        reportLines.push('—— С ошибкой (проверьте вручную) ——');
+        for (let e = 0; e < errItems.length; e++) {
+          reportLines.push((e + 1) + '. ' + errItems[e]);
+        }
+      }
+
+      showAdminReport('Отчёт: проверка ссылок', reportLines);
+    }
+
+
+    function openRefreshMetaModal() {
+      if (!isAdmin) return;
+      document.getElementById('refresh-meta-modal').classList.add('active');
+    }
+    function closeRefreshMetaModal() {
+      if (typeof refreshMetaRunning !== 'undefined' && refreshMetaRunning) {
+        if (!confirm('Обновление ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+      }
+      document.getElementById('refresh-meta-modal').classList.remove('active');
+    }
+
+    async function runRefreshMetaByCategory() {
+      if (!isAdmin || !supabaseClient) return;
+      if (refreshMetaRunning) {
+        alert('Обновление уже идёт, подождите…');
+        return;
+      }
+      const cat = (document.getElementById('refresh-meta-category')?.value || '').trim();
+      const type = (document.getElementById('refresh-meta-type')?.value || '').trim();
+      const onlyEmpty = !!document.getElementById('refresh-meta-only-empty')?.checked;
+
+      const list = allItems.filter(it => {
+        if (it.is_private || !it.username) return false;
+        if (type && it.type !== type) return false;
+        if (cat) {
+          const itemCat = (it.category || 'Разное').trim();
+          if (cat === 'Для взрослых 18+') {
+            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
+          } else if (itemCat !== cat) {
+            return false;
+          }
+        }
+        if (onlyEmpty && !isWeakMeta(it)) return false;
+        return true;
+      });
+
+      if (!list.length) {
+        alert('Нет подходящих публичных записей для обновления');
+        return;
+      }
+      if (!confirm('Обновить метаданные для ' + list.length + ' записей?\nЭто может занять несколько минут.')) {
+        return;
+      }
+
+      refreshMetaRunning = true;
+      closeRefreshMetaModal();
+      let ok = 0, fail = 0, skip = 0;
+      let done = 0;
+      const total = list.length;
+
+      // Параллель ниже: каждый канал ещё и заливает аватар в Storage
+      const CONCURRENCY = 3;
+      let qIndex = 0;
+
+      async function processOne(item) {
+        try {
+          const meta = await fetchTgMeta(item.username, null, item.type, { fast: true });
+          if (!meta || (!meta.avatar && !meta.title && !meta.description)) {
+            skip++;
+            return;
+          }
+          const patch = {};
+          var avatarCandidate = null;
+          if (meta.avatar) avatarCandidate = meta.avatar;
+          else if (!item.avatar_url) {
+            avatarCandidate = 'https://unavatar.io/telegram/' + encodeURIComponent(item.username);
+          }
+          // Постоянное сохранение в Storage; старый файл из Storage удалится
+          if (avatarCandidate) {
+            patch.avatar_url = await cacheAvatarToSupabase(avatarCandidate, item.username, item.avatar_url);
+          }
+          if (meta.title) patch.display_name = meta.title;
+          if (meta.description) patch.description = meta.description;
+
+          if (!Object.keys(patch).length) {
+            skip++;
+          } else {
+            const { error } = await supabaseClient.from('items').update(patch).eq('id', item.id);
+            if (error) fail++;
+            else {
+              ok++;
+              const idx = allItems.findIndex(x => String(x.id) === String(item.id));
+              if (idx >= 0) allItems[idx] = { ...allItems[idx], ...patch };
+            }
+          }
+        } catch (e) {
+          console.warn('refresh meta', item.username, e);
+          fail++;
+        } finally {
+          done++;
+          showStatus('Мета ' + done + '/' + total + ' · +' + ok + (fail ? ' · ошибок ' + fail : ''), 120000);
+        }
+      }
+
+      async function worker() {
+        while (qIndex < list.length) {
+          const my = qIndex++;
+          await processOne(list[my]);
+          await new Promise(r => setTimeout(r, 60));
+        }
+      }
+
+      const workers = [];
+      for (let w = 0; w < Math.min(CONCURRENCY, list.length || 1); w++) {
+        workers.push(worker());
+      }
+      await Promise.all(workers);
+
+      refreshMetaRunning = false;
+      showStatus('Мета готово: +' + ok + (skip ? ', пропуск ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+      await loadData();
+    }
+
+
+    function openAdminTopModal(id) {
+      pendingTopId = id;
+      document.getElementById('admin-top-modal').classList.add('active');
+    }
+    function closeAdminTopModal() {
+      document.getElementById('admin-top-modal').classList.remove('active');
+      pendingTopId = null;
+    }
+
+    async function confirmAdminTop() {
+      if (!supabaseClient || !isAdmin || !pendingTopId) return;
+      const days = parseInt(document.getElementById('admin-top-days').value) || 7;
+      const until = new Date();
+      until.setDate(until.getDate() + days);
+      try {
+        const { error } = await supabaseClient
+          .from('items')
+          .update({ is_top: true, top_until: until.toISOString() })
+          .eq('id', pendingTopId);
+        if (error) alert(error.message);
+        else {
+          closeAdminTopModal();
+          showStatus('Добавлено в Топ');
+          await loadData();
+        }
+      } catch (e) { console.error(e); }
+    }
+
+
+
+    function launchConfetti(ev) {
+      try {
+        let canvas = document.getElementById('confetti-canvas');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.id = 'confetti-canvas';
+          document.body.appendChild(canvas);
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+        canvas.style.width = window.innerWidth + 'px';
+        canvas.style.height = window.innerHeight + 'px';
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const x0 = (ev && ev.clientX != null) ? ev.clientX : window.innerWidth / 2;
+        const y0 = (ev && ev.clientY != null) ? ev.clientY : window.innerHeight / 3;
+        const colors = ['#2AABEE', '#2c5f4e', '#f43f5e', '#f59e0b', '#8b5cf6', '#10b981', '#ffffff', '#e0d0a8'];
+        const parts = [];
+        for (let n = 0; n < 90; n++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 3 + Math.random() * 9;
+          parts.push({
+            x: x0, y: y0,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed - 4,
+            g: 0.13 + Math.random() * 0.08,
+            w: 4 + Math.random() * 6,
+            h: 3 + Math.random() * 5,
+            rot: Math.random() * 6,
+            vr: (Math.random() - 0.5) * 0.4,
+            color: colors[n % colors.length],
+            life: 55 + Math.random() * 45
+          });
+        }
+        let frame = 0;
+        (function tick() {
+          frame++;
+          ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+          let alive = 0;
+          for (let k = 0; k < parts.length; k++) {
+            const p = parts[k];
+            if (p.life <= 0) continue;
+            alive++;
+            p.life--;
+            p.vy += p.g;
+            p.x += p.vx;
+            p.y += p.vy;
+            p.rot += p.vr;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 45));
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
+            ctx.restore();
+          }
+          if (alive > 0 && frame < 110) requestAnimationFrame(tick);
+          else ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+        })();
+      } catch (e) {
+        console.warn('confetti', e);
+      }
+    }
+
+    // Сжатие картинки на клиенте (для загрузки с телефона)
+    function compressImageFile(file, maxSide, quality) {
+      maxSide = maxSide || 400;
+      quality = quality == null ? 0.85 : quality;
+      return new Promise(function (resolve, reject) {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = function () {
+          try {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            if (!w || !h) {
+              URL.revokeObjectURL(url);
+              return reject(new Error('Не удалось прочитать изображение'));
+            }
+            const scale = Math.min(1, maxSide / Math.max(w, h));
+            w = Math.max(1, Math.round(w * scale));
+            h = Math.max(1, Math.round(h * scale));
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            URL.revokeObjectURL(url);
+            canvas.toBlob(
+              function (blob) {
+                if (!blob) return reject(new Error('Ошибка сжатия'));
+                resolve(blob);
+              },
+              'image/jpeg',
+              quality
+            );
+          } catch (e) {
+            URL.revokeObjectURL(url);
+            reject(e);
+          }
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          reject(new Error('Файл не является изображением'));
+        };
+        img.src = url;
+      });
+    }
+
+    // Админ: загрузка аватарки для приватного канала в Supabase Storage
+    async function uploadPrivateAvatar(itemId) {
+      if (!isAdmin) {
+        alert('Только для администратора');
+        return;
+      }
+      if (!supabaseClient) {
+        alert('Нет подключения к базе. Обновите страницу.');
+        return;
+      }
+      itemId = String(itemId || '').trim();
+      if (!itemId) return;
+
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async function () {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        if (!/^image\//i.test(file.type || '')) {
+          alert('Выберите изображение');
+          return;
+        }
+        if (file.size > 12 * 1024 * 1024) {
+          alert('Файл слишком большой (макс. 12 МБ)');
+          return;
+        }
+        showStatus('Загрузка аватарки…', 60000);
+        try {
+          const blob = await compressImageFile(file, 400, 0.85);
+          const path = 'private_' + itemId.replace(/[^a-zA-Z0-9-]/g, '') + '_' + Date.now() + '.jpg';
+
+          const up = await supabaseClient.storage
+            .from('avatars')
+            .upload(path, blob, {
+              contentType: 'image/jpeg',
+              upsert: true,
+              cacheControl: '31536000'
+            });
+          if (up.error) {
+            console.error(up.error);
+            throw new Error(up.error.message || 'Ошибка Storage. Проверьте политику upload для админа.');
+          }
+
+          const pub = supabaseClient.storage.from('avatars').getPublicUrl(path);
+          const publicUrl = pub && pub.data && pub.data.publicUrl;
+          if (!publicUrl) throw new Error('Не удалось получить URL');
+
+          const { error } = await supabaseClient
+            .from('items')
+            .update({ avatar_url: publicUrl })
+            .eq('id', itemId);
+          if (error) throw error;
+
+          allItems = allItems.map(function (it) {
+            if (String(it.id) === itemId) return Object.assign({}, it, { avatar_url: publicUrl });
+            return it;
+          });
+          render();
+          showStatus('Аватарка сохранена', 3000);
+        } catch (e) {
+          console.error(e);
+          alert('Не удалось загрузить: ' + (e.message || e));
+          showStatus('Ошибка загрузки аватарки', 4000);
+        }
+      };
+      input.click();
+    }
+
+    // Ссылка на карточку в каталоге (SEO): публичные /c/, приватные /p/{id}
+    function catalogItemHref(item) {
+      if (!item) return '#';
+      if (item.is_private) {
+        if (item.id) return '/p/' + encodeURIComponent(item.id);
+        return item.invite_link || '#';
+      }
+      var u = item.username ? String(item.username) : '';
+      u = u.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0];
+      if (!u) {
+        if (item.id) return '/p/' + encodeURIComponent(item.id);
+        return '#';
+      }
+      return '/c/' + encodeURIComponent(u);
+    }
+
+    // Внутренние страницы каталога — без target=_blank
+    function catalogItemLinkAttrs(item) {
+      if (item && item.is_private && !item.id && item.invite_link) {
+        return ' target="_blank" rel="noopener"';
+      }
+      return '';
+    }
+
+    function getAvatar(item, size, confetti) {
+      size = size || 54;
+      const confettiAttr = confetti
+        ? ' onclick="event.stopPropagation();launchConfetti(event)" title="Салют!"'
+        : '';
+      const colors = ['#3b6b9a','#6b5b8c','#4a7c6f','#8b5a2b','#5a6b8c','#7a4c6f'];
+      const raw = (item.display_name || item.username || item.invite_link || '?').toString();
+      const name = raw.replace(/^@/, '').replace(/[^a-zA-Zа-яА-Я0-9]/g, '');
+      const letter = (name[0] || '?').toUpperCase();
+      const isPriv = !!item.is_private;
+      const isBot = item.type === 'bot' || (!!item.username && /bot$/i.test(String(item.username)));
+      const color = isPriv ? '#5c6bc0' : isBot ? '#2c5f4e' : colors[Math.abs(name.length) % colors.length];
+      const letterHtml = `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${size * 0.4}px;font-weight:600;color:#fff;z-index:0;">${letter}</span>`;
+
+      let uname = item.username ? String(item.username) : '';
+      uname = uname.replace(/^@/, '').replace(/^https?:\/\/(t\.me|telegram\.me)\//i, '').split('/')[0].split('?')[0].toLowerCase();
+
+      // 1) avatar_url  2) unavatar (только публичные)
+      const sources = [];
+      if (item.avatar_url) {
+        const au = String(item.avatar_url).replace(/"/g, '');
+        // для приватных не используем unavatar / дефолтные логотипы — сразу «перечёркнутый глаз»
+        const badForPrivate = isPriv && (/unavatar\.io|telegram\.org|t_logo|favicon/i.test(au));
+        if (!badForPrivate) sources.push(au);
+      }
+      if (uname && !isPriv && !uname.startsWith('+')) {
+        sources.push('https://unavatar.io/telegram/' + encodeURIComponent(uname));
+        sources.push('https://unavatar.io/' + encodeURIComponent(uname) + '?fallback=false');
+      }
+
+      if (sources.length) {
+        const esc = (s) => String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+        // цепочка onerror: следующий источник; в конце — скрыть img (останется буква или робот)
+        let onerrChain = "this.style.display='none'";
+        for (let i = sources.length - 1; i >= 1; i--) {
+          const src = esc(sources[i]);
+          onerrChain = "this.onerror=function(){" + onerrChain + "};this.src='" + src + "'";
+        }
+        // для бота под img кладём 🤖, чтобы при полном провале картинок остался робот
+        const underlay = isBot
+          ? `<span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:${Math.max(16, Math.round(size * 0.5))}px;z-index:0;">🤖</span>`
+          : letterHtml;
+        const bg = isBot ? 'linear-gradient(145deg,#3d8b6e,#2c5f4e)' : color;
+        return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${bg};position:relative;overflow:hidden;">
+          ${underlay}
+          <img src="${sources[0].replace(/"/g, '')}" alt="" loading="lazy" referrerpolicy="no-referrer"
+            onload="this.style.opacity=1" onerror="${onerrChain}"
+            style="position:relative;z-index:1;width:100%;height:100%;object-fit:cover;border-radius:50%;opacity:0;transition:opacity 0.2s;">
+        </div>`;
+      }
+
+      // Приватный канал/чат без аватарки — «перечёркнутый глаз»
+      if (isPriv) {
+        const eyeSize = Math.max(14, Math.round(size * 0.42));
+        const slashW = Math.max(2, Math.round(size * 0.06));
+        return `<div class="card-avatar"${confettiAttr} title="Приватный — аватар недоступен"
+          style="width:${size}px;height:${size}px;background:#5c6bc0;position:relative;overflow:hidden;
+                 display:flex;align-items:center;justify-content:center;">
+          <span style="position:relative;display:inline-flex;align-items:center;justify-content:center;
+                       font-size:${eyeSize}px;line-height:1;filter:grayscale(0.15);">
+            👁
+            <span style="position:absolute;left:50%;top:50%;width:${Math.round(size * 0.55)}px;height:${slashW}px;
+                         background: var(--card);border-radius:2px;transform:translate(-50%,-50%) rotate(-28deg);
+                         box-shadow:0 0 0 1px rgba(92,107,192,0.35);"></span>
+          </span>
+        </div>`;
+      }
+
+      // Бот без аватарки из ТГ — наш значок «android-бот»
+      if (isBot) {
+        const botSize = Math.max(16, Math.round(size * 0.5));
+        return `<div class="card-avatar"${confettiAttr} title="Бот"
+          style="width:${size}px;height:${size}px;background:linear-gradient(145deg,#3d8b6e,#2c5f4e);
+                 position:relative;display:flex;align-items:center;justify-content:center;
+                 box-shadow:inset 0 0 0 2px rgba(255,255,255,0.12);">
+          <span style="font-size:${botSize}px;line-height:1;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.25));">🤖</span>
+        </div>`;
+      }
+
+      return `<div class="card-avatar"${confettiAttr} style="width:${size}px;height:${size}px;background:${color};font-size:${size * 0.4}px;">${letter}</div>`;
+    }
+
+    function getDaysLeft(topUntil) {
+      if (!topUntil) return 0;
+      const ms = new Date(topUntil).getTime() - Date.now();
+      if (isNaN(ms) || ms <= 0) return 0;
+      return Math.max(1, Math.ceil(ms / (24 * 60 * 60 * 1000)));
+    }
+
+    function setFilter(f) {
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
+      });
+      listVisibleCount = listPageSize;
+      applyFilters();
+    }
+
+    function setCategoryFilter(cat) {
+      currentCategory = cat || '';
+      listVisibleCount = listPageSize;
+      applyFilters();
+    }
+
+    function showMoreItems() {
+      listVisibleCount += listPageSize;
+      applyFilters({ keepScroll: true });
+    }
+
+    function isRecentUserAdd(item) {
+      if (!item || !item.created_at) return false;
+      if (item.source && item.source !== 'user') return false;
+      if (!item.source) return false; // старые записи без source не показываем в «недавних»
+      const age = Date.now() - new Date(item.created_at).getTime();
+      return age >= 0 && age <= 3 * 24 * 60 * 60 * 1000;
+    }
+
+    function rotateList(arr) {
+      if (!arr || arr.length < 2) return arr || [];
+      const offset = listRotateOffset % arr.length;
+      return arr.slice(offset).concat(arr.slice(0, offset));
+    }
+
+    function applyFilters(opts) {
+      // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
+      listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
+
+      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+      const filtered = allItems.filter(item => {
+        if (currentFilter !== 'all' && item.type !== currentFilter) return false;
+        if (currentCategory) {
+          const cat = (item.category || 'Разное').trim();
+          // "Для взрослых" и "Для взрослых 18+" — одна категория
+          if (currentCategory === 'Для взрослых 18+') {
+            if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
+          } else if (cat !== currentCategory) {
+            return false;
+          }
+        }
+        if (q) {
+          const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
+          if (!text.includes(q)) return false;
+        }
+        return true;
+      });
+
+      // Топ (только актуальные) — порядок фиксированный
+      const now = new Date();
+      const topItems = allItems.filter(item => {
+        if (!item.is_top) return false;
+        if (item.top_until && new Date(item.top_until) < now) return false;
+        return true;
+      });
+
+      // Обычный список — крутится как колесо (топ в нём тоже может быть, но ротация всего filtered)
+      const rotated = rotateList(filtered);
+
+      const topCountEl = document.getElementById('top-count');
+      const itemsCountEl = document.getElementById('items-count');
+      // Числа записей — только для админа
+      if (topCountEl) topCountEl.textContent = isAdmin && topItems.length ? `(${topItems.length})` : '';
+      if (itemsCountEl) itemsCountEl.textContent = isAdmin && rotated.length ? `(${rotated.length})` : '';
+
+      // Недавно добавленные (только source=user, до 3 суток)
+      const recentItems = allItems
+        .filter(isRecentUserAdd)
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const recentEl = document.getElementById('recent-list');
+      const recentCountEl = document.getElementById('recent-count');
+      if (recentCountEl) recentCountEl.textContent = isAdmin && recentItems.length ? `(${recentItems.length})` : '';
+      if (recentEl) {
+        if (!recentItems.length) {
+          recentEl.innerHTML = '<div class="loading">Пока пусто</div>';
+        } else {
+          recentEl.innerHTML = recentItems.map(item => {
+            const link = catalogItemHref(item);
+            const linkAttrs = catalogItemLinkAttrs(item);
+            const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+            const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+            const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
+            return `
+            <div class="item-row">
+              ${getAvatar(item, 32)}
+              <div class="info">
+                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
+                <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                ${desc ? `<div class="item-desc">${desc}</div>` : ''}
+              </div>
+            </div>`;
+          }).join('');
+        }
+      }
+
+      // Рендер топа
+      const topEl = document.getElementById('top-list');
+      if (topEl) {
+      if (!topItems.length) {
+        topEl.innerHTML = '<div class="loading">Пока пусто</div>';
+      } else {
+        topEl.innerHTML = topItems.map(item => {
+          const days = getDaysLeft(item.top_until);
+          const link = catalogItemHref(item);
+          const linkAttrs = catalogItemLinkAttrs(item);
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+          const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
+          return `
+            <div class="card top-card">
+              ${getAvatar(item, 54, true)}
+              <div class="card-content">
+                <div class="type">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                <div class="username"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
+                ${desc ? `<div class="desc">${desc}</div>` : ''}
+                <div class="meta"><span>Топ: ${days} дн.</span></div>
+                ${isAdmin ? `<div class="actions">
+                    <button class="btn-remove-top" onclick="removeTop('${escapeJsAttr(item.id)}')">Убрать из Топа</button>
+                    ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷 Аватар</button>` : ''}
+                    ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить аватар и описание">Мета</button>` : ''}
+                    <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку, удалить если мёртвая">Ссылка?</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
+                  </div>` : ''}
+              </div>
+            </div>`;
+        }).join('');
+      }
+      }
+
+      // Рендер списка (с ротацией + пагинация — не рисуем все тысячи строк сразу)
+      lastFilteredList = rotated;
+      const listEl = document.getElementById('items-list');
+      if (listEl) {
+      if (!rotated.length) {
+        listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
+      } else {
+        const limit = Math.min(listVisibleCount, rotated.length);
+        const page = rotated.slice(0, limit);
+        const rest = rotated.length - limit;
+        let html = page.map(item => {
+          const link = catalogItemHref(item);
+          const linkAttrs = catalogItemLinkAttrs(item);
+          const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
+          const isTopActive = item.is_top && item.top_until && new Date(item.top_until) > new Date();
+          const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
+          const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
+          const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
+          return `
+            <div class="item-row">
+              ${getAvatar(item, 32)}
+              <div class="info">
+                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
+                <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${desc ? `<div class="item-desc">${desc}</div>` : ''}
+                <div class="actions">
+                  <button class="btn-top" onclick="openTopModal()">В Топ</button>
+                  ${isAdmin ? `
+                    <button class="btn-make-top" onclick="openAdminTopModal('${escapeJsAttr(item.id)}')">Админ Топ</button>
+                    ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷</button>` : ''}
+                    ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить метаданные">↻ Мета</button>` : ''}
+                    <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку">Ссылка?</button>
+                    <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
+                    <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
+                </div>
+              </div>
+            </div>`;
+        }).join('');
+        if (rest > 0) {
+          html += `<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">Показать ещё ${Math.min(listPageSize, rest)} из ${rest}</button>`;
+        }
+        listEl.innerHTML = html;
+      }
+      }
+
+      // Чёрный список
+      const blEl = document.getElementById('blacklist-list');
+      if (isAdmin && blEl) {
+        if (!blacklist.length) {
+          blEl.innerHTML = '<div style="color:var(--muted);font-size:0.9rem;">Пусто</div>';
+        } else {
+          blEl.innerHTML = blacklist.map(value => `
+          <div class="blacklist-item">
+            <span>${escapeHtml(value)}</span>
+            <button onclick="removeFromBlacklist('${escapeJsAttr(value)}')">Убрать</button>
+          </div>`).join('');
+        }
+      }
+    }
+
+    function render() {
+      // не блокируем UI на длинной отрисовке
+      requestAnimationFrame(() => {
+        try {
+          applyFilters();
+        } catch (re) {
+          console.error('render error', re);
+          setListsMessage('Данные получены, но ошибка отрисовки: ' + escapeHtml(re.message || ''));
+        }
+      });
+    }
+
+    function openModal(type) {
+      currentType = type;
+      const titles = { chat: 'Добавить чат', channel: 'Добавить канал', bot: 'Добавить бот' };
+      const typeNames = { chat: 'Чат', channel: 'Канал', bot: 'Бот' };
+      document.getElementById('modal-title').textContent = titles[type] || 'Добавить';
+      const hint = document.getElementById('modal-type-hint');
+      if (hint) {
+        hint.innerHTML = 'Тип записи: <strong>' + (typeNames[type] || type) + '</strong> · ниже выберите категорию (тему)';
+      }
+      const nameEl = document.getElementById('item-name');
+      const linkEl = document.getElementById('item-link');
+      const descEl = document.getElementById('item-desc');
+      if (nameEl) nameEl.value = '';
+      if (linkEl) linkEl.value = '';
+      if (descEl) descEl.value = '';
+      const catEl = document.getElementById('item-category');
+      if (catEl) catEl.value = '';
+      hideAddProgress();
+      document.getElementById('add-modal').classList.add('active');
+    }
+
+    function closeModal() {
+      hideAddProgress();
+      document.getElementById('add-modal').classList.remove('active');
+    }
+
+    function openTopModal() {
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
+      document.getElementById('top-modal').classList.add('active');
+      updatePrice();
+    }
+    function closeTopModal() {
+      document.getElementById('top-modal').classList.remove('active');
+      document.getElementById('top-step-1').style.display = 'block';
+      document.getElementById('top-step-2').style.display = 'none';
+    }
+    // До 3 дней — без скидки (60 ₽/день). Скидка с 7+ дней. 30 дней = 1000 ₽
+    function calcTopPrice(days) {
+      const table = { 1: 60, 2: 120, 3: 180, 7: 300, 14: 520, 30: 1000 };
+      if (table[days] != null) return table[days];
+      if (days <= 3) return days * 60;
+      // линейно между 3 дн (180) и 30 дн (1000)
+      return Math.round(180 + 820 * (days - 3) / 27);
+    }
+
+    function updatePrice() {
+      const days = parseInt(document.getElementById('days-select').value) || 1;
+      const total = calcTopPrice(days);
+      const perDay = Math.round(total / days);
+      const full = days * 60;
+      const save = full - total;
+      const sum = total + ' ₽';
+      document.getElementById('total-price').textContent = sum;
+      const finalEl = document.getElementById('top-final-price');
+      if (finalEl) finalEl.textContent = sum;
+      const hint = document.getElementById('price-hint');
+      if (hint) {
+        if (days <= 3) {
+          hint.textContent = 'Без скидки: 60 ₽/день';
+        } else {
+          hint.textContent = '≈ ' + perDay + ' ₽/день (экономия ' + save + ' ₽)';
+        }
+      }
+    }
+    function confirmTopDays() {
+      updatePrice();
+      applyPaymentBotUI();
+      document.getElementById('top-step-1').style.display = 'none';
+      document.getElementById('top-step-2').style.display = 'block';
+    }
+
+    function openLegal(type) {
+      document.getElementById('legal-title').textContent = legalTexts[type].title;
+      document.getElementById('legal-content').innerHTML = legalTexts[type].content;
+      document.getElementById('legal-modal').classList.add('active');
+    }
+    function closeLegal() {
+      document.getElementById('legal-modal').classList.remove('active');
+    }
+
+    // Закрытие модалок по клику на фон
+    document.querySelectorAll('.modal-overlay').forEach(el => {
+      el.addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) el.classList.remove('active');
+      });
+    });
+
+
+    // Тема: светлая / тёмная
+    function applyTheme(theme) {
+      theme = theme === 'dark' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      try { localStorage.setItem('telegra_theme', theme); } catch (e) {}
+      const btn = document.getElementById('theme-toggle');
+      if (btn) btn.textContent = theme === 'dark' ? 'Светлая' : 'Тёмная';
+    }
+    function toggleTheme() {
+      const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+      applyTheme(cur === 'dark' ? 'light' : 'dark');
+    }
+    (function initTheme() {
+      var saved = '';
+      try { saved = localStorage.getItem('telegra_theme') || ''; } catch (e) {}
+      if (saved === 'dark' || saved === 'light') {
+        applyTheme(saved);
+      } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        applyTheme('dark');
+      } else {
+        applyTheme('light');
+      }
+    })();
+
+    // Явно в window — чтобы onclick="..." всегда видел функции
+    try {
+      window.toggleTheme = toggleTheme;
+      window.applyTheme = applyTheme;
+      window.openModal = openModal;
+      window.closeModal = closeModal;
+      window.addItem = addItem;
+      window.loadData = loadData;
+      window.setFilter = setFilter;
+      window.setCategoryFilter = setCategoryFilter;
+      window.onSearchInput = onSearchInput;
+      window.toggleLoginPopup = toggleLoginPopup;
+      window.loginAdmin = loginAdmin;
+      window.logoutAdmin = logoutAdmin;
+      window.openTopModal = openTopModal;
+      window.closeTopModal = closeTopModal;
+      window.confirmTopDays = confirmTopDays;
+      window.updatePrice = updatePrice;
+      window.openLegal = openLegal;
+      window.closeLegal = closeLegal;
+      window.openAnalyticsModal = openAnalyticsModal;
+      window.closeAnalyticsModal = closeAnalyticsModal;
+      window.loadAnalytics = loadAnalytics;
+      window.resetStatsBucket = resetStatsBucket;
+      window.openBulkModal = openBulkModal;
+      window.closeBulkModal = closeBulkModal;
+      window.runBulkImport = runBulkImport;
+      window.openRefreshMetaModal = openRefreshMetaModal;
+      window.closeRefreshMetaModal = closeRefreshMetaModal;
+      window.runRefreshMetaByCategory = runRefreshMetaByCategory;
+      window.openCheckLinksModal = openCheckLinksModal;
+      window.closeCheckLinksModal = closeCheckLinksModal;
+      window.showAdminReport = showAdminReport;
+      window.closeAdminReport = closeAdminReport;
+      window.runCheckLinksByCategory = runCheckLinksByCategory;
+      window.openDeleteCategoryModal = openDeleteCategoryModal;
+      window.closeDeleteCategoryModal = closeDeleteCategoryModal;
+      window.runDeleteCategory = runDeleteCategory;
+      window.openBotSettings = openBotSettings;
+      window.closeBotSettings = closeBotSettings;
+      window.savePaymentBot = savePaymentBot;
+      window.openAdminTopModal = openAdminTopModal;
+      window.closeAdminTopModal = closeAdminTopModal;
+      window.confirmAdminTop = confirmAdminTop;
+      window.removeTop = removeTop;
+      window.deleteItem = deleteItem;
+      window.addToBlacklist = addToBlacklist;
+      window.removeFromBlacklist = removeFromBlacklist;
+      window.refreshMeta = refreshMeta;
+      window.checkAndDeleteItem = checkAndDeleteItem;
+      window.uploadPrivateAvatar = uploadPrivateAvatar;
+      window.launchConfetti = launchConfetti;
+      window.closePrivateNameModal = closePrivateNameModal;
+      window.confirmPrivateName = confirmPrivateName;
+      window.showMoreItems = showMoreItems;
+      window.loadDataAttempts = 0;
+
+    // Лёгкий параллакс бумажной текстуры
+    (function initPaperParallax() {
+      const layer = document.getElementById('bg-planets');
+      if (!layer) return;
+      const parts = layer.querySelectorAll('[data-speed]');
+      let ticking = false;
+      function onScroll() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(() => {
+          const y = window.scrollY || window.pageYOffset || 0;
+          parts.forEach(el => {
+            const speed = parseFloat(el.getAttribute('data-speed') || '0.05');
+            el.style.transform = 'translate3d(0, ' + (-y * speed) + 'px, 0)';
+          });
+          ticking = false;
+        });
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+
+    } catch (e) {
+      console.error('window export failed', e);
+    }
+
+
+    // Быстрый старт: первая порция каталога → экран; остальное и админка — фон
+    (async () => {
+      function tryInitSupabase() {
+        if (supabaseClient) return true;
+        if (window.supabase && window.supabase.createClient) {
+          try {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            return !!supabaseClient;
+          } catch (e) {
+            console.error('Supabase init', e);
+          }
+        }
+        return false;
+      }
+
+      try { initCategorySelects(); } catch (e) { console.warn('initCategorySelects', e); }
+
+      showStatus('Подождите, идёт загрузка сайта…', 120000);
+      setListsMessage('Загрузка…');
+
+      // supabase-js с defer — подхватим когда появится, каталогу не нужен
+      tryInitSupabase();
+      setTimeout(tryInitSupabase, 1200);
+      setTimeout(tryInitSupabase, 3000);
+
+      try {
+        await loadData();
+      } catch (e) {
+        console.error('boot loadData', e);
+      }
+
+      // Статистика просмотра — после списка, не на критическом пути
+      setTimeout(function () { try { trackPageView(); } catch (e) {} }, 500);
+
+      // Сессия админа: сразу после каталога + повтор, если supabase-js подгрузился позже
+      tryInitSupabase();
+      if (supabaseClient) {
+        try { await checkSession(); } catch (e) {}
+        loadPaymentBot().catch(function () {});
+      }
+      setTimeout(function () {
+        tryInitSupabase();
+        if (supabaseClient) {
+          checkSession().catch(function () {});
+          loadPaymentBot().catch(function () {});
+        }
+      }, 1500);
+      // Подписка на смену сессии (истечение токена / другой вкладке)
+      try {
+        if (supabaseClient && supabaseClient.auth && supabaseClient.auth.onAuthStateChange) {
+          supabaseClient.auth.onAuthStateChange(function (event) {
+            if (event === 'SIGNED_OUT') {
+              isAdmin = false;
+              applyAdminChrome(false);
+              try { render(); } catch (e) {}
+            } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+              checkSession().catch(function () {});
+            }
+          });
+        }
+      } catch (eAuth) {}
+
+      console.info('[Telegra] boot ok, items:', allItems.length);
+
+      // Открытие юр. текстов по ссылке /?legal=agreement|privacy (для SEO и прямых URL)
+      try {
+        var legalParam = new URLSearchParams(window.location.search || '').get('legal');
+        if (legalParam === 'agreement' || legalParam === 'privacy') {
+          setTimeout(function () { openLegal(legalParam); }, 300);
+        }
+      } catch (eLegal) {}
+
+      // Полный refresh каталога реже — раз в 10 минут (фон догружает сам)
+      setInterval(function () {
+        catalogFullyLoaded = false;
+        loadData(true);
+      }, 10 * 60 * 1000);
+      setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
+      setInterval(function () {
+        var now = Date.now();
+        var changed = false;
+        allItems = allItems.map(function (it) {
+          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
+            changed = true;
+            return Object.assign({}, it, { is_top: false, top_until: null });
+          }
+          return it;
+        });
+        applyFilters();
+        if (changed && isAdmin) loadData(true);
+      }, 60 * 1000);
+    })();
+  </script>
+</body>
+</html>
