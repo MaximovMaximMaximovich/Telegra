@@ -3668,37 +3668,41 @@
         var label = '@' + item.username;
         showStatus('Подписчики ' + (i + 1) + '/' + total + ': ' + label + ' (порог ' + threshold + ')', 120000);
         var r = await getSubscriberCountForUsername(item.username);
+        var shouldDelete = false;
+        var delNote = '';
         if (r.ok && typeof r.count === 'number') {
           if (r.count < threshold) {
-            try {
-              if (item.avatar_url && /\/storage\/v1\/object\/public\/avatars\//i.test(item.avatar_url)) {
-                try {
-                  await fetch('/api/delete-avatar', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: item.avatar_url })
-                  });
-                } catch (eAv) {}
-              }
-              var del = await supabaseClient.from('items').delete().eq('id', item.id);
-              if (!del.error) {
-                deleted++;
-                deletedRefs.push(label + ' (' + r.count + ')');
-              } else {
-                unknown++;
-                unknownRefs.push(label + ' [delete error]');
-              }
-            } catch (eDel) {
-              unknown++;
-              unknownRefs.push(label + ' [delete fail]');
-            }
+            shouldDelete = true;
+            delNote = String(r.count);
           }
-        } else if (r.reason === 'dead') {
-          dead++;
         } else {
-          unknown++;
-          if (unknownRefs.length < 80) {
-            unknownRefs.push(label + (r.reason ? ' [' + r.reason + ']' : ''));
+          // не удалось проверить — удаляем (сеть, нет числа, мёртвая страница)
+          shouldDelete = true;
+          delNote = r.reason ? ('не проверен: ' + r.reason) : 'не проверен';
+          if (r.reason === 'dead') dead++;
+          else unknown++;
+        }
+
+        if (shouldDelete) {
+          try {
+            if (item.avatar_url && /\/storage\/v1\/object\/public\/avatars\//i.test(item.avatar_url)) {
+              try {
+                await fetch('/api/delete-avatar', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ url: item.avatar_url })
+                });
+              } catch (eAv) {}
+            }
+            var del = await supabaseClient.from('items').delete().eq('id', item.id);
+            if (!del.error) {
+              deleted++;
+              deletedRefs.push(label + ' (' + delNote + ')');
+            } else if (unknownRefs.length < 120) {
+              unknownRefs.push(label + ' [ошибка удаления]');
+            }
+          } catch (eDel) {
+            if (unknownRefs.length < 120) unknownRefs.push(label + ' [сбой удаления]');
           }
         }
         await new Promise(function (resolve) { setTimeout(resolve, 180); });
@@ -3710,10 +3714,11 @@
 
       var report = [
         'Порог: меньше ' + threshold + ' подписчиков',
+        'Также удалялись записи, которые не удалось проверить',
         'Всего в выборке: ' + total,
         'Удалено: ' + deleted,
-        'Не удалось узнать число: ' + unknown,
-        'Похоже не существуют (не удаляли): ' + dead
+        'Из них без числа/сеть: ~' + unknown,
+        'Из них похоже мёртвые: ~' + dead
       ];
       if (cat) report.push('Категория: ' + cat);
       if (type) report.push('Тип: ' + type);
