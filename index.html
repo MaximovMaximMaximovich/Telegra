@@ -1418,9 +1418,16 @@
     let loginPopupOpen = false;
     let paymentBot = 'TG_Administrator_Vip_bot';
     let listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
-    let listPageSize = 50;
-    let listVisibleCount = 50;
+    let listPageSize = 20;
+    let listVisibleCount = 20;
     let lastFilteredList = [];
+    // Серверный каталог (режем Egress): не держим все 15k в браузере
+    let topItemsCache = [];
+    let recentItemsCache = [];
+    let catalogPage = 1;
+    let catalogHasMore = false;
+    let catalogTotal = 0;
+    let catalogListLoading = false;
 
     // Единый список категорий — больше не дублируем в 6 местах HTML
     const CATEGORIES = [
@@ -1680,22 +1687,14 @@
     }
 
     let filterDebounceTimer = null;
+    let searchTimer = null;
     function onSearchInput() {
-      // Debounce heavy re-render to avoid lag on large catalogs / mobile
-      if (filterDebounceTimer) clearTimeout(filterDebounceTimer);
-      filterDebounceTimer = setTimeout(() => {
+      if (searchTimer) clearTimeout(searchTimer);
+      searchTimer = setTimeout(function () {
+        catalogPage = 1;
         listVisibleCount = listPageSize;
-        applyFilters();
-      }, 180);
-
-      const q = (document.getElementById('search-input')?.value || '').trim();
-      if (searchTrackTimer) clearTimeout(searchTrackTimer);
-      if (q.length < 2) return;
-      searchTrackTimer = setTimeout(() => {
-        if (q === lastTrackedSearch) return;
-        lastTrackedSearch = q;
-        trackEvent('search', q);
-      }, 800);
+        loadData(true);
+      }, 400);
     }
 
     function openAnalyticsModal() {
@@ -1938,6 +1937,21 @@
     let catalogFullyLoaded = false;
     let catalogBgLoading = false;
 
+    async function fetchCatalogApi(params) {
+      const u = new URL('/api/catalog', window.location.origin);
+      Object.keys(params || {}).forEach(function (k) {
+        const v = params[k];
+        if (v === undefined || v === null || v === '') return;
+        u.searchParams.set(k, String(v));
+      });
+      const res = await fetch(u.toString(), { credentials: 'same-origin' });
+      if (!res.ok) {
+        const tx = await res.text().catch(function () { return ''; });
+        throw new Error('Каталог HTTP ' + res.status + (tx ? ': ' + tx.slice(0, 80) : ''));
+      }
+      return res.json();
+    }
+
     async function fetchItemsRange(from, size, extraQuery) {
       const q = extraQuery ? ('&' + extraQuery) : '';
       const url = SUPABASE_URL + '/rest/v1/items?select=' + ITEMS_SELECT + '&order=created_at.desc' + q;
@@ -2026,52 +2040,11 @@
       return out;
     }
 
-    // Догрузка остального каталога в фоне (поиск по всем записям)
+    // Полная догрузка 15k в браузер отключена (Egress). Оставлено как no-op для совместимости.
     async function loadCatalogBackground(startFrom) {
-      if (catalogBgLoading) return;
-      if (catalogFullyLoaded && startFrom == null) return;
-      catalogBgLoading = true;
-      catalogFullyLoaded = false;
-      let from = typeof startFrom === 'number' ? startFrom : 0;
-      const pageSize = 500;
-      let okComplete = false;
-      try {
-        while (from < 100000) {
-          const batch = await fetchItemsRange(from, pageSize);
-          if (!batch.length) {
-            okComplete = true;
-            break;
-          }
-          allItems = mergeItemsById(allItems, batch);
-          from += pageSize;
-          if (batch.length < pageSize) {
-            okComplete = true;
-            break;
-          }
-          if (from % 1000 === 0) {
-            try { render(); } catch (e) {}
-          }
-        }
-        if (okComplete) {
-          catalogFullyLoaded = true;
-          try { render(); } catch (e) {}
-        } else {
-          // не дошли до конца — повторим позже
-          setTimeout(function () {
-            catalogFullyLoaded = false;
-            loadCatalogBackground(from);
-          }, 4000);
-        }
-      } catch (e) {
-        console.warn('catalog background', e);
-        // сеть оборвалась — не оставляем гостя с «обрубком» навсегда
-        setTimeout(function () {
-          catalogFullyLoaded = false;
-          loadCatalogBackground(from);
-        }, 5000);
-      } finally {
-        catalogBgLoading = false;
-      }
+      catalogFullyLoaded = true;
+      catalogBgLoading = false;
+      return;
     }
 
     async function fetchBlacklistViaRest() {
@@ -2117,59 +2090,51 @@
           let usedRest = false;
           let needBackground = false;
 
-          // --- Быстрый старт: Топ + свежие + «недавно от пользователей» (параллельно) ---
+          // --- Порции с /api/catalog (без выгрузки всех 15k) ---
           try {
-            const triple = await Promise.all([
-              fetchTopItemsViaRest(),
-              fetchItemsRange(0, 250),
-              fetchRecentUserViaRest()
+            const q = (document.getElementById('search-input') && document.getElementById('search-input').value || '').trim();
+            const typeParam = currentFilter !== 'all' ? currentFilter : '';
+            const pack = await Promise.all([
+              fetchCatalogApi({ mode: 'top', limit: 24 }),
+              fetchCatalogApi({ mode: 'recent', limit: 20 }),
+              fetchCatalogApi({
+                mode: 'list',
+                page: 1,
+                limit: listPageSize,
+                type: typeParam,
+                category: currentCategory || '',
+                q: q
+              })
             ]);
-            items = mergeItemsById(mergeItemsById(triple[0] || [], triple[1] || []), triple[2] || []);
+            topItemsCache = (pack[0] && pack[0].items) || [];
+            recentItemsCache = (pack[1] && pack[1].items) || [];
+            const listPayload = pack[2] || {};
+            items = listPayload.items || [];
+            catalogPage = 1;
+            catalogHasMore = !!listPayload.hasMore;
+            catalogTotal = typeof listPayload.total === 'number' ? listPayload.total : items.length;
             usedRest = true;
-            // если пришло 250 «новых» или Content-Range говорит что всего больше — догрузим фоном
-            const batch1 = triple[1] || [];
-            const totalHint = batch1._totalHint;
-            needBackground = (batch1.length >= 250) ||
-              (typeof totalHint === 'number' && totalHint > items.length);
+            needBackground = false;
+            catalogFullyLoaded = true;
           } catch (eRest) {
             error = { message: eRest.message || String(eRest) };
           }
 
-          // --- Запасной путь: полный REST / supabase-js ---
+          // Запасной путь: только маленькая первая порция напрямую из REST (не весь каталог)
           if ((!items || !items.length)) {
             try {
-              const restItems = await fetchItemsViaRest();
-              if (restItems && restItems.length) {
-                items = restItems;
-                usedRest = true;
-                needBackground = false;
-                catalogFullyLoaded = true;
-              }
+              const batch = await fetchItemsRange(0, listPageSize);
+              items = batch || [];
+              topItemsCache = topItemsCache.length ? topItemsCache : (await fetchTopItemsViaRest());
+              recentItemsCache = recentItemsCache.length ? recentItemsCache : (await fetchRecentUserViaRest());
+              catalogHasMore = items.length >= listPageSize;
+              catalogTotal = items.length;
+              needBackground = false;
+              catalogFullyLoaded = true;
+              usedRest = true;
+              error = null;
             } catch (e2) {
               error = { message: (error && error.message ? error.message + ' | ' : '') + (e2.message || e2) };
-            }
-          }
-
-          if ((!items || !items.length) && supabaseClient) {
-            try {
-              const res = await withTimeout(
-                supabaseClient
-                  .from('items')
-                  .select(ITEMS_SELECT)
-                  .order('created_at', { ascending: false })
-                  .range(0, 249),
-                10000,
-                'Загрузка каталога'
-              );
-              if (!res.error && res.data && res.data.length) {
-                items = res.data;
-                error = null;
-                needBackground = res.data.length >= 250;
-              }
-            } catch (e) {
-              if (!items.length) {
-                error = { message: (error && error.message ? error.message + ' | ' : '') + (e.message || String(e)) };
-              }
             }
           }
 
@@ -2213,17 +2178,12 @@
           const nowIso = Date.now();
           const mapped = (items || []).map(it => {
             if (it.is_top && it.top_until && new Date(it.top_until).getTime() < nowIso) {
-              return { ...it, is_top: false, top_until: null };
+              return Object.assign({}, it, { is_top: false, top_until: null });
             }
             return it;
           });
-          // Не затираем уже догруженный каталог первой порцией (~250) —
-          // иначе в одном браузере «3000», после refresh «250», у гостя «пропали каналы»
-          if (allItems.length > mapped.length) {
-            allItems = mergeItemsById(allItems, mapped);
-          } else {
-            allItems = mapped;
-          }
+          // Список = текущая порция с сервера (или накопленные страницы при «Ещё»)
+          allItems = mapped;
 
           // ЧС нужен в основном админу — не блокируем первый экран
           if (isAdmin) {
@@ -2251,18 +2211,12 @@
             }
           }
 
-          console.info('[Telegra] first paint items:', allItems.length, 'bg:', !!needBackground);
+          console.info('[Telegra] catalog page items:', allItems.length, 'total~', catalogTotal, 'hasMore', catalogHasMore);
           if (!welcomeShown) {
             welcomeShown = true;
             showStatus('Добро пожаловать', 3500);
           }
-
-          // Остальной каталог — в фоне (поиск по всем)
-          if (needBackground) {
-            setTimeout(function () { loadCatalogBackground(250); }, 100);
-          } else {
-            catalogFullyLoaded = true;
-          }
+          catalogFullyLoaded = true;
 
           // Сброс просроченного топа — только в фоне
           if (supabaseClient) {
@@ -4048,18 +4002,50 @@
         btn.classList.toggle('active', btn.getAttribute('data-filter') === f);
       });
       listVisibleCount = listPageSize;
-      applyFilters();
+      catalogPage = 1;
+      loadData(true);
     }
 
     function setCategoryFilter(cat) {
       currentCategory = cat || '';
       listVisibleCount = listPageSize;
-      applyFilters();
+      catalogPage = 1;
+      loadData(true);
     }
 
-    function showMoreItems() {
-      listVisibleCount += listPageSize;
-      applyFilters({ keepScroll: true });
+    async function showMoreItems() {
+      if (catalogListLoading || !catalogHasMore) {
+        if (!catalogHasMore) applyFilters({ keepScroll: true });
+        return;
+      }
+      catalogListLoading = true;
+      try {
+        const q = (document.getElementById('search-input') && document.getElementById('search-input').value || '').trim();
+        const typeParam = currentFilter !== 'all' ? currentFilter : '';
+        const next = catalogPage + 1;
+        showStatus('Загрузка…', 15000);
+        const listPayload = await fetchCatalogApi({
+          mode: 'list',
+          page: next,
+          limit: listPageSize,
+          type: typeParam,
+          category: currentCategory || '',
+          q: q
+        });
+        const more = (listPayload && listPayload.items) || [];
+        catalogPage = next;
+        catalogHasMore = !!(listPayload && listPayload.hasMore);
+        if (typeof listPayload.total === 'number') catalogTotal = listPayload.total;
+        allItems = mergeItemsById(allItems, more);
+        listVisibleCount = allItems.length;
+        applyFilters({ keepScroll: true });
+        showStatus(catalogHasMore ? 'Загружено ещё ' + more.length : 'Все результаты этой выборки', 2500);
+      } catch (e) {
+        console.error(e);
+        showStatus('Не удалось догрузить', 3000);
+      } finally {
+        catalogListLoading = false;
+      }
     }
 
     function isRecentUserAdd(item) {
@@ -4080,46 +4066,35 @@
       // обновляем сдвиг ротации (каждые 5 минут позиция меняется)
       listRotateOffset = Math.floor(Date.now() / (5 * 60 * 1000));
 
-      const q = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
-      const filtered = allItems.filter(item => {
-        if (currentFilter !== 'all' && item.type !== currentFilter) return false;
-        if (currentCategory) {
-          const cat = (item.category || 'Разное').trim();
-          // "Для взрослых" и "Для взрослых 18+" — одна категория
-          if (currentCategory === 'Для взрослых 18+') {
-            if (cat !== 'Для взрослых 18+' && cat !== 'Для взрослых') return false;
-          } else if (cat !== currentCategory) {
-            return false;
-          }
-        }
-        if (q) {
-          const text = ((item.display_name || '') + ' ' + (item.username || '') + ' ' + (item.description || '') + ' ' + (item.category || '')).toLowerCase();
-          if (!text.includes(q)) return false;
-        }
-        return true;
-      });
-
-      // Топ (только актуальные) — порядок фиксированный
+      // Данные уже отфильтрованы сервером (/api/catalog) — только рисуем
+      const filtered = allItems.slice();
       const now = new Date();
-      const topItems = allItems.filter(item => {
+      const topItems = (topItemsCache && topItemsCache.length ? topItemsCache : allItems).filter(function (item) {
         if (!item.is_top) return false;
         if (item.top_until && new Date(item.top_until) < now) return false;
         return true;
       });
-
-      // Обычный список — крутится как колесо (топ в нём тоже может быть, но ротация всего filtered)
-      const rotated = rotateList(filtered);
+      const rotated = filtered;
+      listVisibleCount = Math.max(listVisibleCount, rotated.length);
 
       const topCountEl = document.getElementById('top-count');
       const itemsCountEl = document.getElementById('items-count');
-      // Числа записей — только для админа
-      if (topCountEl) topCountEl.textContent = isAdmin && topItems.length ? `(${topItems.length})` : '';
-      if (itemsCountEl) itemsCountEl.textContent = isAdmin && rotated.length ? `(${rotated.length})` : '';
+      if (topCountEl) topCountEl.textContent = isAdmin && topItems.length ? '(' + topItems.length + ')' : '';
+      if (itemsCountEl) {
+        if (isAdmin) {
+          itemsCountEl.textContent = catalogTotal
+            ? '(' + rotated.length + ' / ' + catalogTotal + ')'
+            : (rotated.length ? '(' + rotated.length + ')' : '');
+        } else {
+          itemsCountEl.textContent = '';
+        }
+      }
 
-      // Недавно добавленные (только source=user, до 3 суток)
-      const recentItems = allItems
-        .filter(isRecentUserAdd)
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const recentItems = (recentItemsCache && recentItemsCache.length)
+        ? recentItemsCache.slice()
+        : allItems.filter(isRecentUserAdd).sort(function (a, b) {
+            return new Date(b.created_at) - new Date(a.created_at);
+          });
       const recentEl = document.getElementById('recent-list');
       const recentCountEl = document.getElementById('recent-count');
       if (recentCountEl) recentCountEl.textContent = isAdmin && recentItems.length ? `(${recentItems.length})` : '';
@@ -4189,9 +4164,8 @@
       if (!rotated.length) {
         listEl.innerHTML = '<div class="loading">Ничего не найдено</div>';
       } else {
-        const limit = Math.min(listVisibleCount, rotated.length);
-        const page = rotated.slice(0, limit);
-        const rest = rotated.length - limit;
+        const page = rotated;
+        const rest = catalogHasMore ? listPageSize : 0;
         let html = page.map(item => {
           const link = catalogItemHref(item);
           const linkAttrs = catalogItemLinkAttrs(item);
@@ -4221,7 +4195,7 @@
             </div>`;
         }).join('');
         if (rest > 0) {
-          html += `<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">Показать ещё ${Math.min(listPageSize, rest)} из ${rest}</button>`;
+          html += `<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">Показать ещё ${listPageSize}${catalogTotal ? ' (всего ~' + catalogTotal + ')' : ''}</button>`;
         }
         listEl.innerHTML = html;
       }
@@ -4526,9 +4500,9 @@
 
       // Мягкое обновление: догрузка/синхронизация в фоне БЕЗ обнуления списка
       setInterval(function () {
-        if (catalogBgLoading) return;
-        catalogFullyLoaded = false;
-        loadCatalogBackground(0);
+        // лёгкое обновление текущей порции, без выгрузки 15k
+        if (catalogListLoading) return;
+        loadData(true);
       }, 10 * 60 * 1000);
       setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
       setInterval(function () {
