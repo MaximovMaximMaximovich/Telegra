@@ -24,7 +24,18 @@ function clampInt(v, min, max, fallback) {
   return Math.min(max, Math.max(min, n));
 }
 
-/** Равномерно перемешать записи по категориям (круг по категориям). */
+/** Категории для микса на главной (если в БД есть записи). */
+const MIX_CATEGORIES = [
+  'Новости и СМИ', 'Развлечения и юмор', 'Бизнес и стартапы', 'Криптовалюта',
+  'Здоровье и спорт', 'Игры и приложения', 'Музыка', 'Фильмы и сериалы',
+  'Технологии', 'Нейросети и AI', 'Путешествия', 'Еда и напитки',
+  'Мода и красота', 'Психология', 'Программирование', 'Образование',
+  'Наука и образование', 'Авто, мото, техника', 'Аниме', 'Знакомства',
+  'Инвестиции и финансы', 'Маркетплейсы', 'Работа', 'Поиск работы, вакансии',
+  'Футбол, хоккей', 'Телеграм', 'Халява и скидки', 'Стихи и цитаты',
+  'Мотивация и саморазвитие', 'Разное', 'Чаты', 'Блоги'
+];
+
 function diversifyByCategory(rows, limit) {
   if (!rows || !rows.length || limit <= 0) return [];
   const buckets = Object.create(null);
@@ -39,7 +50,6 @@ function diversifyByCategory(rows, limit) {
     }
     buckets[c].push(it);
   }
-  // лёгкая ротация порядка категорий раз в час
   if (order.length > 1) {
     const shift = Math.floor(Date.now() / (60 * 60 * 1000)) % order.length;
     for (let s = 0; s < shift; s++) order.push(order.shift());
@@ -64,6 +74,88 @@ function diversifyByCategory(rows, limit) {
     if (!added) break;
   }
   return out;
+}
+
+/** Явно тянем по 1–2 записи из многих категорий — иначе «свежие 300» часто из одной. */
+async function fetchMixedCategoryList(typeFilter, limit, page) {
+  const perCat = 2;
+  // ротация старта списка категорий
+  const shift = (Math.floor(Date.now() / (30 * 60 * 1000)) + (page - 1) * 7) % MIX_CATEGORIES.length;
+  const cats = MIX_CATEGORIES.slice(shift).concat(MIX_CATEGORIES.slice(0, shift));
+
+  const jobs = [];
+  for (let i = 0; i < cats.length; i++) {
+    const cat = cats[i];
+    let q =
+      'items?select=' +
+      ITEMS_SELECT +
+      '&category=eq.' +
+      encodeURIComponent(cat) +
+      '&order=created_at.desc';
+    if (typeFilter === 'channel' || typeFilter === 'chat' || typeFilter === 'bot') {
+      q += '&type=eq.' + encodeURIComponent(typeFilter);
+    }
+    jobs.push(
+      sbRange(q, 0, perCat - 1).then(function (pack) {
+        return pack.rows || [];
+      }).catch(function () {
+        return [];
+      })
+    );
+  }
+  const batches = await Promise.all(jobs);
+  const merged = [];
+  const used = Object.create(null);
+  // round-robin from category batches
+  let maxLen = 0;
+  for (let b = 0; b < batches.length; b++) {
+    if (batches[b].length > maxLen) maxLen = batches[b].length;
+  }
+  for (let row = 0; row < maxLen; row++) {
+    for (let b = 0; b < batches.length; b++) {
+      if (row < batches[b].length) {
+        const it = batches[b][row];
+        if (it && it.id && !used[String(it.id)]) {
+          used[String(it.id)] = true;
+          merged.push(it);
+        }
+      }
+    }
+  }
+  // если мало — добить свежими любыми
+  if (merged.length < limit) {
+    let q =
+      'items?select=' + ITEMS_SELECT + '&order=created_at.desc';
+    if (typeFilter === 'channel' || typeFilter === 'chat' || typeFilter === 'bot') {
+      q += '&type=eq.' + encodeURIComponent(typeFilter);
+    }
+    const pack = await sbRange(q, 0, Math.max(80, limit * 4) - 1);
+    const extra = diversifyByCategory(pack.rows || [], limit * 2);
+    for (let i = 0; i < extra.length && merged.length < limit; i++) {
+      const it = extra[i];
+      if (it && it.id && !used[String(it.id)]) {
+        used[String(it.id)] = true;
+        merged.push(it);
+      }
+    }
+  }
+  // страница: сдвиг окна по уже смешанному списку
+  const start = ((page - 1) * limit) % Math.max(merged.length, 1);
+  const out = [];
+  for (let i = 0; i < limit && i < merged.length; i++) {
+    out.push(merged[(start + i) % merged.length]);
+  }
+  // total для hasMore — общий count без фильтра категории
+  let totalHint = null;
+  try {
+    let q2 = 'items?select=id';
+    if (typeFilter === 'channel' || typeFilter === 'chat' || typeFilter === 'bot') {
+      q2 += '&type=eq.' + encodeURIComponent(typeFilter);
+    }
+    const pack2 = await sbRange(q2, 0, 0);
+    totalHint = pack2.total;
+  } catch (e) {}
+  return { rows: out, total: totalHint };
 }
 
 function buildFilterQuery(params) {
@@ -196,7 +288,8 @@ module.exports = async function handler(req, res) {
     const qParams = req.query || {};
     const hasCategory = !!(qParams.category && String(qParams.category).trim() && String(qParams.category).trim() !== 'all');
     const hasQ = !!(qParams.q && String(qParams.q).trim());
-    // Без фильтра по категории/поиску — перемешиваем категории, чтобы на главной не было 20 из одной
+    const typeFilter = (qParams.type || '').trim();
+    // Без категории и поиска — микс из разных категорий (не «20 свежих из одной»)
     const wantDiverse = !hasCategory && !hasQ;
     const filter = buildFilterQuery(qParams);
     const path =
@@ -205,13 +298,9 @@ module.exports = async function handler(req, res) {
     let rows;
     let total;
     if (wantDiverse) {
-      // Берём расширенное окно свежих записей и набираем limit из разных категорий
-      const poolSize = Math.min(300, Math.max(limit * 12, 80));
-      const poolFrom = (page - 1) * poolSize;
-      const poolTo = poolFrom + poolSize - 1;
-      const pack = await sbRange(path, poolFrom, poolTo);
-      total = pack.total;
-      rows = diversifyByCategory(pack.rows, limit);
+      const mixed = await fetchMixedCategoryList(typeFilter, limit, page);
+      rows = mixed.rows || [];
+      total = mixed.total;
     } else {
       const from = (page - 1) * limit;
       const to = from + limit - 1;
