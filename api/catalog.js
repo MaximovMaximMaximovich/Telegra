@@ -24,6 +24,48 @@ function clampInt(v, min, max, fallback) {
   return Math.min(max, Math.max(min, n));
 }
 
+/** Равномерно перемешать записи по категориям (круг по категориям). */
+function diversifyByCategory(rows, limit) {
+  if (!rows || !rows.length || limit <= 0) return [];
+  const buckets = Object.create(null);
+  const order = [];
+  for (let i = 0; i < rows.length; i++) {
+    const it = rows[i];
+    if (!it) continue;
+    const c = String((it.category || 'Разное').trim() || 'Разное');
+    if (!buckets[c]) {
+      buckets[c] = [];
+      order.push(c);
+    }
+    buckets[c].push(it);
+  }
+  // лёгкая ротация порядка категорий раз в час
+  if (order.length > 1) {
+    const shift = Math.floor(Date.now() / (60 * 60 * 1000)) % order.length;
+    for (let s = 0; s < shift; s++) order.push(order.shift());
+  }
+  const out = [];
+  const used = Object.create(null);
+  let guard = 0;
+  while (out.length < limit && guard < limit * 80) {
+    guard++;
+    let added = false;
+    for (let oi = 0; oi < order.length; oi++) {
+      const c = order[oi];
+      const bucket = buckets[c];
+      while (bucket.length && used[String(bucket[0].id)]) bucket.shift();
+      if (bucket.length && out.length < limit) {
+        const it = bucket.shift();
+        used[String(it.id)] = true;
+        out.push(it);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return out;
+}
+
 function buildFilterQuery(params) {
   const parts = [];
   const type = (params.type || '').trim();
@@ -151,15 +193,38 @@ module.exports = async function handler(req, res) {
     // mode=list
     const page = clampInt(req.query && req.query.page, 1, 5000, 1);
     const limit = clampInt(req.query && req.query.limit, 1, 50, 20);
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
-    const filter = buildFilterQuery(req.query || {});
+    const qParams = req.query || {};
+    const hasCategory = !!(qParams.category && String(qParams.category).trim() && String(qParams.category).trim() !== 'all');
+    const hasQ = !!(qParams.q && String(qParams.q).trim());
+    // Без фильтра по категории/поиску — перемешиваем категории, чтобы на главной не было 20 из одной
+    const wantDiverse = !hasCategory && !hasQ;
+    const filter = buildFilterQuery(qParams);
     const path =
       'items?select=' + ITEMS_SELECT + filter + '&order=created_at.desc';
-    const { rows, total } = await sbRange(path, from, to);
-    const totalNum = typeof total === 'number' ? total : from + rows.length;
+
+    let rows;
+    let total;
+    if (wantDiverse) {
+      // Берём расширенное окно свежих записей и набираем limit из разных категорий
+      const poolSize = Math.min(300, Math.max(limit * 12, 80));
+      const poolFrom = (page - 1) * poolSize;
+      const poolTo = poolFrom + poolSize - 1;
+      const pack = await sbRange(path, poolFrom, poolTo);
+      total = pack.total;
+      rows = diversifyByCategory(pack.rows, limit);
+    } else {
+      const from = (page - 1) * limit;
+      const to = from + limit - 1;
+      const pack = await sbRange(path, from, to);
+      rows = pack.rows;
+      total = pack.total;
+    }
+
+    const fromIdx = (page - 1) * limit;
+    const toIdx = fromIdx + limit - 1;
+    const totalNum = typeof total === 'number' ? total : fromIdx + rows.length;
     const hasMore =
-      typeof total === 'number' ? to + 1 < total : rows.length >= limit;
+      typeof total === 'number' ? toIdx + 1 < total : rows.length >= limit;
 
     return res.status(200).json({
       ok: true,
@@ -168,6 +233,7 @@ module.exports = async function handler(req, res) {
       limit: limit,
       total: totalNum,
       hasMore: hasMore,
+      diversified: wantDiverse,
       items: rows
     });
   } catch (e) {
