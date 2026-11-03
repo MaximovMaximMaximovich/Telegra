@@ -4556,7 +4556,9 @@
             </div>`;
         }).join('');
         if (rest > 0) {
-          html += `<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">Показать ещё ${listPageSize}${catalogTotal ? ' (всего ~' + catalogTotal + ')' : ''}</button>`;
+          var moreLabel = 'Показать ещё ' + listPageSize;
+          if (isAdmin && catalogTotal) moreLabel += ' (всего ~' + catalogTotal + ')';
+          html += '<button type="button" id="load-more-items" onclick="showMoreItems()" style="margin:10px 0 4px;padding:10px 14px;width:100%;border-radius:10px;border:1px solid var(--border);background:var(--soft);cursor:pointer;font-weight:600;font-size:0.88rem;color:var(--accent);">' + moreLabel + '</button>';
         }
         listEl.innerHTML = html;
       }
