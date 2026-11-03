@@ -1012,6 +1012,7 @@
     <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
     <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
     <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
+    <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
     <button type="button" onclick="openDeleteCategoryModal()" title="Удалить все записи категории">Удал. кат.</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
@@ -1280,6 +1281,39 @@
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeCheckLinksModal()">Отмена</button>
         <button class="btn-add" onclick="runCheckLinksByCategory()">Проверить и удалить мёртвые</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Проверка подписчиков -->
+  <div class="modal-overlay" id="subscribers-modal">
+    <div class="modal">
+      <h3>Проверка подписчиков</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+        Сайт запросит публичные страницы Telegram и удалит записи, у которых подписчиков
+        <strong>меньше</strong> выбранного порога. Приватные и без username пропускаются.
+        Долго на больших категориях — лучше по одной категории. Расходует трафик прокси/Telegram.
+      </p>
+      <label>Категория</label>
+      <select id="subs-category">
+        <option value="">Все категории</option>
+        <!-- заполняется из CATEGORIES -->
+      </select>
+      <label>Тип</label>
+      <select id="subs-type">
+        <option value="channel">Только каналы</option>
+        <option value="">Каналы и чаты</option>
+        <option value="chat">Только чаты</option>
+      </select>
+      <label>Удалить, если подписчиков меньше</label>
+      <select id="subs-threshold">
+        <option value="100">100</option>
+        <option value="500">500</option>
+        <option value="1000">1000</option>
+      </select>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeSubscribersModal()">Отмена</button>
+        <button class="btn-add" onclick="runSubscribersCheck()">Проверить и удалить</button>
       </div>
     </div>
   </div>
@@ -2459,17 +2493,66 @@
           }
         }
 
-        if (!title && !avatar && !description) return null;
+        // ---------- SUBSCRIBERS / MEMBERS ----------
+        let subscribers = null;
+        function parseHumanCount(raw) {
+          if (!raw) return null;
+          let s = String(raw).replace(/\u00a0/g, ' ').trim();
+          s = s.replace(/,/g, '.').replace(/\s+/g, '');
+          // 12.5K / 1.2M / 12K
+          let m = s.match(/^([\d.]+)\s*(K|M|тыс|млн|тыс\.?|млн\.?)$/i);
+          if (m) {
+            let n = parseFloat(m[1]);
+            if (!isFinite(n)) return null;
+            const u = m[2].toLowerCase();
+            if (u === 'k' || u.indexOf('тыс') === 0) n *= 1000;
+            if (u === 'm' || u.indexOf('млн') === 0) n *= 1000000;
+            return Math.round(n);
+          }
+          // plain 1234 or 1 234 already stripped spaces
+          s = s.replace(/[^\d.]/g, '');
+          if (!s) return null;
+          const n = parseFloat(s);
+          return isFinite(n) ? Math.round(n) : null;
+        }
+        const subBlocks = [];
+        const extraM = html.match(/class=["']tgme_page_extra["'][^>]*>([\s\S]*?)<\/div>/i);
+        if (extraM && extraM[1]) subBlocks.push(extraM[1].replace(/<[^>]+>/g, ' '));
+        const subCounter = html.match(/class=["']tgme_channel_info_counter["'][^>]*>([\s\S]*?)<\//i);
+        if (subCounter && subCounter[1]) subBlocks.push(subCounter[1].replace(/<[^>]+>/g, ' '));
+        // fallback whole-page patterns
+        subBlocks.push(html);
+        for (let bi = 0; bi < subBlocks.length; bi++) {
+          const block = subBlocks[bi];
+          const patterns = [
+            /([\d\s.,]+\s*(?:[KkMm]|тыс\.?|млн\.?)?)\s*(?:subscribers|members|подписчик(?:ов|а)?|участник(?:ов|а)?)/i,
+            /(?:subscribers|members|подписчик(?:ов|а)?|участник(?:ов|а)?)[\s:.\-]*([\d\s.,]+[KkMm]?)/i
+          ];
+          for (let pi = 0; pi < patterns.length; pi++) {
+            const sm = block.match(patterns[pi]);
+            if (sm && sm[1]) {
+              const n = parseHumanCount(sm[1]);
+              if (n != null && n >= 0) {
+                subscribers = n;
+                break;
+              }
+            }
+          }
+          if (subscribers != null) break;
+        }
+
+        if (!title && !avatar && !description && subscribers == null) return null;
         return {
           title: title || null,
           description: description || null,
-          avatar: avatar || null
+          avatar: avatar || null,
+          subscribers: subscribers
         };
       }
 
       function mergeMeta(into, from) {
         if (!from) return into;
-        if (!into) return { ...from };
+        if (!into) return Object.assign({}, from);
         if (isGoodTitle(from.title) && (!isGoodTitle(into.title) || from.title.length > (into.title || '').length)) {
           into.title = from.title;
         }
@@ -2482,6 +2565,9 @@
           if (!into.avatar || (fromIsCdn && !intoIsCdn)) {
             into.avatar = from.avatar;
           }
+        }
+        if (from.subscribers != null && (into.subscribers == null || from.subscribers > into.subscribers)) {
+          into.subscribers = from.subscribers;
         }
         return into;
       }
@@ -3411,6 +3497,241 @@
       await loadData();
     }
 
+
+    let subscribersCheckRunning = false;
+
+    function openSubscribersModal() {
+      if (!isAdmin) return;
+      try {
+        var sel = document.getElementById('subs-category');
+        if (sel && typeof fillCategorySelect === 'function') {
+          fillCategorySelect(sel, { includeAll: true, allLabel: 'Все категории' });
+        }
+      } catch (e) {}
+      document.getElementById('subscribers-modal').classList.add('active');
+    }
+    function closeSubscribersModal() {
+      if (subscribersCheckRunning) {
+        if (!confirm('Проверка ещё идёт. Закрыть окно? Процесс продолжится.')) return;
+      }
+      document.getElementById('subscribers-modal').classList.remove('active');
+    }
+
+    async function fetchItemsForSubsCheck(category, type) {
+      var pageSize = 500;
+      var from = 0;
+      var all = [];
+      while (from < 100000) {
+        var parts = [];
+        if (type === 'channel' || type === 'chat') {
+          parts.push('type=eq.' + encodeURIComponent(type));
+        } else {
+          parts.push('or=(type.eq.channel,type.eq.chat)');
+        }
+        if (category) {
+          if (category === 'Для взрослых 18+' || category === 'Для взрослых') {
+            parts.push(
+              'or=(category.eq.' +
+                encodeURIComponent('Для взрослых 18+') +
+                ',category.eq.' +
+                encodeURIComponent('Для взрослых') +
+                ')'
+            );
+          } else {
+            parts.push('category=eq.' + encodeURIComponent(category));
+          }
+        }
+        parts.push('is_private=eq.false');
+        parts.push('username=not.is.null');
+        var extra = parts.join('&');
+        var batch;
+        try {
+          batch = await fetchItemsRange(from, pageSize, extra);
+        } catch (e) {
+          console.warn('subs fetch', e);
+          break;
+        }
+        if (!batch || !batch.length) break;
+        all = all.concat(batch);
+        if (batch.length < pageSize) break;
+        from += pageSize;
+      }
+      var map = Object.create(null);
+      all.forEach(function (it) {
+        if (it && it.id) map[String(it.id)] = it;
+      });
+      return Object.keys(map).map(function (k) { return map[k]; });
+    }
+
+    function parseSubsFromHtml(html) {
+      if (!html || html.length < 80) return { ok: false, reason: 'empty' };
+      if (/tgme_page_error|doesn.?t seem to exist|Invite link is invalid/i.test(html)) {
+        return { ok: false, reason: 'dead' };
+      }
+      var extraM = html.match(/class=["']tgme_page_extra["'][^>]*>([\s\S]*?)<\/div>/i);
+      var block = extraM ? extraM[1].replace(/<[^>]+>/g, ' ') : html;
+      var sm = block.match(/([\d\s.,]+)\s*(subscribers|members|подписчик|участник)/i);
+      if (!sm || !sm[1]) {
+        sm = block.match(/([\d.,]+)\s*([KkMm])\s*(subscribers|members|подписчик|участник)/i);
+      }
+      if (!sm || !sm[1]) return { ok: false, reason: 'no_count' };
+      var s = String(sm[1]).replace(/\u00a0/g, ' ').replace(/,/g, '.').replace(/\s+/g, '');
+      var n = parseFloat(s);
+      if (!isFinite(n)) return { ok: false, reason: 'no_count' };
+      var unit = (sm[2] || '').toLowerCase();
+      if (unit === 'k') n *= 1000;
+      if (unit === 'm') n *= 1000000;
+      return { ok: true, count: Math.round(n) };
+    }
+
+    async function getSubscriberCountForUsername(username) {
+      var uname = String(username || '').replace(/^@/, '').trim();
+      if (!uname) return { ok: false, reason: 'no_username' };
+      try {
+        if (typeof fetchTelegramMeta === 'function') {
+          var meta = await fetchTelegramMeta(uname, { fast: true });
+          if (meta && meta.subscribers != null) {
+            return { ok: true, count: meta.subscribers };
+          }
+        }
+      } catch (e1) {}
+      var target = 'https://t.me/' + encodeURIComponent(uname);
+      try {
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () { ctrl.abort(); }, 12000);
+        var res = await fetch('/api/tg-proxy?url=' + encodeURIComponent(target), {
+          signal: ctrl.signal,
+          headers: { Accept: 'text/html' }
+        });
+        clearTimeout(timer);
+        if (!res.ok) return { ok: false, reason: 'http_' + res.status };
+        var html = await res.text();
+        return parseSubsFromHtml(html);
+      } catch (e2) {
+        return { ok: false, reason: 'network' };
+      }
+    }
+
+    async function runSubscribersCheck() {
+      if (!isAdmin || !supabaseClient) return;
+      if (subscribersCheckRunning) {
+        alert('Проверка уже идёт, подождите…');
+        return;
+      }
+      var catEl = document.getElementById('subs-category');
+      var typeEl = document.getElementById('subs-type');
+      var thrEl = document.getElementById('subs-threshold');
+      var cat = (catEl && catEl.value ? catEl.value : '').trim();
+      var type = (typeEl && typeEl.value ? typeEl.value : '').trim();
+      var threshold = parseInt(thrEl && thrEl.value ? thrEl.value : '100', 10) || 100;
+
+      var msg =
+        'Удалить публичные записи с числом подписчиков меньше ' +
+        threshold +
+        '?' +
+        (cat ? '\nКатегория: ' + cat : '\nВсе категории') +
+        '\nЭто может занять много времени и трафика.';
+      if (!confirm(msg)) return;
+
+      subscribersCheckRunning = true;
+      closeSubscribersModal();
+      showStatus('Загрузка списка для проверки…', 120000);
+
+      var list = [];
+      try {
+        list = await fetchItemsForSubsCheck(cat, type);
+      } catch (e) {
+        subscribersCheckRunning = false;
+        alert('Не удалось загрузить список: ' + (e.message || e));
+        return;
+      }
+
+      list = list.filter(function (it) {
+        return it && it.username && !it.is_private && it.type !== 'bot';
+      });
+
+      if (!list.length) {
+        subscribersCheckRunning = false;
+        alert('Нет публичных записей для проверки');
+        return;
+      }
+
+      var deleted = 0;
+      var unknown = 0;
+      var dead = 0;
+      var deletedRefs = [];
+      var unknownRefs = [];
+      var total = list.length;
+
+      for (var i = 0; i < list.length; i++) {
+        var item = list[i];
+        var label = '@' + item.username;
+        showStatus('Подписчики ' + (i + 1) + '/' + total + ': ' + label + ' (порог ' + threshold + ')', 120000);
+        var r = await getSubscriberCountForUsername(item.username);
+        if (r.ok && typeof r.count === 'number') {
+          if (r.count < threshold) {
+            try {
+              if (item.avatar_url && /\/storage\/v1\/object\/public\/avatars\//i.test(item.avatar_url)) {
+                try {
+                  await fetch('/api/delete-avatar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: item.avatar_url })
+                  });
+                } catch (eAv) {}
+              }
+              var del = await supabaseClient.from('items').delete().eq('id', item.id);
+              if (!del.error) {
+                deleted++;
+                deletedRefs.push(label + ' (' + r.count + ')');
+              } else {
+                unknown++;
+                unknownRefs.push(label + ' [delete error]');
+              }
+            } catch (eDel) {
+              unknown++;
+              unknownRefs.push(label + ' [delete fail]');
+            }
+          }
+        } else if (r.reason === 'dead') {
+          dead++;
+        } else {
+          unknown++;
+          if (unknownRefs.length < 80) {
+            unknownRefs.push(label + (r.reason ? ' [' + r.reason + ']' : ''));
+          }
+        }
+        await new Promise(function (resolve) { setTimeout(resolve, 180); });
+      }
+
+      subscribersCheckRunning = false;
+      showStatus('Проверка подписчиков завершена', 4000);
+      try { await loadData(true); } catch (eL) {}
+
+      var report = [
+        'Порог: меньше ' + threshold + ' подписчиков',
+        'Всего в выборке: ' + total,
+        'Удалено: ' + deleted,
+        'Не удалось узнать число: ' + unknown,
+        'Похоже не существуют (не удаляли): ' + dead
+      ];
+      if (cat) report.push('Категория: ' + cat);
+      if (type) report.push('Тип: ' + type);
+      if (deletedRefs.length) {
+        report.push('—— Удалены ——');
+        for (var d = 0; d < Math.min(deletedRefs.length, 100); d++) {
+          report.push((d + 1) + '. ' + deletedRefs[d]);
+        }
+        if (deletedRefs.length > 100) report.push('… и ещё ' + (deletedRefs.length - 100));
+      }
+      if (unknownRefs.length) {
+        report.push('—— Без числа (проверьте вручную) ——');
+        for (var u = 0; u < unknownRefs.length; u++) {
+          report.push((u + 1) + '. ' + unknownRefs[u]);
+        }
+      }
+      showAdminReport('Отчёт: подписчики', report);
+    }
 
     function openCheckLinksModal() {
       if (!isAdmin) return;
@@ -4372,6 +4693,9 @@
       window.closeRefreshMetaModal = closeRefreshMetaModal;
       window.runRefreshMetaByCategory = runRefreshMetaByCategory;
       window.openCheckLinksModal = openCheckLinksModal;
+      window.openSubscribersModal = openSubscribersModal;
+      window.closeSubscribersModal = closeSubscribersModal;
+      window.runSubscribersCheck = runSubscribersCheck;
       window.closeCheckLinksModal = closeCheckLinksModal;
       window.showAdminReport = showAdminReport;
       window.closeAdminReport = closeAdminReport;
