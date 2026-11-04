@@ -1385,7 +1385,7 @@
   <div class="modal-overlay" id="analytics-modal">
     <div class="modal" style="max-width:480px;">
       <h3>Статистика</h3>
-      <p style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;">Просмотры считают только гости (не админ). Топ‑10 запросов не сбрасывается.</p>
+      <p style="font-size:0.82rem;color:var(--muted);margin:-6px 0 12px;">Просмотры считают только гости (не админ). Топ‑10 запросов можно сбросить отдельно.</p>
       <div class="analytics-grid">
         <div class="stat-card">
           <div class="num" id="stat-views-day">—</div>
@@ -1407,10 +1407,11 @@
           <div class="lbl">Просмотры всего</div>
         </div>
       </div>
-      <label style="margin-bottom:8px;">Топ‑10 поисковых запросов (за всё время)</label>
+      <label style="margin-bottom:8px;">Топ‑10 поисковых запросов</label>
       <ul class="top-queries" id="stat-top-queries">
         <li style="color:var(--muted);">Нет данных</li>
       </ul>
+      <button type="button" onclick="resetTopSearchQueries()" style="margin-top:10px;width:100%;font-size:0.8rem;padding:8px 10px;border-radius:8px;border:1px solid var(--border);background:var(--soft);cursor:pointer;color:var(--accent);font-weight:600;">Сбросить топ‑10 запросов</button>
       <div class="modal-actions" style="margin-top:16px;">
         <button class="btn-cancel" onclick="closeAnalyticsModal()" style="flex:1;">Закрыть</button>
         <button class="btn-add" onclick="loadAnalytics()" style="flex:1;">Обновить</button>
@@ -1784,6 +1785,24 @@
       loadAnalytics();
     }
 
+    function getSearchStatsResetAt() {
+      try {
+        return localStorage.getItem('telegra_search_reset_at') || null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function resetTopSearchQueries() {
+      if (!isAdmin) return;
+      if (!confirm('Сбросить топ‑10 поисковых запросов?\nСчёт запросов начнётся заново с этого момента.\nПросмотры страниц не изменятся.')) return;
+      try {
+        localStorage.setItem('telegra_search_reset_at', new Date().toISOString());
+      } catch (e) {}
+      showStatus('Топ‑10 запросов сброшен');
+      loadAnalytics();
+    }
+
     async function loadAnalytics() {
       if (!isAdmin || !supabaseClient) return;
       const el = document.getElementById('admin-stats');
@@ -1820,13 +1839,16 @@
         set('stat-views-total', vTotal);
         if (el) el.textContent = 'День: ' + vDay + ' · Нед: ' + vWeek + ' · Мес: ' + vMonth + ' · Всего: ' + vTotal;
 
-        // Топ‑10 запросов за всё время — не сбрасывается
-        const { data: searches, error: se } = await supabaseClient
+        // Топ‑10 запросов (с учётом сброса админом)
+        let searchQ = supabaseClient
           .from('analytics_events')
           .select('query')
           .eq('type', 'search')
           .not('query', 'is', null)
           .limit(2000);
+        const searchResetAt = getSearchStatsResetAt();
+        if (searchResetAt) searchQ = searchQ.gte('created_at', searchResetAt);
+        const { data: searches, error: se } = await searchQ;
         if (se) throw se;
 
         const freq = {};
@@ -4725,6 +4747,7 @@
       window.openLegal = openLegal;
       window.closeLegal = closeLegal;
       window.openAnalyticsModal = openAnalyticsModal;
+      window.resetTopSearchQueries = resetTopSearchQueries;
       window.closeAnalyticsModal = closeAnalyticsModal;
       window.loadAnalytics = loadAnalytics;
       window.resetStatsBucket = resetStatsBucket;
