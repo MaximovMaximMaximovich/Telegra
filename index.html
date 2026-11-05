@@ -1014,8 +1014,7 @@
     <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
     <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
     <button type="button" id="subs-cancel-btn" onclick="cancelSubscribersCheck()" title="Остановить проверку подписчиков" style="display:none;color:#a33!important;">Стоп подп.</button>
-    <button type="button" onclick="openBulkDeleteModal()" title="Удалить по списку username">Удал. юзеры</button>
-    <button type="button" onclick="openDeleteCategoryModal()" title="Удалить все записи категории">Удал. кат.</button>
+    <button type="button" onclick="openDeleteCategoryModal()" title="Удалить по категории или по username">Удалить</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
   </div>
@@ -1241,46 +1240,44 @@
   </div>
 
 
-  <!-- Массовое удаление по username -->
-  <div class="modal-overlay" id="bulk-delete-modal">
-    <div class="modal">
-      <h3>Удалить по username</h3>
-      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">
-        Вставьте список username — каждый найденный в каталоге будет удалён вместе с аватаркой в Storage (если она наша).
-        Действие необратимо.
-      </p>
-      <label>Usernames через пробел, запятую или с новой строки</label>
-      <textarea id="bulk-delete-list" placeholder="@channel1 @channel2 botname" style="min-height:140px;"></textarea>
-      <div class="modal-actions">
-        <button class="btn-cancel" onclick="closeBulkDeleteModal()">Отмена</button>
-        <button class="btn-add" onclick="runBulkDeleteByUsername()" style="background:#a33;">Удалить</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Массовое обновление метаданных -->
 
 
   <div class="modal-overlay" id="delete-category-modal">
     <div class="modal">
-      <h3>Удалить категорию</h3>
+      <h3>Удаление</h3>
       <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;">
-        Удалит <strong>все</strong> каналы, чаты и боты в выбранной категории. Действие необратимо.
+        Выберите способ. Действие необратимо.
       </p>
-      <label>Категория</label>
-      <select id="delete-category-select">
-        <!-- заполняется из CATEGORIES -->
+      <label>Режим</label>
+      <select id="delete-mode" onchange="onDeleteModeChange()">
+        <option value="category">По категории</option>
+        <option value="usernames">По username (список)</option>
       </select>
-      <label>Только тип (необязательно)</label>
-      <select id="delete-category-type">
-        <option value="">Все типы</option>
-        <option value="channel">Только каналы</option>
-        <option value="chat">Только чаты</option>
-        <option value="bot">Только боты</option>
-      </select>
+
+      <div id="delete-mode-category">
+        <label>Категория</label>
+        <select id="delete-category-select">
+          <!-- заполняется из CATEGORIES -->
+        </select>
+        <label>Только тип (необязательно)</label>
+        <select id="delete-category-type">
+          <option value="">Все типы</option>
+          <option value="channel">Только каналы</option>
+          <option value="chat">Только чаты</option>
+          <option value="bot">Только боты</option>
+        </select>
+      </div>
+
+      <div id="delete-mode-usernames" style="display:none;">
+        <label>Usernames через пробел, запятую или с новой строки</label>
+        <textarea id="bulk-delete-list" placeholder="@channel1 @channel2 botname" style="min-height:140px;"></textarea>
+        <p style="font-size:0.78rem;color:var(--muted);margin-top:-4px;">Найденные в каталоге записи будут удалены (аватарки в Storage — тоже, если наши).</p>
+      </div>
+
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeDeleteCategoryModal()">Отмена</button>
-        <button class="btn-add" style="background:#a33;" onclick="runDeleteCategory()">Удалить все</button>
+        <button class="btn-add" style="background:#a33;" onclick="runDeleteFromModal()">Удалить</button>
       </div>
     </div>
   </div>
@@ -3675,18 +3672,6 @@
 
     let bulkDeleteRunning = false;
 
-    function openBulkDeleteModal() {
-      if (!isAdmin) return;
-      var ta = document.getElementById('bulk-delete-list');
-      if (ta) ta.value = '';
-      document.getElementById('bulk-delete-modal').classList.add('active');
-    }
-    function closeBulkDeleteModal() {
-      if (bulkDeleteRunning) {
-        if (!confirm('Удаление ещё идёт. Закрыть окно?')) return;
-      }
-      document.getElementById('bulk-delete-modal').classList.remove('active');
-    }
 
     async function runBulkDeleteByUsername() {
       if (!isAdmin || !supabaseClient) return;
@@ -3712,7 +3697,7 @@
       if (!confirm('Удалить из каталога ' + usernames.length + ' username?\nЭто необратимо.')) return;
 
       bulkDeleteRunning = true;
-      closeBulkDeleteModal();
+      closeDeleteCategoryModal();
       showStatus('Удаление… 0/' + usernames.length, 120000);
 
       var deleted = 0, notFound = 0, fail = 0;
@@ -3819,13 +3804,40 @@
       }
     }
 
+    function onDeleteModeChange() {
+      var mode = (document.getElementById('delete-mode') || {}).value || 'category';
+      var catBox = document.getElementById('delete-mode-category');
+      var userBox = document.getElementById('delete-mode-usernames');
+      if (catBox) catBox.style.display = mode === 'usernames' ? 'none' : 'block';
+      if (userBox) userBox.style.display = mode === 'usernames' ? 'block' : 'none';
+    }
+
     function openDeleteCategoryModal() {
       if (!isAdmin) return;
+      var mode = document.getElementById('delete-mode');
+      if (mode) mode.value = 'category';
+      onDeleteModeChange();
+      var ta = document.getElementById('bulk-delete-list');
+      if (ta) ta.value = '';
       document.getElementById('delete-category-modal').classList.add('active');
     }
     function closeDeleteCategoryModal() {
+      if (bulkDeleteRunning) {
+        if (!confirm('Удаление по username ещё идёт. Закрыть окно?')) return;
+      }
       document.getElementById('delete-category-modal').classList.remove('active');
     }
+
+    function runDeleteFromModal() {
+      if (!isAdmin) return;
+      var mode = (document.getElementById('delete-mode') || {}).value || 'category';
+      if (mode === 'usernames') {
+        runBulkDeleteByUsername();
+      } else {
+        runDeleteCategory();
+      }
+    }
+
 
     async function runDeleteCategory() {
       if (!isAdmin || !supabaseClient) return;
@@ -5142,10 +5154,10 @@
       window.showAdminReport = showAdminReport;
       window.closeAdminReport = closeAdminReport;
       window.runCheckLinksByCategory = runCheckLinksByCategory;
-      window.openBulkDeleteModal = openBulkDeleteModal;
-      window.closeBulkDeleteModal = closeBulkDeleteModal;
-      window.runBulkDeleteByUsername = runBulkDeleteByUsername;
       window.openDeleteCategoryModal = openDeleteCategoryModal;
+      window.onDeleteModeChange = onDeleteModeChange;
+      window.runDeleteFromModal = runDeleteFromModal;
+      window.runBulkDeleteByUsername = runBulkDeleteByUsername;
       window.closeDeleteCategoryModal = closeDeleteCategoryModal;
       window.runDeleteCategory = runDeleteCategory;
       window.openBotSettings = openBotSettings;
