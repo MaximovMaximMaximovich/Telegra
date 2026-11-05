@@ -1328,6 +1328,20 @@
     </div>
   </div>
 
+
+  <!-- Перенос в другую категорию -->
+  <div class="modal-overlay" id="move-category-modal">
+    <div class="modal">
+      <h3>Канал уже в каталоге</h3>
+      <p id="move-category-msg" style="font-size:0.92rem;line-height:1.55;color:var(--text);margin:8px 0 14px;"></p>
+      <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+        <button type="button" class="btn-cancel" onclick="resolveMoveCategory(false)">Нет</button>
+        <button type="button" class="btn-add" onclick="resolveMoveCategory(true)">Да, перенести</button>
+        <button type="button" id="move-category-apply-all" class="btn-add" onclick="resolveMoveCategory('all')" style="display:none;background:var(--soft);color:var(--accent);border:1px solid var(--border);">Применить для всех</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Отчёт после массовых проверок (ссылки и т.п.) -->
   <div class="modal-overlay" id="admin-report-modal">
     <div class="modal">
@@ -2333,39 +2347,48 @@
     }
 
     function isDuplicate(username, invite) {
-      const u = username ? normalizeUsername(username) : '';
-      const inv = invite ? normalizeInvite(invite) : '';
-      return allItems.some(it => {
-        if (u && it.username && normalizeUsername(it.username) === u) return true;
-        if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return true;
-        return false;
-      });
+      return !!findExistingInMemory(username, invite);
     }
 
-    // Проверка дубля прямо в базе (надёжнее при массовом импорте)
-    async function existsInDb(username, invite) {
-      if (!supabaseClient) return false;
+    function findExistingInMemory(username, invite) {
+      const u = username ? normalizeUsername(username) : '';
+      const inv = invite ? normalizeInvite(invite) : '';
+      for (let i = 0; i < allItems.length; i++) {
+        const it = allItems[i];
+        if (!it) continue;
+        if (u && it.username && normalizeUsername(it.username) === u) return it;
+        if (inv && it.invite_link && normalizeInvite(it.invite_link) === inv) return it;
+      }
+      return null;
+    }
+
+    function sameCategory(a, b) {
+      return String(a || 'Разное').trim().toLowerCase() === String(b || 'Разное').trim().toLowerCase();
+    }
+
+    // Полная запись из БД (id + category), не только true/false
+    async function findExistingInDb(username, invite) {
+      if (!supabaseClient) return null;
       try {
         if (username) {
           const u = normalizeUsername(username);
-          // Точное сравнение после нормализации на клиенте (ilike может дать ложные)
           const { data } = await supabaseClient
             .from('items')
-            .select('id, username')
+            .select('id,username,invite_link,category,type,display_name,avatar_url,is_private,is_top,top_until')
             .ilike('username', u)
             .limit(8);
-          if ((data || []).some(r => normalizeUsername(r.username) === u)) return true;
+          const hit = (data || []).find(function (r) {
+            return normalizeUsername(r.username) === u;
+          });
+          if (hit) return hit;
         }
         if (invite) {
-          // Сначала точное совпадение как в БД
           const { data } = await supabaseClient
             .from('items')
-            .select('id, invite_link')
+            .select('id,username,invite_link,category,type,display_name,avatar_url,is_private,is_top,top_until')
             .eq('invite_link', invite)
             .limit(3);
-          if ((data || []).length) return true;
-
-          // Нормализованная форма: ищем по нескольким возможным вариантам записи
+          if (data && data.length) return data[0];
           const inv = normalizeInvite(invite);
           const variants = [invite, inv];
           if (inv.startsWith('https://t.me/')) {
@@ -2375,18 +2398,82 @@
           for (const v of [...new Set(variants)]) {
             const { data: d2 } = await supabaseClient
               .from('items')
-              .select('id')
+              .select('id,username,invite_link,category,type,display_name,avatar_url,is_private,is_top,top_until')
               .eq('invite_link', v)
               .limit(1);
-            if (d2 && d2.length) return true;
+            if (d2 && d2.length) return d2[0];
           }
-          // Больше не тянем 2000 строк — полагаемся на isDuplicate (allItems) + точные запросы
         }
       } catch (e) {
-        console.warn('existsInDb', e);
+        console.warn('findExistingInDb', e);
       }
-      return false;
+      return null;
     }
+
+    async function existsInDb(username, invite) {
+      return !!(await findExistingInDb(username, invite));
+    }
+
+    let moveCategoryResolver = null;
+    let bulkMoveApplyAll = false;
+
+    function resolveMoveCategory(val) {
+      const modal = document.getElementById('move-category-modal');
+      if (modal) modal.classList.remove('active');
+      if (val === 'all') bulkMoveApplyAll = true;
+      if (typeof moveCategoryResolver === 'function') {
+        const r = moveCategoryResolver;
+        moveCategoryResolver = null;
+        r(val === 'all' ? true : !!val);
+      }
+    }
+
+    function askMoveToCategory(existing, newCategory, opts) {
+      opts = opts || {};
+      const oldCat = (existing && existing.category) ? existing.category : 'Разное';
+      if (sameCategory(oldCat, newCategory)) {
+        return Promise.resolve(false);
+      }
+      if (opts.bulk && bulkMoveApplyAll) {
+        return Promise.resolve(true);
+      }
+      const label = existing.username
+        ? ('@' + normalizeUsername(existing.username))
+        : (existing.invite_link || 'запись');
+      const msg =
+        '«' + label + '» уже есть в категории «' + oldCat + '».\n\n' +
+        'Перенести в «' + newCategory + '»? Старая категория будет заменена (запись не дублируется).';
+      return new Promise(function (resolve) {
+        moveCategoryResolver = resolve;
+        const el = document.getElementById('move-category-msg');
+        if (el) el.textContent = msg;
+        const applyBtn = document.getElementById('move-category-apply-all');
+        if (applyBtn) applyBtn.style.display = opts.bulk ? 'inline-block' : 'none';
+        const modal = document.getElementById('move-category-modal');
+        if (modal) modal.classList.add('active');
+        else {
+          // fallback
+          const ok = confirm(msg + (opts.bulk ? '\n\nОК = да для этого; для «применить ко всем» нужен новый UI.' : ''));
+          resolve(ok);
+        }
+      });
+    }
+
+    async function updateExistingCategory(existing, newCategory, patch) {
+      if (!supabaseClient || !existing || !existing.id) return { message: 'no id' };
+      const row = Object.assign({ category: newCategory }, patch || {});
+      const { error } = await supabaseClient.from('items').update(row).eq('id', existing.id);
+      if (error) return error;
+      // обновить локальный кэш
+      const idx = allItems.findIndex(function (it) { return it && it.id === existing.id; });
+      if (idx >= 0) {
+        allItems[idx] = Object.assign({}, allItems[idx], row);
+      } else {
+        allItems.push(Object.assign({}, existing, row));
+      }
+      return null;
+    }
+
 
     // Название / описание / аватар из Telegram.
     // Каналы/чаты: t.me/username + t.me/s/username
@@ -2879,10 +2966,39 @@
 
       try {
         if (parsed.isPrivate) {
-          if (isDuplicate(null, parsed.invite) || await existsInDb(null, parsed.invite)) {
-            hideAddProgress();
-            alert('Эта ссылка уже есть в каталоге');
-            return;
+          {
+            const existingPriv = findExistingInMemory(null, parsed.invite) || await findExistingInDb(null, parsed.invite);
+            if (existingPriv) {
+              if (!isAdmin) {
+                hideAddProgress();
+                alert('Эта ссылка уже есть в каталоге');
+                return;
+              }
+              if (sameCategory(existingPriv.category, category)) {
+                hideAddProgress();
+                alert('Эта ссылка уже есть в категории «' + (existingPriv.category || 'Разное') + '»');
+                return;
+              }
+              hideAddProgress();
+              const move = await askMoveToCategory(existingPriv, category, { bulk: false });
+              if (!move) return;
+              setAddProgress(60, 'Перенос категории…');
+              const errMove = await updateExistingCategory(existingPriv, category, {
+                display_name: name || existingPriv.display_name,
+                description: userDesc || existingPriv.description || null
+              });
+              if (errMove) {
+                hideAddProgress();
+                alert('Ошибка переноса: ' + (errMove.message || ''));
+                return;
+              }
+              setAddProgress(100, 'Готово!');
+              closeModal();
+              hideAddProgress();
+              showStatus('Перенесено в «' + category + '»');
+              await loadData(true);
+              return;
+            }
           }
           if (blacklist.some(b => normalizeInvite(b) === normalizeInvite(parsed.invite))) {
             hideAddProgress();
@@ -2919,10 +3035,54 @@
 
         // public
         const username = normalizeUsername(parsed.username);
-        if (isDuplicate(username, null) || await existsInDb(username, null)) {
-          hideAddProgress();
-          alert('Этот канал/чат/бот уже есть в каталоге');
-          return;
+        {
+          const existingPub = findExistingInMemory(username, null) || await findExistingInDb(username, null);
+          if (existingPub) {
+            if (!isAdmin) {
+              hideAddProgress();
+              alert('Этот канал/чат/бот уже есть в каталоге');
+              return;
+            }
+            if (sameCategory(existingPub.category, category)) {
+              hideAddProgress();
+              alert('Уже есть в категории «' + (existingPub.category || 'Разное') + '»');
+              return;
+            }
+            hideAddProgress();
+            const move = await askMoveToCategory(existingPub, category, { bulk: false });
+            if (!move) return;
+            lockAddForm(true);
+            setAddProgress(40, 'Перенос в «' + category + '»…');
+            // обновим мету при переносе
+            let meta = null;
+            try {
+              setAddProgress(50, 'Обновление данных из Telegram…');
+              meta = await fetchTgMeta(username, setAddProgress, currentType);
+            } catch (eM) {}
+            let avatarUrl = (meta && meta.avatar) || existingPub.avatar_url || null;
+            if (avatarUrl && meta && meta.avatar) {
+              try {
+                avatarUrl = await cacheAvatarToSupabase(avatarUrl, username);
+              } catch (eA) {}
+            }
+            const errMove = await updateExistingCategory(existingPub, category, {
+              display_name: name || (meta && meta.title) || existingPub.display_name,
+              description: userDesc || (meta && meta.description) || existingPub.description || null,
+              avatar_url: avatarUrl || existingPub.avatar_url || null,
+              type: currentType || existingPub.type
+            });
+            if (errMove) {
+              hideAddProgress();
+              alert('Ошибка переноса: ' + (errMove.message || ''));
+              return;
+            }
+            setAddProgress(100, 'Готово!');
+            closeModal();
+            hideAddProgress();
+            showStatus('Перенесено в «' + category + '»');
+            await loadData(true);
+            return;
+          }
         }
         if (blacklist.some(b => normalizeUsername(b) === username)) {
           hideAddProgress();
@@ -3065,38 +3225,89 @@
 
       try { await loadData(); } catch (e) {}
 
-      const seen = new Set(allItems.map(it => normalizeUsername(it.username)).filter(Boolean));
+      bulkMoveApplyAll = false;
       const blSet = new Set(blacklist.map(b => normalizeUsername(b)).filter(Boolean));
+      // username -> existing row
+      const existingMap = Object.create(null);
+      allItems.forEach(function (it) {
+        const n = normalizeUsername(it.username);
+        if (n) existingMap[n] = it;
+      });
 
-      // Пакетная проверка уже существующих в БД (один запрос вместо N)
       try {
         const chunk = 100;
         for (let i = 0; i < usernames.length; i += chunk) {
           const slice = usernames.slice(i, i + chunk);
           const { data } = await supabaseClient
             .from('items')
-            .select('username')
+            .select('id,username,invite_link,category,type,display_name,avatar_url,is_private,is_top,top_until')
             .in('username', slice);
-          (data || []).forEach(r => {
+          (data || []).forEach(function (r) {
             const n = normalizeUsername(r.username);
-            if (n) seen.add(n);
+            if (n) existingMap[n] = r;
           });
         }
       } catch (e) {
         console.warn('bulk precheck', e);
       }
 
-      const queue = usernames.filter(u => !seen.has(u) && !blSet.has(u));
-      const skippedUpfront = usernames.length - queue.length;
-      let ok = 0, skip = skippedUpfront, fail = 0;
+      const queueNew = [];
+      const queueMove = [];
+      let skip = 0;
+      usernames.forEach(function (u) {
+        if (blSet.has(u)) { skip++; return; }
+        const ex = existingMap[u];
+        if (!ex) { queueNew.push(u); return; }
+        if (sameCategory(ex.category, category)) { skip++; return; }
+        queueMove.push(u);
+      });
+
+      let ok = 0, fail = 0, moved = 0;
       let done = 0;
       const total = usernames.length;
 
-      showStatus('Импорт… 0/' + total + (queue.length ? ' (в очереди ' + queue.length + ')' : ''), 120000);
+      showStatus('Импорт… 0/' + total + ' (новых ' + queueNew.length + ', перенос ' + queueMove.length + ')', 120000);
 
-      // Свой прокси — можно держать выше параллелизм
+      // --- Сначала переносы (по очереди, с вопросом / «применить для всех») ---
+      for (let mi = 0; mi < queueMove.length; mi++) {
+        const u = queueMove[mi];
+        const existing = existingMap[u];
+        showStatus('Перенос ' + (mi + 1) + '/' + queueMove.length + ': @' + u, 120000);
+        const yes = await askMoveToCategory(existing, category, { bulk: true });
+        if (!yes) {
+          skip++;
+          done++;
+          continue;
+        }
+        try {
+          let meta = null;
+          try { meta = await fetchTgMeta(u, null, type, { fast: true }); } catch (eM) {}
+          let bulkAvatar = (meta && meta.avatar) ? meta.avatar : (existing.avatar_url || null);
+          if (bulkAvatar && meta && meta.avatar) {
+            try { bulkAvatar = await cacheAvatarToSupabase(bulkAvatar, u); } catch (eA) {}
+          }
+          const errMove = await updateExistingCategory(existing, category, {
+            display_name: (meta && meta.title && meta.title !== ('@' + u)) ? meta.title : existing.display_name,
+            description: (meta && meta.description) || existing.description || null,
+            avatar_url: bulkAvatar || existing.avatar_url || null,
+            type: type || existing.type
+          });
+          if (errMove) fail++;
+          else {
+            moved++;
+            ok++;
+            existingMap[u] = Object.assign({}, existing, { category: category });
+          }
+        } catch (e) {
+          fail++;
+        }
+        done++;
+      }
+
+      // Свой прокси — можно держать выше параллелизм (только новые)
       const CONCURRENCY = 8;
       let qIndex = 0;
+      const queue = queueNew;
 
       async function processOne(u) {
         try {
@@ -3197,8 +3408,8 @@
 
       bulkRunning = false;
       closeBulkModal();
-      showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
-      await loadData();
+      showStatus('Готово: +' + ok + (moved ? ', перенесено ' + moved : '') + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
+      await loadData(true);
     }
 
     async function removeTop(id) {
@@ -4754,6 +4965,7 @@
       window.openBulkModal = openBulkModal;
       window.closeBulkModal = closeBulkModal;
       window.runBulkImport = runBulkImport;
+      window.resolveMoveCategory = resolveMoveCategory;
       window.openRefreshMetaModal = openRefreshMetaModal;
       window.closeRefreshMetaModal = closeRefreshMetaModal;
       window.runRefreshMetaByCategory = runRefreshMetaByCategory;
