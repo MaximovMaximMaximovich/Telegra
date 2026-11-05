@@ -1014,6 +1014,7 @@
     <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
     <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
     <button type="button" id="subs-cancel-btn" onclick="cancelSubscribersCheck()" title="Остановить проверку подписчиков" style="display:none;color:#a33!important;">Стоп подп.</button>
+    <button type="button" onclick="openBulkDeleteModal()" title="Удалить по списку username">Удал. юзеры</button>
     <button type="button" onclick="openDeleteCategoryModal()" title="Удалить все записи категории">Удал. кат.</button>
     <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
     <button type="button" onclick="logoutAdmin()">Выйти</button>
@@ -1239,6 +1240,23 @@
     </div>
   </div>
 
+
+  <!-- Массовое удаление по username -->
+  <div class="modal-overlay" id="bulk-delete-modal">
+    <div class="modal">
+      <h3>Удалить по username</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:12px;line-height:1.5;">
+        Вставьте список username — каждый найденный в каталоге будет удалён вместе с аватаркой в Storage (если она наша).
+        Действие необратимо.
+      </p>
+      <label>Usernames через пробел, запятую или с новой строки</label>
+      <textarea id="bulk-delete-list" placeholder="@channel1 @channel2 botname" style="min-height:140px;"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeBulkDeleteModal()">Отмена</button>
+        <button class="btn-add" onclick="runBulkDeleteByUsername()" style="background:#a33;">Удалить</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Массовое обновление метаданных -->
 
@@ -3655,6 +3673,152 @@
     }
 
 
+    let bulkDeleteRunning = false;
+
+    function openBulkDeleteModal() {
+      if (!isAdmin) return;
+      var ta = document.getElementById('bulk-delete-list');
+      if (ta) ta.value = '';
+      document.getElementById('bulk-delete-modal').classList.add('active');
+    }
+    function closeBulkDeleteModal() {
+      if (bulkDeleteRunning) {
+        if (!confirm('Удаление ещё идёт. Закрыть окно?')) return;
+      }
+      document.getElementById('bulk-delete-modal').classList.remove('active');
+    }
+
+    async function runBulkDeleteByUsername() {
+      if (!isAdmin || !supabaseClient) return;
+      if (bulkDeleteRunning) {
+        alert('Удаление уже выполняется…');
+        return;
+      }
+      var raw = (document.getElementById('bulk-delete-list') && document.getElementById('bulk-delete-list').value) || '';
+      var parts = raw.split(/[\s,;]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+      var usernames = [];
+      var seenU = Object.create(null);
+      parts.forEach(function (p) {
+        var u = normalizeUsername(p);
+        if (!u || u.startsWith('+')) return;
+        if (seenU[u]) return;
+        seenU[u] = true;
+        usernames.push(u);
+      });
+      if (!usernames.length) {
+        alert('Вставьте хотя бы один username');
+        return;
+      }
+      if (!confirm('Удалить из каталога ' + usernames.length + ' username?\nЭто необратимо.')) return;
+
+      bulkDeleteRunning = true;
+      closeBulkDeleteModal();
+      showStatus('Удаление… 0/' + usernames.length, 120000);
+
+      var deleted = 0, notFound = 0, fail = 0;
+      var notFoundList = [];
+      var failList = [];
+
+      // Загружаем записи пачками
+      var found = [];
+      try {
+        var chunk = 80;
+        for (var i = 0; i < usernames.length; i += chunk) {
+          var slice = usernames.slice(i, i + chunk);
+          var res = await supabaseClient
+            .from('items')
+            .select('id,username,avatar_url')
+            .in('username', slice);
+          if (res.error) throw res.error;
+          (res.data || []).forEach(function (r) { found.push(r); });
+        }
+      } catch (e) {
+        bulkDeleteRunning = false;
+        alert('Ошибка загрузки списка: ' + (e.message || e));
+        return;
+      }
+
+      var foundMap = Object.create(null);
+      found.forEach(function (r) {
+        var n = normalizeUsername(r.username);
+        if (n) foundMap[n] = r;
+      });
+
+      for (var j = 0; j < usernames.length; j++) {
+        var u = usernames[j];
+        showStatus('Удаление… ' + (j + 1) + '/' + usernames.length + ' · @' + u, 120000);
+        var row = foundMap[u];
+        if (!row) {
+          // ilike fallback на случай другого регистра в БД
+          try {
+            var r2 = await supabaseClient
+              .from('items')
+              .select('id,username,avatar_url')
+              .ilike('username', u)
+              .limit(5);
+            var hit = (r2.data || []).find(function (x) {
+              return normalizeUsername(x.username) === u;
+            });
+            if (hit) row = hit;
+          } catch (e2) {}
+        }
+        if (!row) {
+          notFound++;
+          if (notFoundList.length < 60) notFoundList.push('@' + u);
+          continue;
+        }
+        try {
+          if (row.avatar_url && /\/storage\/v1\/object\/public\/avatars\//i.test(row.avatar_url)) {
+            try {
+              await fetch('/api/delete-avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: row.avatar_url })
+              });
+            } catch (eAv) {}
+          }
+          var del = await supabaseClient.from('items').delete().eq('id', row.id);
+          if (del.error) {
+            fail++;
+            if (failList.length < 40) failList.push('@' + u);
+          } else {
+            deleted++;
+            allItems = allItems.filter(function (it) {
+              return !(it && it.id === row.id);
+            });
+          }
+        } catch (e3) {
+          fail++;
+          if (failList.length < 40) failList.push('@' + u);
+        }
+        await new Promise(function (r) { setTimeout(r, 30); });
+      }
+
+      bulkDeleteRunning = false;
+      showStatus('Удалено: ' + deleted, 4000);
+      try { await loadData(true); } catch (eL) {}
+
+      var report = [
+        'Запрошено username: ' + usernames.length,
+        'Удалено: ' + deleted,
+        'Не найдено в каталоге: ' + notFound,
+        'Ошибок: ' + fail
+      ];
+      if (notFoundList.length) {
+        report.push('—— Не найдено ——');
+        notFoundList.forEach(function (x, idx) { report.push((idx + 1) + '. ' + x); });
+      }
+      if (failList.length) {
+        report.push('—— Ошибки ——');
+        failList.forEach(function (x, idx) { report.push((idx + 1) + '. ' + x); });
+      }
+      if (typeof showAdminReport === 'function') {
+        showAdminReport('Отчёт: удаление по username', report);
+      } else {
+        alert(report.join('\n'));
+      }
+    }
+
     function openDeleteCategoryModal() {
       if (!isAdmin) return;
       document.getElementById('delete-category-modal').classList.add('active');
@@ -4978,6 +5142,9 @@
       window.showAdminReport = showAdminReport;
       window.closeAdminReport = closeAdminReport;
       window.runCheckLinksByCategory = runCheckLinksByCategory;
+      window.openBulkDeleteModal = openBulkDeleteModal;
+      window.closeBulkDeleteModal = closeBulkDeleteModal;
+      window.runBulkDeleteByUsername = runBulkDeleteByUsername;
       window.openDeleteCategoryModal = openDeleteCategoryModal;
       window.closeDeleteCategoryModal = closeDeleteCategoryModal;
       window.runDeleteCategory = runDeleteCategory;
