@@ -3240,9 +3240,7 @@
 
       try { await loadData(); } catch (e) {}
 
-      bulkMoveApplyAll = false;
       const blSet = new Set(blacklist.map(b => normalizeUsername(b)).filter(Boolean));
-      // username -> existing row
       const existingMap = Object.create(null);
       allItems.forEach(function (it) {
         const n = normalizeUsername(it.username);
@@ -3255,7 +3253,7 @@
           const slice = usernames.slice(i, i + chunk);
           const { data } = await supabaseClient
             .from('items')
-            .select('id,username,invite_link,category,type,display_name,avatar_url,is_private,is_top,top_until')
+            .select('id,username,category')
             .in('username', slice);
           (data || []).forEach(function (r) {
             const n = normalizeUsername(r.username);
@@ -3266,63 +3264,35 @@
         console.warn('bulk precheck', e);
       }
 
-      const queueNew = [];
-      const queueMove = [];
-      let skip = 0;
+      // Уже в каталоге (любая категория) — пропуск без вопросов
+      const queue = [];
+      const skippedList = [];
+      const blacklistedList = [];
       usernames.forEach(function (u) {
-        if (blSet.has(u)) { skip++; return; }
+        if (blSet.has(u)) {
+          blacklistedList.push('@' + u);
+          return;
+        }
         const ex = existingMap[u];
-        if (!ex) { queueNew.push(u); return; }
-        if (sameCategory(ex.category, category)) { skip++; return; }
-        queueMove.push(u);
+        if (ex) {
+          skippedList.push('@' + u + ' → «' + (ex.category || 'Разное') + '»');
+          return;
+        }
+        queue.push(u);
       });
 
-      let ok = 0, fail = 0, moved = 0;
-      let done = 0;
+      let ok = 0, fail = 0;
+      let skip = skippedList.length + blacklistedList.length;
+      let done = skip;
       const total = usernames.length;
+      const addedList = [];
+      const failList = [];
 
-      showStatus('Импорт… 0/' + total + ' (новых ' + queueNew.length + ', перенос ' + queueMove.length + ')', 120000);
-
-      // --- Сначала переносы (по очереди, с вопросом / «применить для всех») ---
-      for (let mi = 0; mi < queueMove.length; mi++) {
-        const u = queueMove[mi];
-        const existing = existingMap[u];
-        showStatus('Перенос ' + (mi + 1) + '/' + queueMove.length + ': @' + u, 120000);
-        const yes = await askMoveToCategory(existing, category, { bulk: true });
-        if (!yes) {
-          skip++;
-          done++;
-          continue;
-        }
-        try {
-          let meta = null;
-          try { meta = await fetchTgMeta(u, null, type, { fast: true }); } catch (eM) {}
-          let bulkAvatar = (meta && meta.avatar) ? meta.avatar : (existing.avatar_url || null);
-          if (bulkAvatar && meta && meta.avatar) {
-            try { bulkAvatar = await cacheAvatarToSupabase(bulkAvatar, u); } catch (eA) {}
-          }
-          const errMove = await updateExistingCategory(existing, category, {
-            display_name: (meta && meta.title && meta.title !== ('@' + u)) ? meta.title : existing.display_name,
-            description: (meta && meta.description) || existing.description || null,
-            avatar_url: bulkAvatar || existing.avatar_url || null,
-            type: type || existing.type
-          });
-          if (errMove) fail++;
-          else {
-            moved++;
-            ok++;
-            existingMap[u] = Object.assign({}, existing, { category: category });
-          }
-        } catch (e) {
-          fail++;
-        }
-        done++;
-      }
+      showStatus('Импорт… ' + done + '/' + total + ' (новых ' + queue.length + ', пропуск ' + skip + ')', 120000);
 
       // Свой прокси — можно держать выше параллелизм (только новые)
       const CONCURRENCY = 8;
       let qIndex = 0;
-      const queue = queueNew;
 
       async function processOne(u) {
         try {
@@ -3379,11 +3349,14 @@
           if (error) {
             if (error.code === 'DUPLICATE') {
               skip++;
-              seen.add(u);
-            } else fail++;
+              skippedList.push('@' + u + ' → (дубль при вставке)');
+            } else {
+              fail++;
+              if (failList.length < 80) failList.push('@' + u);
+            }
           } else {
             ok++;
-            seen.add(u);
+            if (addedList.length < 150) addedList.push('@' + u);
             allItems.push({
               username: u,
               invite_link: null,
@@ -3399,6 +3372,7 @@
         } catch (e) {
           console.warn('bulk', u, e);
           fail++;
+          if (failList.length < 80) failList.push('@' + u);
         } finally {
           done++;
           showStatus('Импорт… ' + done + '/' + total + ' · +' + ok + (fail ? ' · ошибок ' + fail : ''), 120000);
@@ -3410,21 +3384,53 @@
           const my = qIndex++;
           const u = queue[my];
           await processOne(u);
-          // небольшая пауза, чтобы не упираться в лимиты Vercel/Telegram
           await new Promise(r => setTimeout(r, 80));
         }
       }
 
       const workers = [];
-      for (let w = 0; w < Math.min(CONCURRENCY, queue.length || 1); w++) {
+      for (let w = 0; w < Math.min(CONCURRENCY, Math.max(queue.length, 1)); w++) {
+        if (!queue.length) break;
         workers.push(worker());
       }
       await Promise.all(workers);
 
       bulkRunning = false;
       closeBulkModal();
-      showStatus('Готово: +' + ok + (moved ? ', перенесено ' + moved : '') + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''));
-      await loadData(true);
+      showStatus('Готово: +' + ok + (skip ? ', пропущено ' + skip : '') + (fail ? ', ошибок ' + fail : ''), 5000);
+      try { await loadData(true); } catch (eL) {}
+
+      var report = [
+        'Категория: ' + category,
+        'Тип: ' + type,
+        'Всего в списке: ' + total,
+        'Добавлено: ' + ok,
+        'Пропущено (уже были): ' + skippedList.length,
+        'Чёрный список: ' + blacklistedList.length,
+        'Ошибок: ' + fail
+      ];
+      if (addedList.length) {
+        report.push('—— Добавлены (до ' + addedList.length + ') ——');
+        addedList.forEach(function (x, i) { report.push((i + 1) + '. ' + x); });
+      }
+      if (skippedList.length) {
+        report.push('—— Уже в каталоге (категория) ——');
+        skippedList.slice(0, 120).forEach(function (x, i) { report.push((i + 1) + '. ' + x); });
+        if (skippedList.length > 120) report.push('… и ещё ' + (skippedList.length - 120));
+      }
+      if (blacklistedList.length) {
+        report.push('—— Чёрный список ——');
+        blacklistedList.forEach(function (x, i) { report.push((i + 1) + '. ' + x); });
+      }
+      if (failList.length) {
+        report.push('—— Ошибки ——');
+        failList.forEach(function (x, i) { report.push((i + 1) + '. ' + x); });
+      }
+      if (typeof showAdminReport === 'function') {
+        showAdminReport('Отчёт: массовое добавление', report);
+      } else {
+        alert(report.join('\n'));
+      }
     }
 
     async function removeTop(id) {
