@@ -4356,23 +4356,27 @@
       const type = (document.getElementById('refresh-meta-type')?.value || '').trim();
       const onlyEmpty = !!document.getElementById('refresh-meta-only-empty')?.checked;
 
-      const list = allItems.filter(it => {
+      showStatus('Загрузка списка из базы…', 60000);
+      let list = [];
+      try {
+        list = await fetchItemsByFilter({
+          category: cat,
+          type: type,
+          publicOnly: true,
+          requireUsername: true
+        });
+      } catch (e) {
+        alert('Не удалось загрузить список: ' + (e.message || e));
+        return;
+      }
+      list = list.filter(function (it) {
         if (it.is_private || !it.username) return false;
-        if (type && it.type !== type) return false;
-        if (cat) {
-          const itemCat = (it.category || 'Разное').trim();
-          if (cat === 'Для взрослых 18+') {
-            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
-          } else if (itemCat !== cat) {
-            return false;
-          }
-        }
         if (onlyEmpty && !isWeakMeta(it)) return false;
         return true;
       });
 
       if (!list.length) {
-        alert('Нет подходящих публичных записей для обновления');
+        alert('Нет подходящих публичных записей для обновления (в базе по фильтру)');
         return;
       }
       if (!confirm('Обновить метаданные для ' + list.length + ' записей?\nЭто может занять несколько минут.')) {
