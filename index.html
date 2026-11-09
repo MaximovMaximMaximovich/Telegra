@@ -291,26 +291,61 @@
       display: none;
     }
 
-    .admin-badge {
+    .admin-fab {
       position: fixed;
       top: 10px;
       left: 10px;
-      z-index: 100;
-      background: var(--accent-light);
-      color: var(--accent);
-      border: 1px solid var(--accent);
-      border-radius: 8px;
-      padding: 5px 10px;
-      font-size: 0.75rem;
-      font-weight: 600;
+      z-index: 110;
       display: none;
       align-items: center;
       gap: 6px;
-      flex-wrap: wrap;
-      max-width: calc(100vw - 24px);
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--accent);
+      background: var(--accent-light);
+      color: var(--accent);
+      font-size: 0.75rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
     }
-    .admin-badge.active { display: flex; }
+    .admin-fab.visible { display: inline-flex; }
+    html[data-theme="dark"] .admin-fab {
+      background: #24352f;
+      color: #d4f0e6;
+      border-color: #5aab90;
+    }
+    .admin-badge {
+      position: fixed;
+      top: 44px;
+      left: 10px;
+      z-index: 105;
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: none;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: nowrap;
+      max-width: min(320px, calc(100vw - 24px));
+      max-height: min(70vh, 420px);
+      overflow-y: auto;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.12);
+    }
+    .admin-badge.active { display: none; }
+    .admin-badge.active.open { display: flex; }
+    .admin-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+      width: 100%;
+    }
     @media (max-width: 600px) {
       .admin-badge {
         font-size: 0.7rem;
@@ -650,6 +685,33 @@
     .btn-blacklist { color: #a33 !important; }
     .btn-delete { color: #a33 !important; font-weight: 700 !important; }
     .btn-remove-top { color: #a33 !important; }
+    .card .actions button,
+    .item-row .actions button {
+      color: var(--text);
+    }
+    html[data-theme="dark"] .card .actions button,
+    html[data-theme="dark"] .item-row .actions button {
+      background: #2c322f !important;
+      border-color: #4a524e !important;
+      color: #e8ebe9 !important;
+    }
+    html[data-theme="dark"] .btn-top {
+      background: #3a3428 !important;
+      border-color: #6a5c40 !important;
+      color: #e8d4a8 !important;
+    }
+    html[data-theme="dark"] .btn-make-top {
+      background: #24352f !important;
+      border-color: #5aab90 !important;
+      color: #9fd9c4 !important;
+    }
+    html[data-theme="dark"] .btn-blacklist,
+    html[data-theme="dark"] .btn-delete,
+    html[data-theme="dark"] .btn-remove-top {
+      color: #ffb0b0 !important;
+      border-color: #6a4040 !important;
+      background: #3a2828 !important;
+    }
 
     .sidebar {
       position: sticky;
@@ -1075,18 +1137,23 @@
   </div>
 
   <!-- Бейдж админа -->
+  <button type="button" class="admin-fab" id="admin-fab" onclick="toggleAdminPanel()" title="Панель администратора">Админ ▾</button>
   <div class="admin-badge" id="admin-badge">
-    <span>Админ</span>
-    <span class="admin-stats" id="admin-stats" title="Просмотры и поиски">…</span>
-    <button type="button" class="stats-btn" onclick="openAnalyticsModal()" title="Статистика">Стат</button>
-    <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
-    <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
-    <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
-    <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
-    <button type="button" id="subs-cancel-btn" onclick="cancelSubscribersCheck()" title="Остановить проверку подписчиков" style="display:none;color:#a33!important;">Стоп подп.</button>
-    <button type="button" onclick="openDeleteCategoryModal()" title="Удалить по категории или по username">Удалить</button>
-    <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
-    <button type="button" onclick="logoutAdmin()">Выйти</button>
+    <div class="admin-badge-row">
+      <span class="admin-stats" id="admin-stats" title="Просмотры и поиски">…</span>
+      <button type="button" onclick="toggleAdminPanel()" title="Свернуть" style="margin-left:auto;">✕</button>
+    </div>
+    <div class="admin-badge-row">
+      <button type="button" class="stats-btn" onclick="openAnalyticsModal()" title="Статистика">Стат</button>
+      <button type="button" onclick="openBulkModal()" title="Массовое добавление">Массово</button>
+      <button type="button" onclick="openRefreshMetaModal()" title="Обновить аватары и описания">Мета</button>
+      <button type="button" onclick="openCheckLinksModal()" title="Проверить ссылки и удалить мёртвые">Ссылки</button>
+      <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
+      <button type="button" id="subs-cancel-btn" onclick="cancelSubscribersCheck()" title="Остановить проверку подписчиков" style="display:none;color:#a33!important;">Стоп подп.</button>
+      <button type="button" onclick="openDeleteCategoryModal()" title="Удалить по категории или по username">Удалить</button>
+      <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
+      <button type="button" onclick="logoutAdmin()">Выйти</button>
+    </div>
   </div>
 
   <div class="page">
@@ -1975,16 +2042,42 @@
     }
 
 
+    function isAdminPanelOpen() {
+      try { return localStorage.getItem('telegra_admin_panel') === '1'; } catch (e) { return false; }
+    }
+    function setAdminPanelOpen(open) {
+      try { localStorage.setItem('telegra_admin_panel', open ? '1' : '0'); } catch (e) {}
+      const badge = document.getElementById('admin-badge');
+      const fab = document.getElementById('admin-fab');
+      if (badge) {
+        if (open) badge.classList.add('open');
+        else badge.classList.remove('open');
+      }
+      if (fab) fab.textContent = open ? 'Админ ▴' : 'Админ ▾';
+    }
+    function toggleAdminPanel() {
+      if (!isAdmin) return;
+      const badge = document.getElementById('admin-badge');
+      const open = !(badge && badge.classList.contains('open'));
+      setAdminPanelOpen(open);
+    }
     function applyAdminChrome(on) {
       const badge = document.getElementById('admin-badge');
+      const fab = document.getElementById('admin-fab');
       const loginToggle = document.getElementById('login-toggle');
       const blSection = document.getElementById('blacklist-section');
       if (on) {
         if (badge) badge.classList.add('active');
+        if (fab) fab.classList.add('visible');
         if (loginToggle) loginToggle.classList.add('hidden');
         if (blSection) blSection.style.display = 'block';
+        setAdminPanelOpen(isAdminPanelOpen());
       } else {
-        if (badge) badge.classList.remove('active');
+        if (badge) {
+          badge.classList.remove('active');
+          badge.classList.remove('open');
+        }
+        if (fab) fab.classList.remove('visible');
         if (loginToggle) loginToggle.classList.remove('hidden');
         if (blSection) blSection.style.display = 'none';
       }
@@ -5284,6 +5377,7 @@
       window.toggleLoginPopup = toggleLoginPopup;
       window.loginAdmin = loginAdmin;
       window.logoutAdmin = logoutAdmin;
+      window.toggleAdminPanel = toggleAdminPanel;
       window.openTopModal = openTopModal;
       window.closeTopModal = closeTopModal;
       window.confirmTopDays = confirmTopDays;
