@@ -382,6 +382,76 @@
       font-weight: 600;
       padding: 0;
     }
+    html[data-theme="dark"] .admin-badge {
+      background: #24352f;
+      color: #c5e8da;
+      border-color: #5aab90;
+    }
+    html[data-theme="dark"] .admin-badge > span {
+      color: #d4f0e6;
+    }
+    html[data-theme="dark"] .admin-badge button {
+      color: #ffb0b0 !important;
+    }
+    html[data-theme="dark"] .admin-badge button.stats-btn {
+      color: #7dcea8 !important;
+    }
+    html[data-theme="dark"] .admin-stats {
+      color: #e8ebe9;
+      background: #2c322f;
+      border-color: #4a524e;
+    }
+    html[data-theme="dark"] .modal {
+      background: #242826;
+      border-color: #3a403c;
+      color: #e8ebe9;
+    }
+    html[data-theme="dark"] .modal h3 {
+      color: #f2f4f3;
+    }
+    html[data-theme="dark"] .modal label {
+      color: #c5cdc9;
+    }
+    html[data-theme="dark"] .modal p {
+      color: #d0d6d3 !important;
+    }
+    html[data-theme="dark"] .modal input,
+    html[data-theme="dark"] .modal textarea,
+    html[data-theme="dark"] .modal select {
+      color: #e8ebe9;
+      background: #1a1d1b;
+      border-color: #3a403c;
+    }
+    html[data-theme="dark"] .btn-cancel {
+      color: #e8ebe9;
+      background: #2c322f;
+      border-color: #4a524e;
+    }
+    html[data-theme="dark"] .checkbox-row span {
+      color: #d0d6d3;
+    }
+    html[data-theme="dark"] #analytics-modal .stat-card .num {
+      color: #7dcea8;
+    }
+    html[data-theme="dark"] #analytics-modal .stat-card .lbl {
+      color: #c5cdc9;
+    }
+    html[data-theme="dark"] #analytics-modal .top-queries li {
+      color: #e8ebe9;
+    }
+    html[data-theme="dark"] .login-popup {
+      background: #242826;
+      color: #e8ebe9;
+      border-color: #3a403c;
+    }
+    html[data-theme="dark"] .login-popup strong {
+      color: #f2f4f3;
+    }
+    html[data-theme="dark"] .login-popup input {
+      color: #e8ebe9;
+      background: #1a1d1b;
+      border-color: #3a403c;
+    }
 
     header {
       text-align: center;
@@ -3637,12 +3707,23 @@
     }
 
     async function checkAndDeleteItem(id, opts) {
-      if (!supabaseClient || !isAdmin) return;
+      if (!supabaseClient || !isAdmin) return { deleted: false, status: 'no_auth' };
       const silent = opts && opts.silent;
-      const item = allItems.find(x => String(x.id) === String(id));
+      // Важно: при массовой проверке запись НЕ в allItems (там только ~20 с экрана)
+      let item = (opts && opts.item) || allItems.find(x => String(x.id) === String(id));
+      if (!item && id != null) {
+        try {
+          const { data } = await supabaseClient
+            .from('items')
+            .select(ITEMS_SELECT)
+            .eq('id', id)
+            .maybeSingle();
+          if (data) item = data;
+        } catch (e) {}
+      }
       if (!item) {
         if (!silent) alert('Запись не найдена');
-        return { deleted: false, status: 'missing' };
+        return { deleted: false, status: 'missing', reason: 'not_in_memory' };
       }
       if (!silent) showStatus('Проверка ссылки…', 20000);
       const result = await checkTelegramLinkAlive(item);
@@ -4347,19 +4428,23 @@
         const item = list[i];
         const label = item.username ? '@' + item.username : (item.display_name || item.id);
         showStatus('Проверка ' + (i + 1) + '/' + total + ': ' + label, 120000);
-        const r = await checkAndDeleteItem(item.id, { silent: true });
-        if (r.status === 'alive') {
+        const r = await checkAndDeleteItem(item.id, { silent: true, item: item });
+        if (!r) {
+          err++;
+          errItems.push(formatCheckRef(item) + ' [no result]');
+        } else if (r.status === 'alive') {
           alive++;
         } else if (r.status === 'dead' && r.deleted) {
           dead++;
-        } else if (r.status === 'network') {
+        } else if (r.status === 'network' || r.status === 'missing') {
           skip++;
-          skipItems.push(formatCheckRef(item));
+          skipItems.push(formatCheckRef(item) + (r.reason ? ' [' + r.reason + ']' : ''));
         } else {
           err++;
-          errItems.push(formatCheckRef(item) + (r && r.reason ? ' [' + r.reason + ']' : ''));
+          errItems.push(formatCheckRef(item) + (r.reason ? ' [' + r.reason + ']' : (r.status ? ' [' + r.status + ']' : '')));
         }
-        await new Promise(r => setTimeout(r, 120));
+        // пауза между реальными запросами к Telegram/прокси
+        await new Promise(function (r) { setTimeout(r, 250); });
       }
 
       checkLinksRunning = false;
