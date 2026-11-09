@@ -3854,21 +3854,17 @@
         return;
       }
 
-      const matches = allItems.filter(it => {
-        const itemCat = (it.category || 'Разное').trim();
-        let catOk = false;
-        if (cat === 'Для взрослых 18+') {
-          catOk = itemCat === 'Для взрослых 18+' || itemCat === 'Для взрослых';
-        } else {
-          catOk = itemCat === cat;
-        }
-        if (!catOk) return false;
-        if (type && it.type !== type) return false;
-        return true;
-      });
+      showStatus('Загрузка категории из базы…', 120000);
+      let matches = [];
+      try {
+        matches = await fetchItemsByFilter({ category: cat, type: type });
+      } catch (e) {
+        alert('Не удалось загрузить категорию: ' + (e.message || e));
+        return;
+      }
 
       if (!matches.length) {
-        alert('В этой категории нет записей' + (type ? ' выбранного типа' : ''));
+        alert('В базе нет записей в категории «' + cat + '»' + (type ? ' (тип ' + type + ')' : ''));
         return;
       }
 
@@ -3955,50 +3951,113 @@
       document.getElementById('subscribers-modal').classList.remove('active');
     }
 
-    async function fetchItemsForSubsCheck(category, type) {
-      var pageSize = 500;
+    /**
+     * Полная выборка из БД (не из allItems на экране).
+     * opts: category, type, publicOnly, requireUsername, channelsAndChatsOnly
+     */
+    async function fetchItemsByFilter(opts) {
+      opts = opts || {};
+      var category = (opts.category || '').trim();
+      var type = (opts.type || '').trim();
+      var pageSize = 1000;
       var from = 0;
       var all = [];
-      while (from < 100000) {
-        var parts = [];
-        if (type === 'channel' || type === 'chat') {
-          parts.push('type=eq.' + encodeURIComponent(type));
-        } else {
-          parts.push('or=(type.eq.channel,type.eq.chat)');
-        }
-        if (category) {
-          if (category === 'Для взрослых 18+' || category === 'Для взрослых') {
-            parts.push(
-              'or=(category.eq.' +
-                encodeURIComponent('Для взрослых 18+') +
-                ',category.eq.' +
-                encodeURIComponent('Для взрослых') +
-                ')'
-            );
-          } else {
-            parts.push('category=eq.' + encodeURIComponent(category));
-          }
-        }
-        parts.push('is_private=eq.false');
-        parts.push('username=not.is.null');
-        var extra = parts.join('&');
-        var batch;
+
+      // 1) Предпочтительно supabase-js (с сессией админа)
+      if (supabaseClient) {
         try {
-          batch = await fetchItemsRange(from, pageSize, extra);
+          while (from < 200000) {
+            var q = supabaseClient
+              .from('items')
+              .select(ITEMS_SELECT)
+              .order('created_at', { ascending: false })
+              .range(from, from + pageSize - 1);
+
+            if (type === 'channel' || type === 'chat' || type === 'bot') {
+              q = q.eq('type', type);
+            } else if (opts.channelsAndChatsOnly) {
+              q = q.in('type', ['channel', 'chat']);
+            }
+            if (category) {
+              if (category === 'Для взрослых 18+' || category === 'Для взрослых') {
+                q = q.or('category.eq.Для взрослых 18+,category.eq.Для взрослых');
+              } else {
+                q = q.eq('category', category);
+              }
+            }
+            if (opts.publicOnly) q = q.eq('is_private', false);
+            if (opts.requireUsername) q = q.not('username', 'is', null);
+
+            var res = await q;
+            if (res.error) throw res.error;
+            var batch = res.data || [];
+            if (!batch.length) break;
+            all = all.concat(batch);
+            if (batch.length < pageSize) break;
+            from += pageSize;
+          }
         } catch (e) {
-          console.warn('subs fetch', e);
-          break;
+          console.warn('fetchItemsByFilter supabase', e);
+          all = [];
+          from = 0;
         }
-        if (!batch || !batch.length) break;
-        all = all.concat(batch);
-        if (batch.length < pageSize) break;
-        from += pageSize;
       }
+
+      // 2) Запасной путь: REST Range (anon key)
+      if (!all.length) {
+        from = 0;
+        while (from < 200000) {
+          var parts = [];
+          if (type === 'channel' || type === 'chat' || type === 'bot') {
+            parts.push('type=eq.' + encodeURIComponent(type));
+          } else if (opts.channelsAndChatsOnly) {
+            parts.push('or=(type.eq.channel,type.eq.chat)');
+          }
+          if (category) {
+            if (category === 'Для взрослых 18+' || category === 'Для взрослых') {
+              parts.push(
+                'or=(category.eq.' +
+                  encodeURIComponent('Для взрослых 18+') +
+                  ',category.eq.' +
+                  encodeURIComponent('Для взрослых') +
+                  ')'
+              );
+            } else {
+              parts.push('category=eq.' + encodeURIComponent(category));
+            }
+          }
+          if (opts.publicOnly) parts.push('is_private=eq.false');
+          if (opts.requireUsername) parts.push('username=not.is.null');
+          var extra = parts.join('&');
+          var batch2;
+          try {
+            batch2 = await fetchItemsRange(from, 500, extra || undefined);
+          } catch (e2) {
+            console.warn('fetchItemsByFilter rest', e2);
+            break;
+          }
+          if (!batch2 || !batch2.length) break;
+          all = all.concat(batch2);
+          if (batch2.length < 500) break;
+          from += 500;
+        }
+      }
+
       var map = Object.create(null);
       all.forEach(function (it) {
-        if (it && it.id) map[String(it.id)] = it;
+        if (it && it.id != null) map[String(it.id)] = it;
       });
       return Object.keys(map).map(function (k) { return map[k]; });
+    }
+
+    async function fetchItemsForSubsCheck(category, type) {
+      return fetchItemsByFilter({
+        category: category,
+        type: type,
+        publicOnly: true,
+        requireUsername: true,
+        channelsAndChatsOnly: !(type === 'channel' || type === 'chat' || type === 'bot')
+      });
     }
 
     function parseSubsFromHtml(html) {
@@ -4237,22 +4296,25 @@
       const cat = (document.getElementById('check-links-category')?.value || '').trim();
       const type = (document.getElementById('check-links-type')?.value || '').trim();
 
-      const list = allItems.filter(it => {
-        if (type && it.type !== type) return false;
-        if (cat) {
-          const itemCat = (it.category || 'Разное').trim();
-          if (cat === 'Для взрослых 18+') {
-            if (itemCat !== 'Для взрослых 18+' && itemCat !== 'Для взрослых') return false;
-          } else if (itemCat !== cat) {
-            return false;
-          }
-        }
-        if (!buildTelegramCheckUrl(it)) return false;
-        return true;
+      showStatus('Загрузка всех записей категории из базы…', 120000);
+      let list = [];
+      try {
+        list = await fetchItemsByFilter({ category: cat, type: type });
+      } catch (e) {
+        alert('Не удалось загрузить из базы: ' + (e.message || e));
+        return;
+      }
+      list = list.filter(function (it) {
+        return !!buildTelegramCheckUrl(it);
       });
 
       if (!list.length) {
-        alert('Нет записей для проверки');
+        alert(
+          'В базе нет записей для проверки' +
+          (cat ? ' (категория «' + cat + '»)' : '') +
+          (type ? ' (тип ' + type + ')' : '') +
+          '.\nЭто не список с главной — данные берутся напрямую из Supabase.'
+        );
         return;
       }
       if (!confirm('Проверить ' + list.length + ' ссылок?\nНерабочие будут удалены. Это может занять несколько минут.')) {
