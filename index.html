@@ -1240,11 +1240,11 @@
     <div class="modal">
       <h3 id="modal-title">Добавить</h3>
       <p id="modal-type-hint" style="font-size:0.85rem;color:var(--muted);margin:-8px 0 12px;">Тип: —</p>
-      <label>1. Название</label>
-      <input type="text" id="item-name" placeholder="Название канала / чата / бота" autocomplete="off">
-      <label>2. Ссылка</label>
+      <label>1. Ссылка</label>
       <input type="text" id="item-link" placeholder="@username, t.me/name или https://t.me/+invite" autocomplete="off">
-      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 8px;">Открытый или приватный — сайт определит сам</p>
+      <p style="font-size:0.75rem;color:var(--muted);margin:-6px 0 8px;">Открытый или приватный — сайт определит сам. Для публичных название подтянется из Telegram.</p>
+      <label>2. Название <span style="font-weight:400;color:var(--muted);">(необязательно)</span></label>
+      <input type="text" id="item-name" placeholder="Можно не указывать — возьмём из Telegram" autocomplete="off">
       <p style="font-size:0.8rem;color:var(--muted);margin:0 0 12px;line-height:1.45;background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
         <strong style="color:var(--text);">Важно.</strong>
         Канал или чат с менее чем <strong>1000</strong> подписчиками может быть удалён администратором.
@@ -1256,7 +1256,7 @@
         <a href="https://t.me/TG_Administrator_Vip_bot" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600;">администратору</a>
         и пришлите <strong>аватарку</strong> вместе с <strong>ссылкой или названием</strong> канала/чата — загрузим в каталог.
       </p>
-      <label>3. Описание</label>
+      <label>3. Описание <span style="font-weight:400;color:var(--muted);">(необязательно)</span></label>
       <textarea id="item-desc" rows="3" placeholder="Можно оставить пустым" style="min-height:90px;width:100%;display:block;"></textarea>
       <label>4. Категория (тема)</label>
       <select id="item-category">
@@ -3124,10 +3124,6 @@
       let category = document.getElementById('item-category').value;
       if (!category) category = 'Разное';
 
-      if (!name) {
-        alert('Укажите название');
-        return;
-      }
       if (!linkRaw) {
         alert('Укажите ссылку');
         return;
@@ -3136,6 +3132,11 @@
       const parsed = parseTelegramLink(linkRaw);
       if (!parsed.ok) {
         alert('Не удалось распознать ссылку. Пример: @channel, t.me/channel или https://t.me/+xxxx');
+        return;
+      }
+      // Название обязательно только для приватных (из ТГ его нет)
+      if (parsed.isPrivate && !name) {
+        alert('Для приватной ссылки укажите название — из Telegram оно не подтягивается.');
         return;
       }
 
