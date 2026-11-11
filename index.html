@@ -4420,6 +4420,31 @@
                 escapeHtml(item.violation_note) +
                 '</div>' +
                 '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                (function () {
+                  var tg =
+                    item.is_private && item.invite_link
+                      ? item.invite_link
+                      : item.username
+                        ? 'https://t.me/' + String(item.username).replace(/^@/, '')
+                        : '';
+                  var pageHref = catalogItemHref(
+                    Object.assign({}, item, { violation_note: null, violation_until: null })
+                  );
+                  var bits = '';
+                  if (tg) {
+                    bits +=
+                      '<a class="btn-add" style="padding:6px 10px;font-size:0.78rem;text-decoration:none;display:inline-block;" href="' +
+                      escapeHtml(tg) +
+                      '" target="_blank" rel="noopener">Открыть в Telegram</a>';
+                  }
+                  if (pageHref && pageHref !== '#') {
+                    bits +=
+                      '<a class="btn-cancel" style="padding:6px 10px;font-size:0.78rem;text-decoration:none;display:inline-block;" href="' +
+                      escapeHtml(pageHref) +
+                      '">Страница</a>';
+                  }
+                  return bits;
+                })() +
                 '<button type="button" class="btn-add" style="padding:6px 10px;font-size:0.78rem;" onclick="showViolationInfo(\'' +
                 escapeJsAttr(item.id) +
                 '\')">Подробнее</button>' +
