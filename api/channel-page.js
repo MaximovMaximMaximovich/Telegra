@@ -116,7 +116,7 @@ async function sbFetch(qs) {
 
 async function fetchItemByUsername(username) {
   const qs =
-    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at,violation_note,violation_until' +
     '&username=eq.' +
     encodeURIComponent(username) +
     '&is_private=eq.false&limit=1';
@@ -129,7 +129,7 @@ async function fetchItemById(id) {
   if (!id) return null;
   // UUID или любой id из primary key
   const qs =
-    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+    'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at,violation_note,violation_until' +
     '&id=eq.' +
     encodeURIComponent(id) +
     '&limit=1';
@@ -139,7 +139,7 @@ async function fetchItemById(id) {
   const cleaned = id.replace(/[^a-zA-Z0-9-]/g, '');
   if (cleaned && cleaned !== id) {
     rows = await sbFetch(
-      'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at' +
+      'select=id,username,type,display_name,description,category,avatar_url,is_private,invite_link,is_top,top_until,created_at,violation_note,violation_until' +
       '&id=eq.' + encodeURIComponent(cleaned) + '&limit=1'
     );
     if (Array.isArray(rows) && rows[0]) return rows[0];
@@ -229,6 +229,43 @@ function cardHtml(s, forceTop) {
   );
 }
 
+
+function renderViolationBlocked(res, item) {
+  const name =
+    (item && (item.display_name || item.username)) ||
+    'Канал';
+  const note = String((item && item.violation_note) || '').trim();
+  const until = item && item.violation_until ? new Date(item.violation_until) : null;
+  let timeLine = 'На устранение нарушения отводится 3 дня.';
+  if (until && !isNaN(until.getTime())) {
+    const left = Math.ceil((until.getTime() - Date.now()) / 86400000);
+    if (left <= 0) timeLine = 'Срок устранения истёк. Запись может быть удалена.';
+    else timeLine = 'Осталось примерно ' + left + ' дн. на устранение.';
+  }
+  const html =
+    '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
+    '<meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<meta name="robots" content="noindex, nofollow">' +
+    '<title>Нарушение — ' +
+    escapeHtml(String(name)) +
+    '</title>' +
+    '<style>body{font-family:system-ui,sans-serif;background:#1a1d1b;color:#e8ebe9;display:flex;min-height:100vh;align-items:center;justify-content:center;padding:24px;margin:0}' +
+    '.box{max-width:440px;background:#242826;border:1px solid #5a3030;border-radius:16px;padding:28px 24px;text-align:center}' +
+    'h1{font-size:1.35rem;margin:0 0 12px;color:#ffb0b0}p{line-height:1.55;color:#c5cdc9;margin:0 0 12px}' +
+    '.note{background:#2a1f1f;border-radius:10px;padding:12px;text-align:left;font-size:0.95rem;color:#f0e0e0;margin:16px 0}' +
+    'a{color:#5aab90;font-weight:600;text-decoration:none}</style></head><body><div class="box">' +
+    '<h1>⚠ Канал временно недоступен</h1>' +
+    '<p>Эта запись помечена администратором каталога из‑за нарушения. Переход к каналу закрыт.</p>' +
+    '<div class="note"><strong>Причина:</strong><br>' +
+    escapeHtml(note) +
+    '</div><p style="font-size:0.9rem">' +
+    escapeHtml(timeLine) +
+    '</p><p><a href="/">← На главную</a></p></div></body></html>';
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.status(403).send(html);
+}
+
 function renderNotFound(res, label) {
   const html =
     '<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8">' +
@@ -293,6 +330,14 @@ async function handler(req, res) {
     if (!item) {
       return renderNotFound(res, idParam || username);
     }
+
+    const hasViolation = !!(item.violation_note && String(item.violation_note).trim());
+
+    // Канал с нарушением — страница без перехода в Telegram
+    if (item.violation_note && String(item.violation_note).trim()) {
+      return renderViolationBlocked(res, item);
+    }
+
 
     const isPrivate = !!item.is_private;
     const name =
@@ -395,7 +440,7 @@ async function handler(req, res) {
       '<meta name="description" content="' +
       escapeHtml(metaDesc) +
       '">' +
-      '<meta name="robots" content="index, follow">' +
+      '<meta name="robots" content="' + (hasViolation ? 'noindex, nofollow' : 'index, follow') + '">' +
       '<link rel="canonical" href="' +
       escapeHtml(pageUrl) +
       '">' +
@@ -427,7 +472,7 @@ async function handler(req, res) {
       '.nav a{color:var(--accent);text-decoration:none;font-weight:600}' +
       '.crumbs{color:var(--muted);font-size:.82rem;margin-bottom:16px}' +
       '.crumbs a{color:var(--muted)}' +
-      '.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;box-shadow:0 4px 20px rgba(0,0,0,.04)}html[data-theme=dark] .card{box-shadow:0 4px 24px rgba(0,0,0,.45)}html[data-theme=dark] body{background:#121412;color:#e4e8e6}' +
+      '.violation-banner{background:#3a2020;color:#ffb0b0;border:1px solid #a33;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.9rem;line-height:1.45;text-align:left}.card.has-violation{border-color:#a33}.card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px 24px;box-shadow:0 4px 20px rgba(0,0,0,.04)}html[data-theme=dark] .card{box-shadow:0 4px 24px rgba(0,0,0,.45)}html[data-theme=dark] body{background:#121412;color:#e4e8e6}' +
       '.card.is-top{border-color:var(--top-border);background:linear-gradient(180deg,var(--top-bg) 0%,var(--card) 55%)}' +
       '.hero{display:flex;gap:20px;align-items:center;margin-bottom:20px}' +
       '.hero-avatar{width:96px;height:96px;border-radius:50%;object-fit:cover;border:3px solid var(--card);box-shadow:0 4px 14px rgba(0,0,0,.1);flex-shrink:0}html[data-theme=dark] .hero-avatar{border-color:var(--border);box-shadow:0 4px 14px rgba(0,0,0,.4)}' +
@@ -476,9 +521,21 @@ async function handler(req, res) {
       '</a> · <span>' +
       escapeHtml(name) +
       '</span></nav>' +
-      '<article class="card' +
+            '<article class="card' +
       (itemIsTop ? ' is-top' : '') +
-      '"><div class="hero">' +
+      (hasViolation ? ' has-violation' : '') +
+      '">' +
+      (hasViolation
+        ? '<div class="violation-banner"><strong>⚠ Нарушение.</strong> ' +
+          escapeHtml(String(item.violation_note || '').trim()) +
+          (item.violation_until
+            ? ' <span style="opacity:.85">· срок до ' +
+              escapeHtml(new Date(item.violation_until).toLocaleDateString('ru-RU')) +
+              '</span>'
+            : '') +
+          '</div>'
+        : '') +
+      '<div class="hero">' +
       avatarBlock +
       '<div><div class="badges">' +
       '<span class="badge accent">' +
