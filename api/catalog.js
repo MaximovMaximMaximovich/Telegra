@@ -16,7 +16,7 @@ const SUPABASE_KEY = (
 ).trim();
 
 const ITEMS_SELECT =
-  'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at';
+  'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at,violation_note,violation_until';
 
 function clampInt(v, min, max, fallback) {
   const n = parseInt(v, 10);
