@@ -334,9 +334,8 @@ async function handler(req, res) {
     const hasViolation = !!(item.violation_note && String(item.violation_note).trim());
 
     // Канал с нарушением — страница без перехода в Telegram
-    if (item.violation_note && String(item.violation_note).trim()) {
-      return renderViolationBlocked(res, item);
-    }
+    // Не блокируем страницу: админ должен открыть канал в Telegram и проверить исправление.
+    // Гости с главной не кликают (клиент). Прямой URL /c/ показывает карточку + баннер.
 
 
     const isPrivate = !!item.is_private;
@@ -526,14 +525,14 @@ async function handler(req, res) {
       (hasViolation ? ' has-violation' : '') +
       '">' +
       (hasViolation
-        ? '<div class="violation-banner"><strong>⚠ Нарушение.</strong> ' +
+        ? '<div class="violation-banner"><strong>⚠ Нарушение в каталоге.</strong><br>' +
           escapeHtml(String(item.violation_note || '').trim()) +
           (item.violation_until
-            ? ' <span style="opacity:.85">· срок до ' +
+            ? '<br><span style="opacity:.9">Срок устранения до ' +
               escapeHtml(new Date(item.violation_until).toLocaleDateString('ru-RU')) +
               '</span>'
             : '') +
-          '</div>'
+          '<br><span style="opacity:.9;font-size:.85rem">Откройте канал в Telegram кнопкой ниже, проверьте исправление, затем в админке нажмите «Снять нарушение».</span></div>'
         : '') +
       '<div class="hero">' +
       avatarBlock +
