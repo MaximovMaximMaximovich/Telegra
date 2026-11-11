@@ -685,6 +685,71 @@
     .btn-blacklist { color: #a33 !important; }
     .btn-delete { color: #a33 !important; font-weight: 700 !important; }
     .btn-remove-top { color: #a33 !important; }
+
+    .violation-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #c62828;
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.85rem;
+      cursor: pointer;
+      margin-left: 6px;
+      vertical-align: middle;
+      flex-shrink: 0;
+      box-shadow: 0 1px 4px rgba(198,40,40,0.4);
+    }
+    .violation-badge:hover { background: #b71c1c; }
+    .violation-hint {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1px solid #c62828;
+      color: #c62828;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-left: 4px;
+      cursor: help;
+      vertical-align: middle;
+    }
+    .uname-blocked, .username-blocked {
+      color: var(--muted);
+      text-decoration: line-through;
+      cursor: not-allowed;
+      opacity: 0.85;
+    }
+    .item-row.has-violation, .card.has-violation {
+      border-color: #e57373;
+      background: linear-gradient(90deg, rgba(198,40,40,0.06), transparent 40%);
+    }
+    html[data-theme="dark"] .item-row.has-violation,
+    html[data-theme="dark"] .card.has-violation {
+      border-color: #a33;
+      background: linear-gradient(90deg, rgba(198,40,40,0.15), transparent 45%);
+    }
+    .violation-meta {
+      color: #c62828;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    #violators-list .violator-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      background: var(--soft);
+    }
+    #violators-list .violator-row.expired {
+      border-color: #c62828;
+    }
     .card .actions button,
     .item-row .actions button {
       color: var(--text);
@@ -1151,6 +1216,7 @@
       <button type="button" onclick="openSubscribersModal()" title="Удалить каналы с малым числом подписчиков">Подписчики</button>
       <button type="button" id="subs-cancel-btn" onclick="cancelSubscribersCheck()" title="Остановить проверку подписчиков" style="display:none;color:#a33!important;">Стоп подп.</button>
       <button type="button" onclick="openDeleteCategoryModal()" title="Удалить по категории или по username">Удалить</button>
+      <button type="button" onclick="openViolatorsModal()" title="Каналы с нарушениями">Нарушители</button>
       <button type="button" onclick="openBotSettings()" title="Ссылка для оплаты">Бот</button>
       <button type="button" onclick="logoutAdmin()">Выйти</button>
     </div>
@@ -1490,6 +1556,52 @@
         <button type="button" class="btn-cancel" onclick="resolveMoveCategory(false)">Нет</button>
         <button type="button" class="btn-add" onclick="resolveMoveCategory(true)">Да, перенести</button>
         <button type="button" id="move-category-apply-all" class="btn-add" onclick="resolveMoveCategory('all')" style="display:none;background:var(--soft);color:var(--accent);border:1px solid var(--border);">Применить для всех</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Нарушение: указать текст -->
+  <div class="modal-overlay" id="violation-modal">
+    <div class="modal">
+      <h3>Нарушение</h3>
+      <p style="font-size:0.88rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+        Опишите нарушение. Карточка будет с красным «!», переход по ней заблокирован.
+        На устранение — <strong>3 дня</strong>. После срока удалите запись в «Нарушители».
+      </p>
+      <input type="hidden" id="violation-item-id" value="">
+      <label>Текст нарушения</label>
+      <textarea id="violation-text" rows="4" placeholder="Например: спам / запрещённый контент / ..." style="min-height:100px;"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeViolationModal()">Отмена</button>
+        <button class="btn-add" style="background:#c62828;" onclick="saveViolation()">ОК</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Просмотр нарушения (гость/админ) -->
+  <div class="modal-overlay" id="violation-info-modal">
+    <div class="modal">
+      <h3>⚠ Нарушение</h3>
+      <div id="violation-info-body" style="font-size:0.95rem;line-height:1.55;color:var(--text);margin:8px 0 12px;"></div>
+      <div class="modal-actions" style="flex-wrap:wrap;gap:8px;">
+        <button class="btn-cancel" onclick="closeViolationInfoModal()" style="flex:1;">Закрыть</button>
+        <button type="button" id="violation-clear-btn" class="btn-add" style="display:none;flex:1;background:var(--accent);" onclick="clearViolationFromInfo()">Снять нарушение</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Список нарушителей -->
+  <div class="modal-overlay" id="violators-modal">
+    <div class="modal" style="max-width:520px;">
+      <h3>Нарушители</h3>
+      <p style="font-size:0.82rem;color:var(--muted);margin:-4px 0 12px;line-height:1.45;">
+        Каналы с пометкой нарушения. Когда срок истёк — удалите вручную.
+      </p>
+      <div id="violators-list"><div class="loading">Загрузка…</div></div>
+      <div class="modal-actions" style="margin-top:14px;">
+        <button class="btn-cancel" onclick="closeViolatorsModal()" style="flex:1;">Закрыть</button>
+        <button class="btn-add" onclick="loadViolatorsList()" style="flex:1;">Обновить</button>
       </div>
     </div>
   </div>
@@ -2185,7 +2297,7 @@
       return Promise.race([Promise.resolve(promise), timeout]).finally(() => clearTimeout(timer));
     }
 
-    const ITEMS_SELECT = 'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at';
+    const ITEMS_SELECT = 'id,type,username,invite_link,is_private,display_name,description,category,is_top,top_until,avatar_url,source,created_at,violation_note,violation_until';
     const REST_HEADERS = {
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
@@ -3993,6 +4105,296 @@
       if (userBox) userBox.style.display = mode === 'usernames' ? 'block' : 'none';
     }
 
+
+    function hasActiveViolation(item) {
+      return !!(item && item.violation_note && String(item.violation_note).trim());
+    }
+
+    function violationDaysLeft(item) {
+      if (!item || !item.violation_until) return null;
+      var ms = new Date(item.violation_until).getTime() - Date.now();
+      if (!isFinite(ms)) return null;
+      return Math.ceil(ms / 86400000);
+    }
+
+    function violationBadgeHtml(item) {
+      if (!hasActiveViolation(item)) return '';
+      var id = escapeJsAttr(item.id);
+      var left = violationDaysLeft(item);
+      var expired = left !== null && left <= 0;
+      var tip = expired
+        ? 'Срок устранения истёк'
+        : ('На устранение: ' + (left != null ? left + ' дн.' : '3 дня'));
+      return (
+        '<span class="violation-badge" role="button" tabindex="0" onclick="event.preventDefault();event.stopPropagation();showViolationInfo(\'' +
+        id +
+        '\')" title="Показать нарушение">!</span>' +
+        '<span class="violation-hint" title="' +
+        escapeHtml(tip) +
+        '. Есть 3 дня, чтобы устранить нарушение.">i</span>'
+      );
+    }
+
+    function violationMetaLine(item) {
+      if (!hasActiveViolation(item)) return '';
+      var left = violationDaysLeft(item);
+      if (left === null) return '<div class="violation-meta">Нарушение · 3 дня на устранение</div>';
+      if (left <= 0) return '<div class="violation-meta">Срок истёк — ожидает удаления</div>';
+      return '<div class="violation-meta">Нарушение · осталось ' + left + ' дн.</div>';
+    }
+
+    function renderItemNameLink(item, name) {
+      var safe = escapeHtml(name);
+      if (hasActiveViolation(item)) {
+        return (
+          '<span class="uname-blocked">' +
+          safe +
+          '</span>' +
+          violationBadgeHtml(item)
+        );
+      }
+      var link = catalogItemHref(item);
+      var linkAttrs = catalogItemLinkAttrs(item);
+      return (
+        '<a href="' +
+        escapeHtml(link) +
+        '"' +
+        linkAttrs +
+        '>' +
+        safe +
+        '</a>'
+      );
+    }
+
+    let pendingViolationId = null;
+
+    function openViolationModal(id) {
+      if (!isAdmin) return;
+      pendingViolationId = id;
+      var hid = document.getElementById('violation-item-id');
+      if (hid) hid.value = id;
+      var ta = document.getElementById('violation-text');
+      var existing = allItems.find(function (x) { return String(x.id) === String(id); });
+      if (ta) ta.value = (existing && existing.violation_note) ? existing.violation_note : '';
+      document.getElementById('violation-modal').classList.add('active');
+    }
+    function closeViolationModal() {
+      document.getElementById('violation-modal').classList.remove('active');
+      pendingViolationId = null;
+    }
+
+    async function saveViolation() {
+      if (!isAdmin || !supabaseClient) return;
+      var id = pendingViolationId || (document.getElementById('violation-item-id') || {}).value;
+      var text = ((document.getElementById('violation-text') || {}).value || '').trim();
+      if (!id) return;
+      if (!text) {
+        alert('Опишите нарушение');
+        return;
+      }
+      var until = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      try {
+        var res = await supabaseClient
+          .from('items')
+          .update({ violation_note: text, violation_until: until })
+          .eq('id', id);
+        if (res.error) {
+          if (/violation_note|column|schema/i.test(res.error.message || '')) {
+            alert(
+              'В таблице items нет колонок violation_note / violation_until.\n\n' +
+              'В Supabase → SQL выполните:\n\n' +
+              'alter table items add column if not exists violation_note text;\n' +
+              'alter table items add column if not exists violation_until timestamptz;'
+            );
+            return;
+          }
+          alert(res.error.message || 'Ошибка сохранения');
+          return;
+        }
+        var it = allItems.find(function (x) { return String(x.id) === String(id); });
+        if (it) {
+          it.violation_note = text;
+          it.violation_until = until;
+        }
+        if (topItemsCache) {
+          topItemsCache.forEach(function (x) {
+            if (String(x.id) === String(id)) {
+              x.violation_note = text;
+              x.violation_until = until;
+            }
+          });
+        }
+        closeViolationModal();
+        showStatus('Нарушение отмечено (3 дня)');
+        try { render(); } catch (e) {}
+      } catch (e) {
+        alert('Ошибка: ' + (e.message || e));
+      }
+    }
+
+    function showViolationInfo(id) {
+      var item =
+        allItems.find(function (x) { return String(x.id) === String(id); }) ||
+        (topItemsCache || []).find(function (x) { return String(x.id) === String(id); });
+      if (!item || !hasActiveViolation(item)) {
+        alert('Информация о нарушении недоступна');
+        return;
+      }
+      pendingViolationId = id;
+      var left = violationDaysLeft(item);
+      var timeLine =
+        left === null
+          ? 'Срок: 3 дня с момента пометки.'
+          : left <= 0
+            ? 'Срок устранения истёк. Запись может быть удалена администратором.'
+            : ('Осталось примерно ' + left + ' дн. на устранение.');
+      var body = document.getElementById('violation-info-body');
+      if (body) {
+        body.innerHTML =
+          '<p style="margin-bottom:10px;"><strong>Причина:</strong><br>' +
+          escapeHtml(item.violation_note) +
+          '</p><p style="color:var(--muted);font-size:0.9rem;">' +
+          escapeHtml(timeLine) +
+          '</p><p style="color:var(--muted);font-size:0.85rem;margin-top:8px;">Переход на страницу канала заблокирован, пока нарушение не снято.</p>';
+      }
+      var clr = document.getElementById('violation-clear-btn');
+      if (clr) clr.style.display = isAdmin ? 'inline-block' : 'none';
+      document.getElementById('violation-info-modal').classList.add('active');
+    }
+    function closeViolationInfoModal() {
+      document.getElementById('violation-info-modal').classList.remove('active');
+    }
+
+    async function clearViolationFromInfo() {
+      if (!isAdmin || !pendingViolationId) return;
+      await clearViolation(pendingViolationId);
+      closeViolationInfoModal();
+    }
+
+    async function clearViolation(id) {
+      if (!isAdmin || !supabaseClient || !id) return;
+      if (!confirm('Снять пометку нарушения с этой записи?')) return;
+      try {
+        var res = await supabaseClient
+          .from('items')
+          .update({ violation_note: null, violation_until: null })
+          .eq('id', id);
+        if (res.error) {
+          alert(res.error.message || 'Ошибка');
+          return;
+        }
+        allItems.forEach(function (x) {
+          if (String(x.id) === String(id)) {
+            x.violation_note = null;
+            x.violation_until = null;
+          }
+        });
+        if (topItemsCache) {
+          topItemsCache.forEach(function (x) {
+            if (String(x.id) === String(id)) {
+              x.violation_note = null;
+              x.violation_until = null;
+            }
+          });
+        }
+        showStatus('Нарушение снято');
+        try { render(); } catch (e) {}
+        if (document.getElementById('violators-modal') && document.getElementById('violators-modal').classList.contains('active')) {
+          loadViolatorsList();
+        }
+      } catch (e) {
+        alert('Ошибка: ' + (e.message || e));
+      }
+    }
+
+    function openViolatorsModal() {
+      if (!isAdmin) return;
+      document.getElementById('violators-modal').classList.add('active');
+      loadViolatorsList();
+    }
+    function closeViolatorsModal() {
+      document.getElementById('violators-modal').classList.remove('active');
+    }
+
+    async function loadViolatorsList() {
+      if (!isAdmin || !supabaseClient) return;
+      var box = document.getElementById('violators-list');
+      if (box) box.innerHTML = '<div class="loading">Загрузка…</div>';
+      try {
+        var res = await supabaseClient
+          .from('items')
+          .select(ITEMS_SELECT)
+          .not('violation_note', 'is', null)
+          .order('violation_until', { ascending: true });
+        if (res.error) {
+          if (/violation_note|column|schema/i.test(res.error.message || '')) {
+            if (box) {
+              box.innerHTML =
+                '<p style="color:var(--muted);font-size:0.9rem;">Добавьте в Supabase колонки:<br><code>violation_note</code>, <code>violation_until</code></p>';
+            }
+            return;
+          }
+          throw res.error;
+        }
+        var rows = (res.data || []).filter(function (r) {
+          return r && r.violation_note;
+        });
+        if (!rows.length) {
+          if (box) box.innerHTML = '<p style="color:var(--muted);">Пока нет помеченных записей</p>';
+          return;
+        }
+        if (box) {
+          box.innerHTML = rows
+            .map(function (item) {
+              var name =
+                item.display_name ||
+                (item.is_private ? item.invite_link || 'Приват' : '@' + (item.username || ''));
+              var left = violationDaysLeft(item);
+              var expired = left !== null && left <= 0;
+              var timeLabel =
+                left === null
+                  ? 'срок не задан'
+                  : expired
+                    ? 'срок истёк'
+                    : 'осталось ' + left + ' дн.';
+              return (
+                '<div class="violator-row' +
+                (expired ? ' expired' : '') +
+                '">' +
+                '<div style="font-weight:600;margin-bottom:4px;">' +
+                escapeHtml(name) +
+                '</div>' +
+                '<div style="font-size:0.82rem;color:var(--muted);margin-bottom:6px;">' +
+                escapeHtml(item.category || '') +
+                ' · <span style="color:' +
+                (expired ? '#c62828' : 'var(--accent)') +
+                ';font-weight:600;">' +
+                escapeHtml(timeLabel) +
+                '</span></div>' +
+                '<div style="font-size:0.88rem;margin-bottom:8px;word-break:break-word;">' +
+                escapeHtml(item.violation_note) +
+                '</div>' +
+                '<div style="display:flex;gap:6px;flex-wrap:wrap;">' +
+                '<button type="button" class="btn-add" style="padding:6px 10px;font-size:0.78rem;" onclick="showViolationInfo(\'' +
+                escapeJsAttr(item.id) +
+                '\')">Подробнее</button>' +
+                '<button type="button" class="btn-cancel" style="padding:6px 10px;font-size:0.78rem;" onclick="clearViolation(\'' +
+                escapeJsAttr(item.id) +
+                '\')">Снять</button>' +
+                '<button type="button" class="btn-add" style="padding:6px 10px;font-size:0.78rem;background:#c62828;" onclick="deleteItem(\'' +
+                escapeJsAttr(item.id) +
+                '\')">Удалить</button>' +
+                '</div></div>'
+              );
+            })
+            .join('');
+        }
+      } catch (e) {
+        if (box) box.innerHTML = '<p style="color:#a33;">Ошибка: ' + escapeHtml(e.message || String(e)) + '</p>';
+      }
+    }
+
+
     function openDeleteCategoryModal() {
       if (!isAdmin) return;
       var mode = document.getElementById('delete-mode');
@@ -5129,8 +5531,9 @@
             const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
             const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
             const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
-            return `
-            <div class="item-row">
+            const violList = hasActiveViolation(item);
+          return `
+            <div class="item-row${violList ? ' has-violation' : ''}">
               ${getAvatar(item, 32)}
               <div class="info">
                 <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
@@ -5156,12 +5559,14 @@
           const blVal = item.is_private ? (item.invite_link || '') : (item.username || '');
           const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
           const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
+          const viol = hasActiveViolation(item);
           return `
-            <div class="card top-card">
+            <div class="card top-card${viol ? ' has-violation' : ''}">
               ${getAvatar(item, 54, true)}
               <div class="card-content">
                 <div class="type">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
-                <div class="username"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
+                <div class="username">${renderItemNameLink(item, name)}</div>
+                ${violationMetaLine(item)}
                 ${desc ? `<div class="desc">${desc}</div>` : ''}
                 <div class="meta"><span>Топ: ${days} дн.</span></div>
                 ${isAdmin ? `<div class="actions">
@@ -5169,6 +5574,7 @@
                     ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷 Аватар</button>` : ''}
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить аватар и описание">Мета</button>` : ''}
                     <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку, удалить если мёртвая">Ссылка?</button>
+                    <button type="button" onclick="openViolationModal('${escapeJsAttr(item.id)}')" title="Отметить нарушение">Нарушения</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">В чёрный список</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">Удалить</button>
                   </div>` : ''}
@@ -5199,8 +5605,9 @@
             <div class="item-row">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a></div>
+                <div class="uname">${renderItemNameLink(item, name)}</div>
                 <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}${isTopActive ? ' · Топ' : ''}</div>
+                ${violationMetaLine(item)}
                 ${desc ? `<div class="item-desc">${desc}</div>` : ''}
                 <div class="actions">
                   <button class="btn-top" onclick="openTopModal()">В Топ</button>
@@ -5209,6 +5616,7 @@
                     ${item.is_private ? `<button type="button" onclick="uploadPrivateAvatar('${escapeJsAttr(item.id)}')" title="Загрузить аватарку">📷</button>` : ''}
                     ${item.username && !item.is_private ? `<button type="button" onclick="refreshMeta('${escapeJsAttr(item.id)}')" title="Обновить метаданные">↻ Мета</button>` : ''}
                     <button type="button" onclick="checkAndDeleteItem('${escapeJsAttr(item.id)}')" title="Проверить ссылку">Ссылка?</button>
+                    <button type="button" onclick="openViolationModal('${escapeJsAttr(item.id)}')" title="Отметить нарушение">Нарушения</button>
                     <button class="btn-blacklist" onclick="addToBlacklist('${escapeJsAttr(item.id)}', '${escapeJsAttr(blVal)}')">ЧС</button>
                     <button class="btn-delete" onclick="deleteItem('${escapeJsAttr(item.id)}')">×</button>` : ''}
                 </div>
@@ -5406,6 +5814,18 @@
       window.showAdminReport = showAdminReport;
       window.closeAdminReport = closeAdminReport;
       window.runCheckLinksByCategory = runCheckLinksByCategory;
+      
+      window.openViolationModal = openViolationModal;
+      window.closeViolationModal = closeViolationModal;
+      window.saveViolation = saveViolation;
+      window.showViolationInfo = showViolationInfo;
+      window.closeViolationInfoModal = closeViolationInfoModal;
+      window.clearViolation = clearViolation;
+      window.clearViolationFromInfo = clearViolationFromInfo;
+      window.openViolatorsModal = openViolatorsModal;
+      window.closeViolatorsModal = closeViolatorsModal;
+      window.loadViolatorsList = loadViolatorsList;
+
       window.openDeleteCategoryModal = openDeleteCategoryModal;
       window.onDeleteModeChange = onDeleteModeChange;
       window.runDeleteFromModal = runDeleteFromModal;
