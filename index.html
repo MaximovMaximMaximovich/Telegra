@@ -4240,10 +4240,32 @@
       }
     }
 
-    function showViolationInfo(id) {
-      var item =
-        allItems.find(function (x) { return String(x.id) === String(id); }) ||
-        (topItemsCache || []).find(function (x) { return String(x.id) === String(id); });
+    function findItemEverywhere(id) {
+      var sid = String(id);
+      var lists = [allItems, topItemsCache, recentItemsCache];
+      for (var li = 0; li < lists.length; li++) {
+        var arr = lists[li];
+        if (!arr || !arr.length) continue;
+        for (var i = 0; i < arr.length; i++) {
+          if (arr[i] && String(arr[i].id) === sid) return arr[i];
+        }
+      }
+      return null;
+    }
+
+    async function showViolationInfo(id) {
+      var item = findItemEverywhere(id);
+      // «Недавно добавленные» часто не в allItems — догружаем из БД
+      if ((!item || !hasActiveViolation(item)) && supabaseClient && id != null) {
+        try {
+          var res = await supabaseClient
+            .from('items')
+            .select(ITEMS_SELECT)
+            .eq('id', id)
+            .maybeSingle();
+          if (res.data) item = res.data;
+        } catch (e) {}
+      }
       if (!item || !hasActiveViolation(item)) {
         alert('Информация о нарушении недоступна');
         return;
