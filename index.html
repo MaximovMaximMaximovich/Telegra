@@ -4224,6 +4224,14 @@
             }
           });
         }
+        if (typeof recentItemsCache !== 'undefined' && recentItemsCache) {
+          recentItemsCache.forEach(function (x) {
+            if (String(x.id) === String(id)) {
+              x.violation_note = text;
+              x.violation_until = until;
+            }
+          });
+        }
         closeViolationModal();
         showStatus('Нарушение отмечено (3 дня)');
         try { render(); } catch (e) {}
@@ -4291,6 +4299,14 @@
         });
         if (topItemsCache) {
           topItemsCache.forEach(function (x) {
+            if (String(x.id) === String(id)) {
+              x.violation_note = null;
+              x.violation_until = null;
+            }
+          });
+        }
+        if (typeof recentItemsCache !== 'undefined' && recentItemsCache) {
+          recentItemsCache.forEach(function (x) {
             if (String(x.id) === String(id)) {
               x.violation_note = null;
               x.violation_until = null;
@@ -5526,18 +5542,17 @@
           recentEl.innerHTML = '<div class="loading">Пока пусто</div>';
         } else {
           recentEl.innerHTML = recentItems.map(item => {
-            const link = catalogItemHref(item);
-            const linkAttrs = catalogItemLinkAttrs(item);
             const name = item.display_name || (item.is_private ? (item.invite_link || 'Приват') : ('@' + (item.username || '')));
             const desc = item.description && item.description !== 'Без описания' ? escapeHtml(item.description) : '';
             const typeLab = item.type === 'chat' ? 'Чат' : item.type === 'channel' ? 'Канал' : 'Бот';
-            const violList = hasActiveViolation(item);
-          return `
-            <div class="item-row${violList ? ' has-violation' : ''}">
+            const violRecent = hasActiveViolation(item);
+            return `
+            <div class="item-row${violRecent ? ' has-violation' : ''}">
               ${getAvatar(item, 32)}
               <div class="info">
-                <div class="uname"><a href="${escapeHtml(link)}"${linkAttrs}>${escapeHtml(name)}</a><span class="recent-badge">новое</span></div>
+                <div class="uname">${renderItemNameLink(item, name)}<span class="recent-badge">новое</span></div>
                 <div class="meta">${typeLab} · ${escapeHtml(item.category || '')}${item.is_private ? ' · <span class="private-badge">Приватный</span>' : ''}</div>
+                ${violationMetaLine(item)}
                 ${desc ? `<div class="item-desc">${desc}</div>` : ''}
               </div>
             </div>`;
