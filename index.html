@@ -724,7 +724,11 @@
       text-decoration: line-through;
       cursor: not-allowed;
       opacity: 0.85;
+      pointer-events: none;
+      user-select: none;
     }
+    /* для гостей блокировка через разметку; админские ссылки кликабельны */
+
     .item-row.has-violation, .card.has-violation {
       border-color: #e57373;
       background: linear-gradient(90deg, rgba(198,40,40,0.06), transparent 40%);
@@ -4145,9 +4149,10 @@
 
     function renderItemNameLink(item, name) {
       var safe = escapeHtml(name);
-      if (hasActiveViolation(item)) {
+      // Гость: без перехода. Админ: может открыть страницу + видит «!»
+      if (hasActiveViolation(item) && !isAdmin) {
         return (
-          '<span class="uname-blocked">' +
+          '<span class="uname-blocked" title="Переход заблокирован из‑за нарушения">' +
           safe +
           '</span>' +
           violationBadgeHtml(item)
@@ -4155,6 +4160,7 @@
       }
       var link = catalogItemHref(item);
       var linkAttrs = catalogItemLinkAttrs(item);
+      var badges = hasActiveViolation(item) ? violationBadgeHtml(item) : '';
       return (
         '<a href="' +
         escapeHtml(link) +
@@ -4162,7 +4168,8 @@
         linkAttrs +
         '>' +
         safe +
-        '</a>'
+        '</a>' +
+        badges
       );
     }
 
@@ -5347,6 +5354,10 @@
     // Ссылка на карточку в каталоге (SEO): публичные /c/, приватные /p/{id}
     function catalogItemHref(item) {
       if (!item) return '#';
+      // Нарушители: только админ может открыть страницу канала
+      if (typeof hasActiveViolation === 'function' && hasActiveViolation(item) && !isAdmin) {
+        return '#';
+      }
       if (item.is_private) {
         if (item.id) return '/p/' + encodeURIComponent(item.id);
         return item.invite_link || '#';
@@ -5362,6 +5373,10 @@
 
     // Внутренние страницы каталога — без target=_blank
     function catalogItemLinkAttrs(item) {
+      if (typeof hasActiveViolation === 'function' && hasActiveViolation(item) && !isAdmin) {
+        var vid = item && item.id != null ? escapeJsAttr(item.id) : '';
+        return ' onclick="event.preventDefault();event.stopPropagation();if(typeof showViolationInfo===\'function\')showViolationInfo(\'' + vid + '\');return false;" style="pointer-events:none;cursor:not-allowed;"';
+      }
       if (item && item.is_private && !item.id && item.invite_link) {
         return ' target="_blank" rel="noopener"';
       }
