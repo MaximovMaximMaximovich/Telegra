@@ -236,7 +236,7 @@ function renderViolationBlocked(res, item) {
     'Канал';
   const note = String((item && item.violation_note) || '').trim();
   const until = item && item.violation_until ? new Date(item.violation_until) : null;
-  let timeLine = 'На устранение нарушения отводится 3 дня.';
+  let timeLine = 'На устранение нарушения отводится 2 суток.';
   if (until && !isNaN(until.getTime())) {
     const left = Math.ceil((until.getTime() - Date.now()) / 86400000);
     if (left <= 0) timeLine = 'Срок устранения истёк. Запись может быть удалена.';
@@ -528,11 +528,23 @@ async function handler(req, res) {
         ? '<div class="violation-banner"><strong>⚠ Нарушение в каталоге.</strong><br>' +
           escapeHtml(String(item.violation_note || '').trim()) +
           (item.violation_until
-            ? '<br><span style="opacity:.9">Срок устранения до ' +
-              escapeHtml(new Date(item.violation_until).toLocaleDateString('ru-RU')) +
-              '</span>'
+            ? (function () {
+                var ms = new Date(item.violation_until).getTime() - Date.now();
+                var leftStr;
+                if (ms <= 0) leftStr = 'Срок истёк — запись могут удалить.';
+                else {
+                  var h = Math.ceil(ms / 3600000);
+                  leftStr =
+                    h < 24
+                      ? 'Осталось около ' + h + ' ч.'
+                      : 'Осталось около ' + Math.ceil(ms / 86400000) + ' сут. (до ' +
+                        new Date(item.violation_until).toLocaleString('ru-RU') +
+                        ')';
+                }
+                return '<br><span style="opacity:.9">' + escapeHtml(leftStr) + '</span>';
+              })()
             : '') +
-          '<br><span style="opacity:.9;font-size:.85rem">Откройте канал в Telegram кнопкой ниже, проверьте исправление, затем в админке нажмите «Снять нарушение».</span></div>'
+          '<br><span style="opacity:.9;font-size:.85rem">Админ: откройте Telegram кнопкой ниже, проверьте исправление, затем «Снять нарушение» в админке.</span></div>'
         : '') +
       '<div class="hero">' +
       avatarBlock +
