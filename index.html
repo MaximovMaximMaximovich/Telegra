@@ -2340,7 +2340,7 @@
       'apikey': SUPABASE_ANON_KEY,
       'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
       'Accept': 'application/json',
-      'Prefer': 'count=exact'
+      'Prefer': 'count=planned'
     };
     let catalogFullyLoaded = false;
     let catalogBgLoading = false;
@@ -2395,7 +2395,7 @@
     // Топ отдельным лёгким запросом (чтобы не ждать весь каталог)
     async function fetchTopItemsViaRest() {
       try {
-        return await fetchItemsRange(0, 100, 'is_top=eq.true');
+        return await fetchItemsRange(0, 30, 'is_top=eq.true');
       } catch (e) {
         return [];
       }
@@ -4664,7 +4664,8 @@
       opts = opts || {};
       var category = (opts.category || '').trim();
       var type = (opts.type || '').trim();
-      var pageSize = 1000;
+      // Админские массовые операции — не раздувать страницу (Egress)
+      var pageSize = 500;
       var from = 0;
       var all = [];
 
