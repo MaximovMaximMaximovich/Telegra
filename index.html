@@ -751,8 +751,42 @@
       margin-bottom: 8px;
       background: var(--soft);
     }
+
+    .violation-badge.expired {
+      background: #7f0000;
+      animation: viol-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes viol-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(198,40,40,0.55); }
+      50% { box-shadow: 0 0 0 6px rgba(198,40,40,0); }
+    }
+    .violation-meta.expired {
+      color: #fff !important;
+      background: #c62828;
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+    }
     #violators-list .violator-row.expired {
-      border-color: #c62828;
+      border: 2px solid #c62828 !important;
+      background: #3a1818;
+      box-shadow: 0 0 0 1px rgba(198,40,40,0.35);
+    }
+    html[data-theme="light"] #violators-list .violator-row.expired {
+      background: #ffebee;
+    }
+    #violators-list .violator-row.expired .expired-tag {
+      display: inline-block;
+      background: #c62828;
+      color: #fff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-left: 6px;
+      text-transform: uppercase;
+      vertical-align: middle;
     }
     .card .actions button,
     .item-row .actions button {
@@ -1571,7 +1605,7 @@
       <h3>Нарушение</h3>
       <p style="font-size:0.88rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
         Опишите нарушение. Карточка будет с красным «!», переход по ней заблокирован.
-        На устранение — <strong>3 дня</strong>. После срока удалите запись в «Нарушители».
+        На устранение — <strong>2 суток</strong>. После срока удалите запись в «Нарушители».
       </p>
       <input type="hidden" id="violation-item-id" value="">
       <label>Текст нарушения</label>
@@ -4114,37 +4148,67 @@
       return !!(item && item.violation_note && String(item.violation_note).trim());
     }
 
-    function violationDaysLeft(item) {
+    function violationMsLeft(item) {
       if (!item || !item.violation_until) return null;
       var ms = new Date(item.violation_until).getTime() - Date.now();
       if (!isFinite(ms)) return null;
+      return ms;
+    }
+
+    function violationDaysLeft(item) {
+      var ms = violationMsLeft(item);
+      if (ms === null) return null;
       return Math.ceil(ms / 86400000);
+    }
+
+    /** Текст оставшегося срока — для гостей и админа */
+    function violationTimeLeftLabel(item) {
+      var ms = violationMsLeft(item);
+      if (ms === null) return '2 суток на устранение';
+      if (ms <= 0) return 'срок истёк — пора удалять';
+      var totalH = Math.ceil(ms / 3600000);
+      if (totalH < 24) {
+        if (totalH <= 1) return 'осталось меньше часа';
+        return 'осталось около ' + totalH + ' ч.';
+      }
+      var days = Math.floor(ms / 86400000);
+      var hours = Math.ceil((ms % 86400000) / 3600000);
+      if (days <= 0) return 'осталось около ' + Math.max(1, hours) + ' ч.';
+      if (hours <= 0 || hours >= 24) return 'осталось ' + days + ' сут.';
+      return 'осталось ' + days + ' сут. ' + hours + ' ч.';
     }
 
     function violationBadgeHtml(item) {
       if (!hasActiveViolation(item)) return '';
       var id = escapeJsAttr(item.id);
-      var left = violationDaysLeft(item);
-      var expired = left !== null && left <= 0;
-      var tip = expired
-        ? 'Срок устранения истёк'
-        : ('На устранение: ' + (left != null ? left + ' дн.' : '3 дня'));
+      var ms = violationMsLeft(item);
+      var expired = ms !== null && ms <= 0;
+      var tip = violationTimeLeftLabel(item);
       return (
-        '<span class="violation-badge" role="button" tabindex="0" onclick="event.preventDefault();event.stopPropagation();showViolationInfo(\'' +
+        '<span class="violation-badge' +
+        (expired ? ' expired' : '') +
+        '" role="button" tabindex="0" onclick="event.preventDefault();event.stopPropagation();showViolationInfo(\'' +
         id +
-        '\')" title="Показать нарушение">!</span>' +
+        '\')" title="Показать нарушение: ' +
+        escapeHtml(tip) +
+        '">!</span>' +
         '<span class="violation-hint" title="' +
         escapeHtml(tip) +
-        '. Есть 3 дня, чтобы устранить нарушение.">i</span>'
+        '. Даётся 2 суток на устранение.">i</span>'
       );
     }
 
     function violationMetaLine(item) {
       if (!hasActiveViolation(item)) return '';
-      var left = violationDaysLeft(item);
-      if (left === null) return '<div class="violation-meta">Нарушение · 3 дня на устранение</div>';
-      if (left <= 0) return '<div class="violation-meta">Срок истёк — ожидает удаления</div>';
-      return '<div class="violation-meta">Нарушение · осталось ' + left + ' дн.</div>';
+      var ms = violationMsLeft(item);
+      var expired = ms !== null && ms <= 0;
+      return (
+        '<div class="violation-meta' +
+        (expired ? ' expired' : '') +
+        '">Нарушение · ' +
+        escapeHtml(violationTimeLeftLabel(item)) +
+        '</div>'
+      );
     }
 
     function renderItemNameLink(item, name) {
@@ -4199,7 +4263,7 @@
         alert('Опишите нарушение');
         return;
       }
-      var until = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
+      var until = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
       try {
         var res = await supabaseClient
           .from('items')
@@ -4240,7 +4304,7 @@
           });
         }
         closeViolationModal();
-        showStatus('Нарушение отмечено (3 дня)');
+        showStatus('Нарушение отмечено (2 суток)');
         try { render(); } catch (e) {}
       } catch (e) {
         alert('Ошибка: ' + (e.message || e));
@@ -4279,12 +4343,10 @@
       }
       pendingViolationId = id;
       var left = violationDaysLeft(item);
-      var timeLine =
-        left === null
-          ? 'Срок: 3 дня с момента пометки.'
-          : left <= 0
-            ? 'Срок устранения истёк. Запись может быть удалена администратором.'
-            : ('Осталось примерно ' + left + ' дн. на устранение.');
+      var timeLine;
+      if (left === null) timeLine = 'Срок: 2 суток с момента пометки.';
+      else if (left <= 0) timeLine = 'Срок устранения истёк. Администратор может удалить запись.';
+      else timeLine = 'Осталось: ' + violationTimeLeftLabel(item) + '.';
       var body = document.getElementById('violation-info-body');
       if (body) {
         body.innerHTML =
@@ -4396,18 +4458,14 @@
                 (item.is_private ? item.invite_link || 'Приват' : '@' + (item.username || ''));
               var left = violationDaysLeft(item);
               var expired = left !== null && left <= 0;
-              var timeLabel =
-                left === null
-                  ? 'срок не задан'
-                  : expired
-                    ? 'срок истёк'
-                    : 'осталось ' + left + ' дн.';
+              var timeLabel = violationTimeLeftLabel(item);
               return (
                 '<div class="violator-row' +
                 (expired ? ' expired' : '') +
                 '">' +
                 '<div style="font-weight:600;margin-bottom:4px;">' +
                 escapeHtml(name) +
+                (expired ? '<span class="expired-tag">Пора удалять</span>' : '') +
                 '</div>' +
                 '<div style="font-size:0.82rem;color:var(--muted);margin-bottom:6px;">' +
                 escapeHtml(item.category || '') +
