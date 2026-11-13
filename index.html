@@ -6087,26 +6087,18 @@
         }
       } catch (eLegal) {}
 
-      // Мягкое обновление: догрузка/синхронизация в фоне БЕЗ обнуления списка
-      setInterval(function () {
-        // лёгкое обновление текущей порции, без выгрузки 15k
+      // Фоновые таймеры УБРАНЫ (жрали Egress при открытой вкладке часами):
+      // — каждые 10 мин loadData → снова top+recent+list из PostgREST
+      // — каждую 1 мин applyFilters → пересоздание HTML и повторная загрузка аватарок
+      // Список обновляется при F5, поиске, фильтре, «Ещё» и при возврате на вкладку через ≥30 мин.
+      var lastSoftReloadAt = Date.now();
+      document.addEventListener('visibilitychange', function () {
+        if (document.hidden) return;
+        if (Date.now() - lastSoftReloadAt < 30 * 60 * 1000) return;
         if (catalogListLoading) return;
-        loadData(true);
-      }, 10 * 60 * 1000);
-      setInterval(function () { if (isAdmin && supabaseClient) loadAnalytics(); }, 5 * 60 * 1000);
-      setInterval(function () {
-        var now = Date.now();
-        var changed = false;
-        allItems = allItems.map(function (it) {
-          if (it.is_top && it.top_until && new Date(it.top_until).getTime() < now) {
-            changed = true;
-            return Object.assign({}, it, { is_top: false, top_until: null });
-          }
-          return it;
-        });
-        applyFilters();
-        if (changed && isAdmin) loadData(true);
-      }, 60 * 1000);
+        lastSoftReloadAt = Date.now();
+        try { loadData(true); } catch (e) {}
+      });
     })();
   </script>
 </body>
